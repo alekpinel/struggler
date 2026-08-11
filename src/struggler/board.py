@@ -13,24 +13,24 @@ DEFAULT_DATA_PATH = Path(__file__).resolve().parents[2] / "data" / "countries.js
 
 # Regional scoring VP table: (presence, domination, control).
 #
-# PROVISIONAL. Two independent cross-checks against public sources gave
-# contradictory numbers for these constants, and they have not been
-# verified against the physical rulebook. Per CLAUDE.md's milestone gate,
-# M1 is not "done" until this table is confirmed against an authoritative
-# source. Everything else in this module (the tier logic itself) is not
-# in question, only these specific numbers.
+# Confirmed against the physical game for Middle East, Africa, and South
+# America. Europe, Asia, and Central America are still UNCONFIRMED (best
+# guess, not yet checked against the rulebook/board) — verify before
+# trusting them beyond structural testing.
 #
 # Europe's control value is intentionally None: controlling every country
-# in Europe ends the game immediately (see Board.controls_all_of_europe),
-# so a scoring card should never see that state — score_region() raises
-# rather than silently return a made-up number.
+# in Europe does not win immediately — it wins when the Europe Scoring
+# card is played while that control holds (see Board.controls_all_of_europe,
+# and the M2/M3 note there). No M1 code path should ever hit CONTROL tier
+# for Europe, since nothing in M1 scores a region; score_region() raises
+# rather than silently return a made-up number if it ever does.
 SCORING: dict[Region, tuple[int, int, int | None]] = {
     Region.EUROPE: (3, 7, None),
     Region.ASIA: (3, 7, 9),
-    Region.MIDDLE_EAST: (2, 3, 5),
-    Region.AFRICA: (1, 2, 4),
+    Region.MIDDLE_EAST: (3, 5, 7),
+    Region.AFRICA: (1, 4, 6),
     Region.CENTRAL_AMERICA: (1, 3, 5),
-    Region.SOUTH_AMERICA: (2, 3, 5),
+    Region.SOUTH_AMERICA: (2, 5, 6),
 }
 
 
@@ -149,6 +149,14 @@ class Board:
         return tuple(cid for cid, info in self.countries.items() if info.region == region)
 
     def controls_all_of_europe(self) -> Side | None:
+        """Whether one side currently controls every country in Europe.
+
+        Confirmed: this does NOT win the game by itself. The win happens
+        when the Europe Scoring card is played while a side holds this
+        condition — a card event, out of scope until M2/M3. This method
+        is a pure query for that future check to use; nothing in M1 calls
+        it to end the game.
+        """
         europe = self.countries_in(Region.EUROPE)
         if all(self.control(cid) is Side.US for cid in europe):
             return Side.US

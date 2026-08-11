@@ -13,9 +13,8 @@ testing"). M2 will replace direct calls to these with a legitimate
 PLAY_CARD decision that grants Ops through the card mechanism; the
 decision-stack handlers below don't change.
 
-Several numeric constants are flagged PROVISIONAL where cross-checking
-against public sources gave inconsistent or uncertain answers. See the
-docstring on each constant for exactly what's uncertain.
+Numeric constants below are confirmed against the physical game unless
+marked UNCONFIRMED.
 """
 
 from __future__ import annotations
@@ -27,20 +26,18 @@ from struggler.board import Board
 from struggler.types import Action, Decision, DecisionKind, Observation, Region, Side
 
 # Minimum DEFCON level required to attempt a coup in a region; regions not
-# listed have no restriction. PROVISIONAL — the existence of this rule and
-# its general shape (lower DEFCON restricts coups in more "sensitive"
-# regions) is well established, but these exact threshold numbers are not
-# independently verified against the physical rulebook.
+# listed have no restriction. Confirmed against the physical game.
 COUP_MIN_DEFCON: dict[Region, int] = {
-    Region.EUROPE: 3,
+    Region.EUROPE: 5,
     Region.ASIA: 4,
+    Region.MIDDLE_EAST: 3,
 }
 _DEFAULT_MIN_DEFCON = 1
 
-# Every coup attempt against a country in Europe additionally degrades
-# DEFCON by 1, regardless of success. Realignment is NOT subject to the
-# COUP_MIN_DEFCON restriction above (only coups are) — this is an
-# assumption, flagged alongside COUP_MIN_DEFCON as an area to verify.
+# Every coup attempt, in any region, degrades DEFCON by 1, regardless of
+# success. Confirmed against the physical game. Realignment is NOT subject
+# to the COUP_MIN_DEFCON restriction above (only coups are) — this remains
+# an unconfirmed assumption.
 
 
 class Engine:
@@ -199,7 +196,6 @@ class Engine:
         country = action.payload["country"]
         cost = self.board.influence_cost(side, country)
         self.board.influence[country][side.value] += 1
-        self._check_auto_win()
         self._maybe_push_place_influence(side, decision.context["ops_remaining"] - cost)
 
     # -- coup --------------------------------------------------------------
@@ -240,10 +236,9 @@ class Engine:
             leftover = margin - removed
             self.board.influence[country][side.value] += leftover
 
-        if info.region is Region.EUROPE:
-            self._change_defcon(-1, caused_by=side)
-
-        self._check_auto_win()
+        # Every coup attempt, anywhere, degrades DEFCON by 1 regardless of
+        # region or success.
+        self._change_defcon(-1, caused_by=side)
 
     # -- realignment ---------------------------------------------------------
 
@@ -302,8 +297,12 @@ class Engine:
         if margin > 0:
             removed = min(margin, self.board.influence[country][opponent.value])
             self.board.influence[country][opponent.value] -= removed
+        elif margin < 0:
+            # A losing realignment roll costs the acting side their own
+            # influence in the target country, not just a wasted attempt.
+            removed = min(-margin, self.board.influence[country][side.value])
+            self.board.influence[country][side.value] -= removed
 
-        self._check_auto_win()
         self._maybe_push_realignment_target(side, card_ops, attempts_remaining - 1)
 
     def _realignment_bonus(self, side: Side, country: str) -> int:
@@ -318,14 +317,6 @@ class Engine:
         if self.defcon == 1 and not self.is_terminal:
             self._winner = caused_by.opponent
             self._game_over_reason = "defcon_1"
-
-    def _check_auto_win(self) -> None:
-        if self.is_terminal:
-            return
-        side = self.board.controls_all_of_europe()
-        if side is not None:
-            self._winner = side
-            self._game_over_reason = "europe_control"
 
 
 # -- serialization helpers ---------------------------------------------------

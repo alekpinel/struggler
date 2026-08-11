@@ -31,34 +31,35 @@ def test_coup_pushes_chance_decision_then_resolves_by_formula():
         assert engine.board.influence["Guatemala"] == {"US": 0, "USSR": 3}
 
 
-def test_coup_in_europe_degrades_defcon_regardless_of_success():
-    engine = Engine(seed=3)
-    before = engine.defcon
-    engine.begin_coup(Side.US, ops=5)
-    target = next(a for a in engine.legal_actions() if a.payload["country"] == "France")
-    engine.step(target)
-    engine.step(engine.legal_actions()[0])
-    assert engine.defcon == before - 1
+def test_every_coup_degrades_defcon_regardless_of_region_or_success():
+    for country in ("France", "Guatemala"):  # Europe and non-Europe
+        engine = Engine(seed=3)
+        before = engine.defcon
+        engine.begin_coup(Side.US, ops=5)
+        target = next(a for a in engine.legal_actions() if a.payload["country"] == country)
+        engine.step(target)
+        engine.step(engine.legal_actions()[0])
+        assert engine.defcon == before - 1, country
 
 
-def test_coup_outside_europe_does_not_change_defcon():
-    engine = Engine(seed=3)
-    before = engine.defcon
-    engine.begin_coup(Side.US, ops=5)
-    target = next(a for a in engine.legal_actions() if a.payload["country"] == "Guatemala")
-    engine.step(target)
-    engine.step(engine.legal_actions()[0])
-    assert engine.defcon == before
-
-
-def test_coup_region_restriction_excludes_europe_below_threshold():
+def test_coup_region_restrictions_by_defcon_threshold():
+    # Europe needs DEFCON 5, Asia needs DEFCON 4, Middle East needs DEFCON 3.
     engine = Engine(seed=1)
+    engine.defcon = 4
+    offered = {a.payload["country"] for a in engine._coup_target_options()}
+    assert "France" not in offered  # Europe: requires DEFCON 5
+    assert "Japan" in offered  # Asia: requires DEFCON 4, satisfied
+    assert "Egypt" in offered  # Middle East: requires DEFCON 3, satisfied
+
+    engine.defcon = 3
+    offered = {a.payload["country"] for a in engine._coup_target_options()}
+    assert "Japan" not in offered  # Asia now below its threshold
+    assert "Egypt" in offered  # Middle East still satisfied
+
     engine.defcon = 2
-    engine.begin_coup(Side.US, ops=1)
-    offered = {a.payload["country"] for a in engine.legal_actions()}
-    europe_ids = set(engine.board.countries_in(Region.EUROPE))
-    assert not (offered & europe_ids)
-    assert "Guatemala" in offered  # Central America stays unrestricted
+    offered = {a.payload["country"] for a in engine._coup_target_options()}
+    assert "Egypt" not in offered  # Middle East now below its threshold
+    assert "Guatemala" in offered  # Central America stays unrestricted throughout
 
 
 def test_change_defcon_clamps_and_ends_game_at_defcon_one():
@@ -77,7 +78,10 @@ def test_change_defcon_clamps_at_five():
     assert engine.defcon == 5
 
 
-def test_auto_win_on_full_control_of_europe_stops_further_decisions():
+def test_full_control_of_europe_does_not_auto_win():
+    # Confirmed rule: controlling all of Europe wins only when the Europe
+    # Scoring card is played (out of scope until M2/M3) — it must NOT end
+    # the game immediately in M1.
     engine = Engine(seed=1)
     europe = engine.board.countries_in(Region.EUROPE)
     for cid in europe[:-1]:
@@ -89,6 +93,6 @@ def test_auto_win_on_full_control_of_europe_stops_further_decisions():
     action = next(a for a in engine.legal_actions() if a.payload["country"] == last)
     engine.step(action)
 
-    assert engine.is_terminal
-    assert engine.winner is Side.US
-    assert engine.pending_decision is None
+    assert engine.board.controls_all_of_europe() is Side.US
+    assert not engine.is_terminal
+    assert engine.winner is None

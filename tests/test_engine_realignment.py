@@ -29,6 +29,30 @@ def test_realignment_pushes_actor_then_opponent_chance_rolls():
     assert engine.board.influence["Guatemala"]["USSR"] == expected
 
 
+def test_realignment_negative_margin_reduces_actors_own_influence():
+    # Confirmed rule: losing the realignment roll costs the acting side
+    # their own influence in the target country (not just a wasted Op).
+    engine = Engine(seed=4)
+    engine.board.influence["Guatemala"]["US"] = 5
+    engine.begin_realignment_operations(Side.US, ops=1)
+
+    target = next(a for a in engine.legal_actions() if a.payload["country"] == "Guatemala")
+    engine.step(target)
+    actor_roll = engine.pending_decision.options[0].payload["value"]
+    engine.step(engine.pending_decision.options[0])
+    opp_roll = engine.pending_decision.options[0].payload["value"]
+
+    actor_bonus = engine._realignment_bonus(Side.US, "Guatemala")
+    opp_bonus = engine._realignment_bonus(Side.USSR, "Guatemala")
+    engine.step(engine.pending_decision.options[0])
+
+    margin = (actor_roll + 1 + actor_bonus) - (opp_roll + opp_bonus)
+    if margin < 0:
+        assert engine.board.influence["Guatemala"]["US"] == max(0, 5 + margin)
+    else:
+        assert engine.board.influence["Guatemala"]["US"] == 5
+
+
 def test_realignment_never_adds_actor_influence():
     engine = Engine(seed=9)
     engine.begin_realignment_operations(Side.US, ops=1)

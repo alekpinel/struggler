@@ -1,10 +1,14 @@
 {
-  "_disclaimer": "Board data for Twilight Struggle (GMT Games, 2005), entered from general knowledge of the published game and cross-checked for internal consistency (adjacency reciprocity) against a public open-source implementation, used as a FACTS-ONLY cross-check per CLAUDE.md's card data policy (not copied as code/files). This has NOT been verified line-by-line against the physical rulebook/map. Treat as good-enough for mechanical/structural testing; verify against the physical map before relying on exact stability numbers or edge cases. See '_uncertain' below for specific low-confidence entries.",
+  "_disclaimer": "Board data for Twilight Struggle (GMT Games, 2005), entered from general knowledge of the published game and cross-checked for internal consistency (adjacency reciprocity) against a public open-source implementation, used as a FACTS-ONLY cross-check per CLAUDE.md's card data policy (not copied as code/files). Adjacency has since been spot-checked against the physical board (see confirmed list below); stability numbers and battleground flags have NOT been independently re-verified line-by-line.",
+  "_confirmed_against_physical_board": [
+    "Australia-Malaysia adjacency.",
+    "Japan adjacency: Philippines, Taiwan, South Korea, US.",
+    "Bulgaria adjacency: only Greece and Turkey (not Romania/Yugoslavia)."
+  ],
   "_uncertain": [
-    "Australia-Malaysia adjacency: plausibly should be Australia-Indonesia instead.",
-    "Japan-Philippines adjacency: uncertain whether this edge exists on the physical map.",
     "Chinese_Civil_War is modeled here as a plain Asia country for M1 structural purposes only; the real game gives it special rules (tied to the China Card) that are out of scope until those milestones.",
-    "Regional scoring VP constants (Presence/Domination/Control per region) are NOT stored in this file (see board.py SCORING table) and are separately flagged as provisional."
+    "Stability numbers and battleground flags have not been individually re-verified against the physical board (only adjacency has, see above).",
+    "Regional scoring VP constants (Presence/Domination/Control per region) are NOT stored in this file (see board.py SCORING table); Europe, Asia, and Central America are still unconfirmed there."
   ],
   "superpowers": {
     "US": {
