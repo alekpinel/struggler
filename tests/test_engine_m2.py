@@ -71,17 +71,42 @@ def _no_coup(actions):
     return kept or list(actions)
 
 
-def test_new_game_opens_with_the_ussr_headline_and_full_hands():
+def test_new_game_opens_with_setup_and_full_hands():
     engine = Engine.new_game(seed=1)
     decision = engine.pending_decision
     assert decision is not None
-    assert decision.kind is DecisionKind.HEADLINE_PLAY
+    # Opening choice is the USSR's additional Eastern Europe setup placement.
+    assert decision.kind is DecisionKind.PLACE_INFLUENCE
     assert decision.actor is Side.USSR
+    assert decision.context.get("setup") is True
+    # Printed at-start influence is already on the board.
+    assert engine.board.influence["North_Korea"]["USSR"] == 3
+    assert engine.board.influence["UK"]["US"] == 5
     # Both players were dealt to the Early War hand limit; The China Card is
     # not dealt into a hand.
     assert len(engine.hands["USSR"]) == 8
     assert len(engine.hands["US"]) == 8
     assert CHINA_CARD_ID not in engine.hands["USSR"]
+
+
+def test_setup_places_the_additional_influence_then_reaches_headline():
+    engine = Engine.new_game(seed=1)
+    # Base printed totals before the additional placement.
+    base_ussr = sum(v["USSR"] for v in engine.board.influence.values())
+    base_us = sum(v["US"] for v in engine.board.influence.values())
+    assert (base_ussr, base_us) == (9, 18)  # printed at-start sums
+
+    # Resolve the whole setup by always taking the first legal placement.
+    while engine.pending_decision.context.get("setup"):
+        engine.step(engine.legal_actions()[0])
+
+    total_ussr = sum(v["USSR"] for v in engine.board.influence.values())
+    total_us = sum(v["US"] for v in engine.board.influence.values())
+    assert total_ussr == base_ussr + 6  # USSR added 6 in Eastern Europe
+    assert total_us == base_us + 7       # US added 7 in Western Europe
+    # Setup done -> the turn-1 headline begins with the USSR.
+    assert engine.pending_decision.kind is DecisionKind.HEADLINE_PLAY
+    assert engine.pending_decision.actor is Side.USSR
 
 
 @settings(max_examples=20, deadline=None)
@@ -170,12 +195,39 @@ def test_golden_full_game_replay_matches_checkpoints():
         assert rec["state"] == checkpoint["state"]  # exact, diffable equality
 
 
-def test_peaceful_game_reaches_turn_ten_and_recovers_defcon():
-    # Avoiding coups keeps DEFCON off the loss track, so the game runs the
-    # full ten turns and ends on accumulated VP.
+def test_peaceful_game_never_touches_the_defcon_loss_track():
+    # With no coups, DEFCON is never degraded, so it stays pinned at 5 and the
+    # game can only end on VP (a scoring swing) or turn-10 final scoring —
+    # never on defcon_1. Exercises multi-turn end-of-turn processing.
     engine = Engine.new_game(seed=20260811)
     driver = random.Random(1)
     while not engine.is_terminal:
+        assert engine.defcon == 5
         engine.step(driver.choice(_no_coup(engine.legal_actions())))
-    assert engine.turn == 10
-    assert engine._game_over_reason == "final_vp"
+    assert engine._game_over_reason in ("vp", "final_vp", "europe_control")
+    assert engine.turn > 1  # several turns were processed
+
+
+def test_last_action_round_forces_a_held_scoring_card():
+    # A scoring card cannot be carried out of a turn: when a side has as many
+    # scoring cards as action rounds left, those rounds must spend them.
+    engine = Engine.new_game(seed=2)
+    engine.phase = "action_rounds"
+    engine.turn = 1  # 6 action rounds/side -> 12 plays total
+    engine._decision_stack = []
+
+    # Last play of the turn (index 11 -> US), holding one scoring card.
+    engine._ars_played = 12
+    engine.hands["US"] = ["Asia_Scoring", "Duck_and_Cover"]
+    engine._push_action_round_play(Side.US)
+    options = engine.legal_actions()
+    assert [a.payload["card"] for a in options] == ["Asia_Scoring"]
+
+    # Early in the turn (index 1 -> US, five rounds still to come) the same
+    # single scoring card imposes no restriction.
+    engine._decision_stack = []
+    engine._ars_played = 2
+    engine.hands["US"] = ["Asia_Scoring", "Duck_and_Cover"]
+    engine._push_action_round_play(Side.US)
+    cards = {a.payload["card"] for a in engine.legal_actions()}
+    assert "Duck_and_Cover" in cards and "Asia_Scoring" in cards

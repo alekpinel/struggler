@@ -18,6 +18,11 @@
       "adjacent_to": ["Finland", "Poland", "Romania", "Afghanistan", "North_Korea", "Chinese_Civil_War"]
     }
   },
+  "_setup_influence_note": "Printed at-start influence for the standard game. Entered from knowledge of the physical board and cross-checked (facts-only) against the reference implementation's build_standard(). This is the fixed influence only; the additional 6 (USSR, Eastern Europe) and 7 (US, Western Europe) points are placed by player choice at setup and are NOT listed here. VERIFY the exact values against the printed board.",
+  "setup_influence": {
+    "USSR": {"North_Korea": 3, "East_Germany": 3, "Finland": 1, "Syria": 1, "Iraq": 1},
+    "US": {"Australia": 4, "Philippines": 1, "Canada": 2, "UK": 5, "Panama": 1, "Israel": 1, "Iran": 1, "South_Korea": 1, "Japan": 1, "South_Africa": 1}
+  },
   "countries": {
     "Canada":               {"name": "Canada",               "region": "EUROPE",          "subregion": "WESTERN_EUROPE", "stability": 4, "battleground": false, "adjacent_to": ["US", "UK"]},
     "UK":                   {"name": "UK",                   "region": "EUROPE",          "subregion": "WESTERN_EUROPE", "stability": 5, "battleground": false, "adjacent_to": ["Canada", "Norway", "Benelux", "France"]},

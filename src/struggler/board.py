@@ -83,6 +83,11 @@ class Board:
             cid: {"US": 0, "USSR": 0} for cid in self.countries
         }
 
+        # Printed at-start influence for the standard game (the additional
+        # player-chosen Eastern/Western Europe points are placed by the engine
+        # as decisions, not here). Absent in minimal test data -> empty.
+        self.setup_influence: dict[str, dict[str, int]] = raw.get("setup_influence", {})
+
     def _validate_symmetric(self) -> None:
         broken = []
         for node, neighbors in self._adjacency.items():

@@ -70,6 +70,14 @@ SCORING_CARD_REGION: dict[str, Region] = {
 # The China Card starts face-up with the USSR.
 CHINA_CARD_ID = "The_China_Card"
 
+# Additional influence each side places by choice during setup, after the
+# printed at-start influence: the USSR into Eastern Europe, the US into
+# Western Europe. VERIFY the exact counts against the rulebook.
+SETUP_ADDITIONAL = {
+    Subregion.EASTERN_EUROPE: (Side.USSR, 6),
+    Subregion.WESTERN_EUROPE: (Side.US, 7),
+}
+
 # Space Race track, boxes 1..8. Per box: minimum Ops the played card must be
 # worth to attempt entry, the die roll needed (success iff d6 <= roll_max),
 # and the VP awarded to the first / second superpower to reach the box.
@@ -277,19 +285,19 @@ class Engine:
         """Start a complete game: build the Early War deck, deal opening
         hands, and push the first (USSR) headline decision.
 
-        M2 scope note: the historical opening influence setup (printed
-        at-start influence and the additional Eastern/Western Europe
-        placement) is not yet modeled — play begins from an empty board.
-        That is a deferred increment; everything from the headline phase
-        onward is live.
+        Opening setup runs first: printed at-start influence is applied, then
+        the USSR places 6 additional Influence in Eastern Europe and the US 7
+        in Western Europe (as ordinary placement decisions), before the turn-1
+        headline.
         """
         engine = cls(seed=seed, board=board)
         engine.include_optional = include_optional
         engine.china_card_owner = "USSR"
         engine.china_card_available = True
         engine.turn = 1
-        engine._start_turn()  # build Early War deck, deal, phase -> headline
-        engine._advance()     # push the first headline decision
+        engine._start_turn()  # build Early War deck, deal (phase set to headline)
+        engine._begin_setup()  # apply/choose opening influence (phase -> setup)
+        engine._advance()      # runs once setup completes: push the first headline
         return engine
 
     # -- M2: turn director --------------------------------------------------
@@ -302,11 +310,14 @@ class Engine:
         director decides what happens next. It is a no-op in the M1 sandbox
         (phase 'idle') and once the game is over ('complete').
         """
-        if self.phase in ("idle", "complete"):
+        # 'setup' self-drives through its own placement handler (it always
+        # leaves a decision pending until it flips the phase to 'headline'),
+        # so the director only takes over from the headline onward.
+        if self.phase in ("idle", "complete", "setup"):
             return
         while not self._decision_stack and not self.is_terminal:
             self._advance_once()
-            if self.phase in ("idle", "complete"):
+            if self.phase in ("idle", "complete", "setup"):
                 return
 
     def _advance_once(self) -> None:
@@ -374,12 +385,16 @@ class Engine:
         self._start_turn()
 
     def _finish_game(self) -> None:
-        """End the game after turn 10 on accumulated VP.
+        """End the game after turn 10: final-score every region, then decide
+        on total VP (a 0 VP board is a draw).
 
-        M2 scope note: end-of-game final scoring of every region is deferred
-        (it hinges on the still-unconfirmed Europe control value); the game
-        is decided by the VP already banked, and a 0 VP board is a draw.
+        Final scoring reuses the same board mechanic as the scoring cards, so
+        every region contributes its Presence/Domination/Control tier once.
         """
+        for region in Region:
+            self._change_vp_by(self._score_region_net(region))
+            if self.is_terminal:  # a VP-20 swing or Europe control ends it here
+                return
         if self.vp > 0:
             self._win(Side.US, "final_vp")
         elif self.vp < 0:
@@ -391,6 +406,39 @@ class Engine:
         self.phase = "action_rounds"
         self._ars_played = 0
         self.action_round = 1
+
+    # -- M2: opening setup --------------------------------------------------
+
+    def _begin_setup(self) -> None:
+        """Apply printed at-start influence, then hand control to the players
+        for the additional Eastern/Western Europe placement."""
+        for side_str, influence in self.board.setup_influence.items():
+            for cid, amount in influence.items():
+                self.board.influence[cid][side_str] += amount
+        self.phase = "setup"
+        self._push_setup_influence(Side.USSR, Subregion.EASTERN_EUROPE)
+
+    def _push_setup_influence(self, side: Side, subregion: Subregion) -> None:
+        remaining = SETUP_ADDITIONAL[subregion][1]
+        self._push_setup_influence_remaining(side, subregion, remaining)
+
+    def _push_setup_influence_remaining(
+        self, side: Side, subregion: Subregion, remaining: int
+    ) -> None:
+        # Setup placement is free within the region (reachability does not
+        # apply), so every country in the subregion is a legal target.
+        options = tuple(
+            Action(DecisionKind.PLACE_INFLUENCE, {"country": cid})
+            for cid, info in self.board.countries.items()
+            if info.subregion is subregion
+        )
+        self._push(
+            side,
+            DecisionKind.PLACE_INFLUENCE,
+            options,
+            {"setup": True, "side": side.value, "subregion": subregion.value,
+             "remaining": remaining},
+        )
 
     # -- M2: deck operations (shuffle via the injected RNG, mandate #3) -----
 
@@ -463,14 +511,36 @@ class Engine:
     # -- M2: action round: pick a card, then how to use it ------------------
 
     def _push_action_round_play(self, side: Side) -> None:
+        hand = self.hands[side.value]
+        scoring_in_hand = [cid for cid in hand if self.cards[cid].scoring]
+        # A scoring card may not be held past the end of the turn. Once a side
+        # has as many scoring cards as it has action rounds left, every
+        # remaining round must spend one (the China Card is not offered then).
+        must_play_scoring = bool(scoring_in_hand) and len(
+            scoring_in_hand
+        ) >= self._remaining_action_rounds(side)
+
+        playable = scoring_in_hand if must_play_scoring else list(hand)
         options = [
-            Action(DecisionKind.ACTION_ROUND_PLAY, {"card": cid})
-            for cid in self.hands[side.value]
+            Action(DecisionKind.ACTION_ROUND_PLAY, {"card": cid}) for cid in playable
         ]
-        if side.value == self.china_card_owner and self.china_card_available:
+        if (
+            not must_play_scoring
+            and side.value == self.china_card_owner
+            and self.china_card_available
+        ):
             options.append(Action(DecisionKind.ACTION_ROUND_PLAY, {"card": CHINA_CARD_ID}))
         if options:
             self._push(side, DecisionKind.ACTION_ROUND_PLAY, tuple(options), {})
+
+    def _remaining_action_rounds(self, side: Side) -> int:
+        """Action rounds `side` still has this turn, including the one now
+        being set up. (`side` is always the side whose play is current.)"""
+        total = 2 * action_rounds(self.turn)
+        idx = self._ars_played - 1  # current 0-based play index within the turn
+        if idx < 0 or idx >= total:
+            return 0
+        return (total - 1 - idx) // 2 + 1
 
     def _handle_action_round_play(self, decision: Decision, action: Action) -> None:
         side = decision.actor
@@ -706,11 +776,28 @@ class Engine:
         self._push(side, DecisionKind.PLACE_INFLUENCE, options, {"ops_remaining": ops_remaining})
 
     def _handle_place_influence(self, decision: Decision, action: Action) -> None:
+        if decision.context.get("setup"):
+            self._handle_setup_influence(decision, action)
+            return
         side = decision.actor
         country = action.payload["country"]
         cost = self.board.influence_cost(side, country)
         self.board.influence[country][side.value] += 1
         self._maybe_push_place_influence(side, decision.context["ops_remaining"] - cost)
+
+    def _handle_setup_influence(self, decision: Decision, action: Action) -> None:
+        side = decision.actor
+        # Setup placement always costs one point flat (no opponent doubling).
+        self.board.influence[action.payload["country"]][side.value] += 1
+        remaining = decision.context["remaining"] - 1
+        subregion = Subregion(decision.context["subregion"])
+        if remaining > 0:
+            self._push_setup_influence_remaining(side, subregion, remaining)
+        elif side is Side.USSR:
+            # USSR's Eastern Europe done -> US places in Western Europe.
+            self._push_setup_influence(Side.US, Subregion.WESTERN_EUROPE)
+        else:
+            self.phase = "headline"  # setup complete; _advance pushes headline
 
     # -- coup --------------------------------------------------------------
 
