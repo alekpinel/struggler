@@ -1083,7 +1083,35 @@
           }
         ],
         "winner": null,
-        "game_over_reason": null
+        "game_over_reason": null,
+        "phase": "idle",
+        "include_optional": false,
+        "draw_pile": [],
+        "discard_pile": [],
+        "removed_cards": [],
+        "hands": {
+          "US": [],
+          "USSR": []
+        },
+        "china_card_owner": "USSR",
+        "china_card_available": true,
+        "space_race": {
+          "US": 0,
+          "USSR": 0
+        },
+        "space_race_attempts": {
+          "US": 0,
+          "USSR": 0
+        },
+        "military_ops": {
+          "US": 0,
+          "USSR": 0
+        },
+        "ars_played": 0,
+        "headline": {
+          "US": null,
+          "USSR": null
+        }
       }
     },
     {
@@ -2072,7 +2100,35 @@
         "next_decision_id": 4,
         "decision_stack": [],
         "winner": null,
-        "game_over_reason": null
+        "game_over_reason": null,
+        "phase": "idle",
+        "include_optional": false,
+        "draw_pile": [],
+        "discard_pile": [],
+        "removed_cards": [],
+        "hands": {
+          "US": [],
+          "USSR": []
+        },
+        "china_card_owner": "USSR",
+        "china_card_available": true,
+        "space_race": {
+          "US": 0,
+          "USSR": 0
+        },
+        "space_race_attempts": {
+          "US": 0,
+          "USSR": 0
+        },
+        "military_ops": {
+          "US": 0,
+          "USSR": 0
+        },
+        "ars_played": 0,
+        "headline": {
+          "US": null,
+          "USSR": null
+        }
       }
     }
   ]
