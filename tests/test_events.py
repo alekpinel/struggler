@@ -222,6 +222,61 @@ def test_neutral_card_for_ops_never_triggers_an_event():
     assert engine.pending_decision.kind is DecisionKind.OPS_TYPE
 
 
+# -- headline events fire (with interrupt ordering) -------------------------
+
+
+def _headline_setup(engine: Engine, ussr_card: str, us_card: str) -> None:
+    """Put a controlled headline in front of a bare, events-on engine."""
+    engine.phase = "headline"
+    engine.hands = {"USSR": [ussr_card], "US": [us_card]}
+    engine._advance()  # pushes the USSR headline choice
+
+
+def test_headline_fires_both_events_high_ops_first():
+    engine = _bare(seed=1)
+    engine.defcon = 5
+    engine.board.influence["Cuba"] = {"US": 1, "USSR": 0}
+    # USSR: Fidel (2 ops); US: Duck and Cover (3 ops) -> Duck resolves first.
+    _headline_setup(engine, "Fidel", "Duck_and_Cover")
+    engine.step(Action(DecisionKind.HEADLINE_PLAY, {"card": "Fidel"}))
+    engine.step(Action(DecisionKind.HEADLINE_PLAY, {"card": "Duck_and_Cover"}))
+    assert engine.defcon == 4  # Duck and Cover fired
+    assert engine.board.control("Cuba") is Side.USSR  # Fidel fired
+    assert engine.phase == "action_rounds"  # headline complete
+    assert engine._headline_pending == [] and engine._headline_resolving is False
+
+
+def test_headline_event_interrupt_drains_before_the_second_card():
+    # USSR Korean War (2 ops) outranks US Captured Nazi Scientist (1 op), so the
+    # war resolves first and enqueues its CHANCE roll; the second headline card
+    # must not fire until that roll is stepped.
+    engine = _bare(seed=4)
+    engine.board.influence["South_Korea"] = {"US": 0, "USSR": 0}
+    _headline_setup(engine, "Korean_War", "Captured_Nazi_Scientist")
+    engine.step(Action(DecisionKind.HEADLINE_PLAY, {"card": "Korean_War"}))
+    engine.step(Action(DecisionKind.HEADLINE_PLAY, {"card": "Captured_Nazi_Scientist"}))
+
+    pending = engine.pending_decision
+    assert pending.kind is DecisionKind.WAR_ROLL and pending.actor is Side.CHANCE
+    assert engine.space_race["US"] == 0  # the second card has NOT fired yet
+
+    engine.step(pending.options[0])  # resolve the war's roll
+    assert engine.space_race["US"] == 1  # now Captured Nazi Scientist fires
+    assert engine.phase == "action_rounds"
+
+
+def test_headline_non_event_card_is_still_a_no_op_discard():
+    engine = _bare(seed=2)
+    # Socialist Governments has no implemented event yet: headlining it must be
+    # a plain discard, exactly as in M2, even with events on.
+    _headline_setup(engine, "Socialist_Governments", "Olympic_Games")
+    engine.step(Action(DecisionKind.HEADLINE_PLAY, {"card": "Socialist_Governments"}))
+    engine.step(Action(DecisionKind.HEADLINE_PLAY, {"card": "Olympic_Games"}))
+    assert "Socialist_Governments" in engine.discard_pile
+    assert "Olympic_Games" in engine.discard_pile
+    assert engine.phase == "action_rounds"
+
+
 # -- events off (M2) is untouched -------------------------------------------
 
 
@@ -247,6 +302,10 @@ def _cards_in_play(engine: Engine) -> Counter:
     for cid in engine._headline.values():
         if cid is not None:
             c.update([cid])
+    # A headlined card whose event is mid-resolution (its sub-decisions still
+    # draining) lives here until it is filed to a pile.
+    for _side, cid in engine._headline_pending:
+        c.update([cid])
     return c
 
 
@@ -323,14 +382,18 @@ def test_golden_events_replay_matches_checkpoints():
 
 
 def test_golden_events_replay_actually_fires_events():
-    # Guard against a regression where the log stops exercising the event layer:
-    # it must contain at least one event-mode play or opponent-Ops order choice.
+    # Guard against a regression where the log stops exercising the event layer.
+    # A fired event shows up as any of: an opponent-Ops order choice, an
+    # event-mode action-round play, or a headline of an implemented-event card
+    # (every id in EVENTS is a non-scoring event card).
     with (REPLAY_DIR / "m3_events.json").open(encoding="utf-8") as f:
         log = json.load(f)
     fired = any(
         a["kind"] == DecisionKind.EVENT_OPS_ORDER.value
-        or (a["kind"] == DecisionKind.PLAY_MODE.value and a["payload"].get("mode") == "event"
-            and a.get("payload"))
+        or (a["kind"] == DecisionKind.PLAY_MODE.value
+            and a["payload"].get("mode") == "event")
+        or (a["kind"] == DecisionKind.HEADLINE_PLAY.value
+            and a["payload"].get("card") in EVENTS)
         for a in log["actions"]
     )
     assert fired

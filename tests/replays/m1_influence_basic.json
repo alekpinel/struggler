@@ -1112,6 +1112,8 @@
           "US": null,
           "USSR": null
         },
+        "headline_resolving": false,
+        "headline_pending": [],
         "events_enabled": false,
         "turn_effects": {}
       }
@@ -2131,6 +2133,8 @@
           "US": null,
           "USSR": null
         },
+        "headline_resolving": false,
+        "headline_pending": [],
         "events_enabled": false,
         "turn_effects": {}
       }

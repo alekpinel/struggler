@@ -233,6 +233,13 @@ historical "Ops-only" toggle.
   slipped beneath the first half's sub-decisions so the second half runs
   only after they drain. Dice inside events (the "war" family) are logged
   `WAR_ROLL` CHANCE decisions, never silent `random` calls (mandate #3).
+- **Headline firing.** Non-scoring events now fire during the headline
+  too. Headline resolution is stack-driven: both cards are chosen, their
+  order is frozen (higher Ops first, ties US-first) into
+  `_headline_pending`, and each card resolves in turn — if its event
+  enqueues sub-decisions (e.g. a war roll) those drain before the next
+  headline card resolves, the same interrupt order the action-round path
+  uses. `serialize()` carries `headline_resolving`/`headline_pending`.
 - **Implemented so far** (each with a unit test; the loop is covered by a
   property test and the `m3_events.json` golden):
   - *Tier 1, immediate:* Duck and Cover, Fidel, Nasser, Romanian
@@ -243,15 +250,16 @@ historical "Ops-only" toggle.
     Doctrine, Red Scare/Purge (consulted via `_effective_ops`, cleared at
     end of turn).
 - **Known limitations / remaining M3 work** (tracked here as the
-  contract): non-scoring events do **not** yet fire during the *headline*
-  (they remain a no-op discard even in events mode) — headline event
-  firing needs the interrupt-ordering the action-round path already has,
-  and is the next increment. Tier 2 player-choice events (e.g. Warsaw
-  Pact, Marshall Plan, Suez Crisis), most Tier 3 persistent effects (NATO
-  — hence De Gaulle's "cancels NATO for France" clause is currently
-  inert), and all Tier 4 rule-modifiers (UN Intervention, Missile Envy,
-  etc.) are not implemented. The China Card's "+1 Op if used entirely in
-  one region" bonus is also still unmodeled.
+  contract): the bulk of the deck's events are still unimplemented and
+  remain no-op discards in events mode. Tier 2 player-choice events (e.g.
+  Warsaw Pact, Marshall Plan, Suez Crisis) are the next increment — they
+  need the event to enqueue its own player decisions (the framework and
+  headline/action-round interrupt-ordering to host them already exist).
+  Most Tier 3 persistent effects (NATO — hence De Gaulle's "cancels NATO
+  for France" clause is currently inert) and all Tier 4 rule-modifiers
+  (UN Intervention, Missile Envy, etc.) are not implemented. The China
+  Card's "+1 Op if used entirely in one region" bonus is also still
+  unmodeled.
 
 ## Testing strategy
 

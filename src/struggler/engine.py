@@ -139,6 +139,13 @@ class Engine:
         self.military_ops: dict[str, int] = {"US": 0, "USSR": 0}
         self._ars_played = 0  # completed action-round plays this turn (both sides)
         self._headline: dict[str, str | None] = {"US": None, "USSR": None}
+        # Headline resolution is stack-driven so an event fired at the headline
+        # can enqueue sub-decisions (e.g. a war's CHANCE roll) that must drain
+        # before the second headline card resolves. `_headline_resolving` marks
+        # that both cards are chosen and the frozen `_headline_pending` order
+        # ([side, cid] pairs, higher Ops first) is being worked through.
+        self._headline_resolving = False
+        self._headline_pending: list[list[str]] = []
 
         # -- M3 card-event state --------------------------------------------
         # `events_enabled` gates the whole event layer: False reproduces M2
@@ -231,6 +238,8 @@ class Engine:
             "military_ops": dict(self.military_ops),
             "ars_played": self._ars_played,
             "headline": dict(self._headline),
+            "headline_resolving": self._headline_resolving,
+            "headline_pending": [list(pair) for pair in self._headline_pending],
             "events_enabled": self.events_enabled,
             "turn_effects": dict(self.turn_effects),
         }
@@ -265,6 +274,8 @@ class Engine:
         engine.military_ops = dict(data.get("military_ops", {"US": 0, "USSR": 0}))
         engine._ars_played = data.get("ars_played", 0)
         engine._headline = dict(data.get("headline", {"US": None, "USSR": None}))
+        engine._headline_resolving = data.get("headline_resolving", False)
+        engine._headline_pending = [list(pair) for pair in data.get("headline_pending", [])]
         engine.events_enabled = data.get("events_enabled", False)
         engine.turn_effects = dict(data.get("turn_effects", {}))
         return engine
@@ -344,15 +355,26 @@ class Engine:
 
     def _advance_once(self) -> None:
         if self.phase == "headline":
-            if self._headline["USSR"] is None:
-                self._push_headline(Side.USSR)
+            if not self._headline_resolving:
+                if self._headline["USSR"] is None:
+                    self._push_headline(Side.USSR)
+                    return
+                if self._headline["US"] is None:
+                    self._push_headline(Side.US)
+                    return
+                # Both cards are chosen: freeze the resolution order and clear
+                # the picks so they live in exactly one place from here on.
+                self._headline_pending = self._headline_resolution_order()
+                self._headline = {"US": None, "USSR": None}
+                self._headline_resolving = True
+            if self._headline_pending:
+                # Resolve one headline card. If its event enqueues sub-decisions
+                # they land on the stack; _advance stops until they drain, then
+                # returns here for the next card (that is the interrupt order).
+                side_str, cid = self._headline_pending.pop(0)
+                self._resolve_headline_card(Side(side_str), cid)
                 return
-            if self._headline["US"] is None:
-                self._push_headline(Side.US)
-                return
-            self._resolve_headline()
-            if self.is_terminal:
-                return
+            self._headline_resolving = False
             self._begin_action_rounds()
             return
 
@@ -518,21 +540,31 @@ class Engine:
         self.hands[side.value].remove(cid)
         self._headline[side.value] = cid
 
-    def _resolve_headline(self) -> None:
-        # Capture and clear the selections first so a headlined card lives in
-        # exactly one place (its destination pile) once resolved, never also
-        # lingering as a stale marker. Higher Ops resolves first; ties resolve
-        # US-first (VERIFY). Order is cosmetic in M2 (only scoring events act).
+    def _headline_resolution_order(self) -> list[list[str]]:
+        """Freeze the order the two headlined cards resolve in: higher Ops
+        first, ties US-first. Returns [side_value, card_id] pairs. (In M2 only
+        scoring events act, so order is cosmetic; with events on it decides
+        which event — and its interrupts — happens first.)"""
         picks = {s: self._headline[s.value] for s in (Side.US, Side.USSR)}
-        self._headline = {"US": None, "USSR": None}
         order = sorted(
             (Side.US, Side.USSR),
             key=lambda s: (-self.cards[picks[s]].ops, s is not Side.US),
         )
-        for s in order:
-            self._apply_card_event(s, picks[s])
-            if self.is_terminal:
-                return
+        return [[s.value, picks[s]] for s in order]
+
+    def _resolve_headline_card(self, side: Side, cid: str) -> None:
+        """Resolve one headlined card for its owner. A scoring card scores; with
+        events on, a card with an implemented event fires it (and may enqueue
+        sub-decisions); otherwise it is a no-op discard (M2 behavior)."""
+        card = self.cards[cid]
+        if card.scoring:
+            self._resolve_scoring_card(cid)
+            self._file_card(side, cid, fired=True)
+        elif self.events_enabled and self._has_event(cid):
+            self._file_card(side, cid, fired=True)
+            self._fire_event(side, cid)
+        else:
+            self._file_card(side, cid, fired=False)
 
     # -- M2: action round: pick a card, then how to use it ------------------
 
@@ -858,12 +890,6 @@ class Engine:
             self.board.influence[target][attacker.value] += seized
 
     # -- M2: scoring & VP ---------------------------------------------------
-
-    def _apply_card_event(self, side: Side, cid: str) -> None:
-        card = self.cards[cid]
-        if card.scoring:
-            self._resolve_scoring_card(cid)
-        self._file_card(side, cid, fired=card.scoring)
 
     def _resolve_scoring_card(self, cid: str) -> None:
         if cid == "Southeast_Asia_Scoring":
