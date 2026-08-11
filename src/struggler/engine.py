@@ -22,8 +22,20 @@ from __future__ import annotations
 import copy
 import random
 
-from struggler.board import Board
-from struggler.types import Action, Decision, DecisionKind, Observation, Region, Side
+from struggler.board import SCORING, Board
+from struggler.cards import action_rounds, cards_entering, hand_limit, load_cards
+from struggler.types import (
+    Action,
+    Card,
+    Decision,
+    DecisionKind,
+    Observation,
+    Period,
+    Region,
+    ScoringTier,
+    Side,
+    Subregion,
+)
 
 # Minimum DEFCON level required to attempt a coup in a region; regions not
 # listed have no restriction. Confirmed against the physical game.
@@ -39,12 +51,56 @@ _DEFAULT_MIN_DEFCON = 1
 # to the COUP_MIN_DEFCON restriction above (only coups are) — this remains
 # an unconfirmed assumption.
 
+# VP required to win outright; the track runs to 20 in either direction.
+VP_TO_WIN = 20
+
+# Each regional scoring card maps to the region score_region() already
+# computes (mandate: scoring is a board mechanic reused from M1, not a card
+# "event"). Southeast Asia Scoring is a subregion-scoring card with different
+# rules and is handled separately.
+SCORING_CARD_REGION: dict[str, Region] = {
+    "Asia_Scoring": Region.ASIA,
+    "Europe_Scoring": Region.EUROPE,
+    "Middle_East_Scoring": Region.MIDDLE_EAST,
+    "Central_America_Scoring": Region.CENTRAL_AMERICA,
+    "Africa_Scoring": Region.AFRICA,
+    "South_America_Scoring": Region.SOUTH_AMERICA,
+}
+
+# The China Card starts face-up with the USSR.
+CHINA_CARD_ID = "The_China_Card"
+
+# Space Race track, boxes 1..8. Per box: minimum Ops the played card must be
+# worth to attempt entry, the die roll needed (success iff d6 <= roll_max),
+# and the VP awarded to the first / second superpower to reach the box.
+#
+# VERIFY: these numeric constants are best-effort from knowledge of the
+# physical Space Race track and have NOT been reconfirmed line-by-line. The
+# *mechanism* around them (attempt -> seeded CHANCE roll -> advance -> award)
+# is the part M2 proves; only the numbers here are provisional. The
+# functional perks some boxes grant (extra action round, headline-reveal
+# advantage, opponent-must-discard) are deferred to a later increment.
+SPACE_RACE_BOXES: dict[int, dict[str, int]] = {
+    1: {"ops": 2, "roll_max": 3, "vp_first": 2, "vp_second": 1},
+    2: {"ops": 2, "roll_max": 4, "vp_first": 0, "vp_second": 0},
+    3: {"ops": 2, "roll_max": 3, "vp_first": 2, "vp_second": 0},
+    4: {"ops": 2, "roll_max": 4, "vp_first": 0, "vp_second": 0},
+    5: {"ops": 3, "roll_max": 3, "vp_first": 3, "vp_second": 1},
+    6: {"ops": 3, "roll_max": 4, "vp_first": 0, "vp_second": 0},
+    7: {"ops": 3, "roll_max": 3, "vp_first": 4, "vp_second": 2},
+    8: {"ops": 4, "roll_max": 2, "vp_first": 2, "vp_second": 0},
+}
+SPACE_RACE_MAX_BOX = 8
+# A side that has reached this box may make two Space Race attempts per turn
+# instead of one. VERIFY exact box.
+SPACE_RACE_TWO_ATTEMPTS_FROM_BOX = 2
+
 
 class Engine:
     def __init__(self, seed: int, board: Board | None = None) -> None:
         self.board = board if board is not None else Board()
         self.defcon = 5
-        self.vp = 0
+        self.vp = 0  # US-positive: >0 favors US, <0 favors USSR (matches score_region)
         self.turn = 1
         self.action_round = 1
 
@@ -54,6 +110,26 @@ class Engine:
         self._next_decision_id = 0
         self._winner: Side | None = None
         self._game_over_reason: str | None = None
+
+        # -- M2 card / full-game state --------------------------------------
+        # Defaults leave the engine in the M1 "sandbox" (phase="idle"): no
+        # deck, no turn loop, begin_* entry points drive decisions directly.
+        # A full game is started via Engine.new_game(), which sets phase and
+        # populates the deck/hands below.
+        self.cards: dict[str, Card] = load_cards()
+        self.phase = "idle"  # idle | headline | action_rounds | complete
+        self.include_optional = False
+        self.draw_pile: list[str] = []
+        self.discard_pile: list[str] = []
+        self.removed_cards: list[str] = []
+        self.hands: dict[str, list[str]] = {"US": [], "USSR": []}
+        self.china_card_owner = "USSR"
+        self.china_card_available = True  # face-up: playable by its owner this turn
+        self.space_race: dict[str, int] = {"US": 0, "USSR": 0}
+        self.space_race_attempts: dict[str, int] = {"US": 0, "USSR": 0}  # this turn
+        self.military_ops: dict[str, int] = {"US": 0, "USSR": 0}
+        self._ars_played = 0  # completed action-round plays this turn (both sides)
+        self._headline: dict[str, str | None] = {"US": None, "USSR": None}
 
     # -- public API -------------------------------------------------------
 
@@ -75,10 +151,12 @@ class Engine:
             raise ValueError(f"illegal action {action!r} for decision {decision!r}")
         self._decision_stack.pop()
         self._dispatch(decision, action)
+        self._advance()
 
     def observe(self, player: Side) -> Observation:
         if player not in (Side.US, Side.USSR):
             raise ValueError("observe() is only valid for Side.US or Side.USSR")
+        opponent = player.opponent
         return Observation(
             side=player,
             defcon=self.defcon,
@@ -87,11 +165,23 @@ class Engine:
             action_round=self.action_round,
             influence=copy.deepcopy(self.board.influence),
             pending_decision=self.pending_decision,
+            # Own hand in full; the opponent's hand only as a count (mandate
+            # #4). The draw pile is a count too — its order never leaks.
+            hand=tuple(self.hands[player.value]),
+            opponent_hand_size=len(self.hands[opponent.value]),
+            draw_pile_size=len(self.draw_pile),
+            discard_pile=tuple(self.discard_pile),
+            removed_cards=tuple(self.removed_cards),
+            china_card_owner=Side(self.china_card_owner),
+            china_card_available=self.china_card_available,
+            space_race=dict(self.space_race),
         )
 
     @property
     def is_terminal(self) -> bool:
-        return self._winner is not None
+        # A finished game either has a winner or ended in a draw (phase
+        # 'complete' with no winner); both leave pending_decision None.
+        return self._winner is not None or self.phase == "complete"
 
     @property
     def winner(self) -> Side | None:
@@ -110,6 +200,20 @@ class Engine:
             "decision_stack": [_encode_decision(d) for d in self._decision_stack],
             "winner": self._winner.value if self._winner is not None else None,
             "game_over_reason": self._game_over_reason,
+            # -- M2 full-game state --
+            "phase": self.phase,
+            "include_optional": self.include_optional,
+            "draw_pile": list(self.draw_pile),
+            "discard_pile": list(self.discard_pile),
+            "removed_cards": list(self.removed_cards),
+            "hands": {side: list(cards) for side, cards in self.hands.items()},
+            "china_card_owner": self.china_card_owner,
+            "china_card_available": self.china_card_available,
+            "space_race": dict(self.space_race),
+            "space_race_attempts": dict(self.space_race_attempts),
+            "military_ops": dict(self.military_ops),
+            "ars_played": self._ars_played,
+            "headline": dict(self._headline),
         }
 
     @classmethod
@@ -125,6 +229,23 @@ class Engine:
         engine._decision_stack = [_decode_decision(d) for d in data["decision_stack"]]
         engine._winner = Side(data["winner"]) if data["winner"] is not None else None
         engine._game_over_reason = data["game_over_reason"]
+        # -- M2 full-game state (absent in pre-M2 logs: fall back to M1 sandbox) --
+        engine.phase = data.get("phase", "idle")
+        engine.include_optional = data.get("include_optional", False)
+        engine.draw_pile = list(data.get("draw_pile", []))
+        engine.discard_pile = list(data.get("discard_pile", []))
+        engine.removed_cards = list(data.get("removed_cards", []))
+        hands = data.get("hands", {"US": [], "USSR": []})
+        engine.hands = {side: list(cards) for side, cards in hands.items()}
+        engine.china_card_owner = data.get("china_card_owner", "USSR")
+        engine.china_card_available = data.get("china_card_available", True)
+        engine.space_race = dict(data.get("space_race", {"US": 0, "USSR": 0}))
+        engine.space_race_attempts = dict(
+            data.get("space_race_attempts", {"US": 0, "USSR": 0})
+        )
+        engine.military_ops = dict(data.get("military_ops", {"US": 0, "USSR": 0}))
+        engine._ars_played = data.get("ars_played", 0)
+        engine._headline = dict(data.get("headline", {"US": None, "USSR": None}))
         return engine
 
     # -- M1 test-harness entry points (no cards yet) -----------------------
@@ -147,6 +268,394 @@ class Engine:
             raise ValueError("ops must be positive")
         self._maybe_push_realignment_target(side, card_ops=ops, attempts_remaining=ops)
 
+    # -- M2: full-game entry point -----------------------------------------
+
+    @classmethod
+    def new_game(
+        cls, seed: int, include_optional: bool = False, board: Board | None = None
+    ) -> "Engine":
+        """Start a complete game: build the Early War deck, deal opening
+        hands, and push the first (USSR) headline decision.
+
+        M2 scope note: the historical opening influence setup (printed
+        at-start influence and the additional Eastern/Western Europe
+        placement) is not yet modeled — play begins from an empty board.
+        That is a deferred increment; everything from the headline phase
+        onward is live.
+        """
+        engine = cls(seed=seed, board=board)
+        engine.include_optional = include_optional
+        engine.china_card_owner = "USSR"
+        engine.china_card_available = True
+        engine.turn = 1
+        engine._start_turn()  # build Early War deck, deal, phase -> headline
+        engine._advance()     # push the first headline decision
+        return engine
+
+    # -- M2: turn director --------------------------------------------------
+
+    def _advance(self) -> None:
+        """Push the next top-level decision whenever the stack drains.
+
+        The decision stack holds only genuine pending choices; between them
+        (start of an action round, headline resolution, end of turn) this
+        director decides what happens next. It is a no-op in the M1 sandbox
+        (phase 'idle') and once the game is over ('complete').
+        """
+        if self.phase in ("idle", "complete"):
+            return
+        while not self._decision_stack and not self.is_terminal:
+            self._advance_once()
+            if self.phase in ("idle", "complete"):
+                return
+
+    def _advance_once(self) -> None:
+        if self.phase == "headline":
+            if self._headline["USSR"] is None:
+                self._push_headline(Side.USSR)
+                return
+            if self._headline["US"] is None:
+                self._push_headline(Side.US)
+                return
+            self._resolve_headline()
+            if self.is_terminal:
+                return
+            self._begin_action_rounds()
+            return
+
+        if self.phase == "action_rounds":
+            total = 2 * action_rounds(self.turn)
+            if self._ars_played >= total:
+                self._end_of_turn()
+                return
+            idx = self._ars_played  # 0-based play index within the turn
+            side = Side.USSR if idx % 2 == 0 else Side.US
+            self.action_round = idx // 2 + 1
+            self._ars_played += 1
+            self._push_action_round_play(side)
+            return
+
+    # -- M2: turn boundaries ------------------------------------------------
+
+    def _start_turn(self) -> None:
+        """Add the period's cards to the deck (as the war escalates), deal
+        both hands up to the limit, and enter the headline phase."""
+        if self.turn == 1:
+            self._add_period_to_deck(Period.EARLY_WAR)
+        elif self.turn == 4:
+            self._add_period_to_deck(Period.MID_WAR)
+        elif self.turn == 8:
+            self._add_period_to_deck(Period.LATE_WAR)
+        self._deal_to_limit()
+        self.phase = "headline"
+
+    def _end_of_turn(self) -> None:
+        # Required military operations: a side that spent fewer military Ops
+        # (coups) than the current DEFCON hands the deficit to its opponent.
+        for side in (Side.US, Side.USSR):
+            deficit = self.defcon - self.military_ops[side.value]
+            if deficit > 0:
+                self._award_vp(side.opponent, deficit)
+                if self.is_terminal:
+                    return
+        # DEFCON recovers by one at the end of every turn.
+        self._change_defcon(+1, caused_by=Side.US)
+        # A China Card passed this turn becomes available to its new owner.
+        self.china_card_available = True
+        # Reset per-turn accounting.
+        self.military_ops = {"US": 0, "USSR": 0}
+        self.space_race_attempts = {"US": 0, "USSR": 0}
+        self._headline = {"US": None, "USSR": None}
+
+        if self.turn >= 10:
+            self._finish_game()
+            return
+        self.turn += 1
+        self._start_turn()
+
+    def _finish_game(self) -> None:
+        """End the game after turn 10 on accumulated VP.
+
+        M2 scope note: end-of-game final scoring of every region is deferred
+        (it hinges on the still-unconfirmed Europe control value); the game
+        is decided by the VP already banked, and a 0 VP board is a draw.
+        """
+        if self.vp > 0:
+            self._win(Side.US, "final_vp")
+        elif self.vp < 0:
+            self._win(Side.USSR, "final_vp")
+        else:
+            self.phase = "complete"  # draw: terminal with no winner
+
+    def _begin_action_rounds(self) -> None:
+        self.phase = "action_rounds"
+        self._ars_played = 0
+        self.action_round = 1
+
+    # -- M2: deck operations (shuffle via the injected RNG, mandate #3) -----
+
+    def _add_period_to_deck(self, period: Period) -> None:
+        entering = cards_entering(self.cards, period, self.include_optional)
+        self.draw_pile.extend(entering)
+        self._rng.shuffle(self.draw_pile)
+
+    def _deal_to_limit(self) -> None:
+        limit = hand_limit(self.turn)
+        order = ("USSR", "US")  # USSR is the first player; VERIFY deal order
+        while any(len(self.hands[s]) < limit for s in order):
+            progressed = False
+            for s in order:
+                if len(self.hands[s]) < limit:
+                    card = self._draw_card()
+                    if card is None:
+                        return  # draw + discard exhausted (should not happen)
+                    self.hands[s].append(card)
+                    progressed = True
+            if not progressed:
+                return
+
+    def _draw_card(self) -> str | None:
+        if not self.draw_pile:
+            self._reshuffle_discard_into_draw()
+        if not self.draw_pile:
+            return None
+        return self.draw_pile.pop()
+
+    def _reshuffle_discard_into_draw(self) -> None:
+        # Removed cards stay out of the game; only the discard is recycled.
+        self.draw_pile = self.discard_pile
+        self.discard_pile = []
+        self._rng.shuffle(self.draw_pile)
+
+    # -- M2: headline phase -------------------------------------------------
+
+    def _push_headline(self, side: Side) -> None:
+        # The China Card cannot be headlined; scoring cards can.
+        options = tuple(
+            Action(DecisionKind.HEADLINE_PLAY, {"card": cid})
+            for cid in self.hands[side.value]
+        )
+        if options:
+            self._push(side, DecisionKind.HEADLINE_PLAY, options, {})
+
+    def _handle_headline_play(self, decision: Decision, action: Action) -> None:
+        side = decision.actor
+        cid = action.payload["card"]
+        self.hands[side.value].remove(cid)
+        self._headline[side.value] = cid
+
+    def _resolve_headline(self) -> None:
+        # Capture and clear the selections first so a headlined card lives in
+        # exactly one place (its destination pile) once resolved, never also
+        # lingering as a stale marker. Higher Ops resolves first; ties resolve
+        # US-first (VERIFY). Order is cosmetic in M2 (only scoring events act).
+        picks = {s: self._headline[s.value] for s in (Side.US, Side.USSR)}
+        self._headline = {"US": None, "USSR": None}
+        order = sorted(
+            (Side.US, Side.USSR),
+            key=lambda s: (-self.cards[picks[s]].ops, s is not Side.US),
+        )
+        for s in order:
+            self._apply_card_event(s, picks[s])
+            if self.is_terminal:
+                return
+
+    # -- M2: action round: pick a card, then how to use it ------------------
+
+    def _push_action_round_play(self, side: Side) -> None:
+        options = [
+            Action(DecisionKind.ACTION_ROUND_PLAY, {"card": cid})
+            for cid in self.hands[side.value]
+        ]
+        if side.value == self.china_card_owner and self.china_card_available:
+            options.append(Action(DecisionKind.ACTION_ROUND_PLAY, {"card": CHINA_CARD_ID}))
+        if options:
+            self._push(side, DecisionKind.ACTION_ROUND_PLAY, tuple(options), {})
+
+    def _handle_action_round_play(self, decision: Decision, action: Action) -> None:
+        side = decision.actor
+        cid = action.payload["card"]
+        modes = self._play_modes(side, cid)
+        options = tuple(Action(DecisionKind.PLAY_MODE, {"mode": m}) for m in modes)
+        self._push(side, DecisionKind.PLAY_MODE, options, {"card": cid})
+
+    def _play_modes(self, side: Side, cid: str) -> tuple[str, ...]:
+        card = self.cards[cid]
+        if card.scoring:
+            return ("event",)  # a scoring card can only be played as its event
+        modes = ["ops"]
+        # The event-vs-ops choice is enumerated per the M2 spec even though no
+        # non-scoring event fires yet (choosing it is a no-op discard). The
+        # China Card has no event, so it is Ops-only.
+        if cid != CHINA_CARD_ID:
+            modes.append("event")
+        if self._can_space_race(side, card):
+            modes.append("space_race")
+        return tuple(modes)
+
+    def _handle_play_mode(self, decision: Decision, action: Action) -> None:
+        side = decision.actor
+        cid = decision.context["card"]
+        card = self.cards[cid]
+        mode = action.payload["mode"]
+
+        if mode == "event":
+            if card.scoring:
+                self._resolve_scoring_card(cid)
+            self._file_card(side, cid, fired=card.scoring)
+            return
+
+        if mode == "space_race":
+            self._file_card(side, cid, fired=False)
+            self.space_race_attempts[side.value] += 1
+            roll = self._roll_d6()
+            self._push(
+                Side.CHANCE,
+                DecisionKind.SPACE_RACE_ROLL,
+                (Action(DecisionKind.SPACE_RACE_ROLL, {"value": roll}),),
+                {"side": side.value},
+            )
+            return
+
+        # mode == "ops": the card's Ops value drives an influence/coup/realign.
+        ops = card.ops
+        self._file_card(side, cid, fired=False)  # China Card passes here
+        self._push(
+            side, DecisionKind.OPS_TYPE, self._ops_type_options(side, ops),
+            {"side": side.value, "ops": ops},
+        )
+
+    def _ops_type_options(self, side: Side, ops: int) -> tuple[Action, ...]:
+        types = []
+        if self._place_influence_options(side, ops):
+            types.append("influence")
+        if self._coup_target_options():
+            types.append("coup")
+        types.append("realignment")  # always has at least one legal target
+        return tuple(Action(DecisionKind.OPS_TYPE, {"type": t}) for t in types)
+
+    def _handle_ops_type(self, decision: Decision, action: Action) -> None:
+        side = Side(decision.context["side"])
+        ops = decision.context["ops"]
+        ops_type = action.payload["type"]
+        if ops_type == "influence":
+            self._maybe_push_place_influence(side, ops)
+        elif ops_type == "coup":
+            # Coups count toward the turn's required military operations.
+            self.military_ops[side.value] += ops
+            self.begin_coup(side, ops)
+        else:  # realignment
+            self._maybe_push_realignment_target(side, card_ops=ops, attempts_remaining=ops)
+
+    # -- M2: space race -----------------------------------------------------
+
+    def _space_attempts_allowed(self, side: Side) -> int:
+        if self.space_race[side.value] >= SPACE_RACE_TWO_ATTEMPTS_FROM_BOX:
+            return 2
+        return 1
+
+    def _can_space_race(self, side: Side, card: Card) -> bool:
+        pos = self.space_race[side.value]
+        if pos >= SPACE_RACE_MAX_BOX:
+            return False
+        if card.ops < SPACE_RACE_BOXES[pos + 1]["ops"]:
+            return False
+        return self.space_race_attempts[side.value] < self._space_attempts_allowed(side)
+
+    def _handle_space_race_roll(self, decision: Decision, action: Action) -> None:
+        side = Side(decision.context["side"])
+        roll = action.payload["value"]
+        next_box = self.space_race[side.value] + 1
+        box = SPACE_RACE_BOXES[next_box]
+        if roll <= box["roll_max"]:
+            self.space_race[side.value] = next_box
+            first = self.space_race[side.opponent.value] < next_box
+            vp = box["vp_first"] if first else box["vp_second"]
+            if vp:
+                self._award_vp(side, vp)
+
+    # -- M2: scoring & VP ---------------------------------------------------
+
+    def _apply_card_event(self, side: Side, cid: str) -> None:
+        card = self.cards[cid]
+        if card.scoring:
+            self._resolve_scoring_card(cid)
+        self._file_card(side, cid, fired=card.scoring)
+
+    def _resolve_scoring_card(self, cid: str) -> None:
+        if cid == "Southeast_Asia_Scoring":
+            net = self._score_southeast_asia()
+        else:
+            net = self._score_region_net(SCORING_CARD_REGION[cid])
+        self._change_vp_by(net)
+
+    def _score_region_net(self, region: Region) -> int:
+        # Controlling all of Europe when Europe is scored wins outright.
+        if region is Region.EUROPE:
+            controller = self.board.controls_all_of_europe()
+            if controller is not None:
+                self._win(controller, "europe_control")
+                return 0
+        presence, domination, control = SCORING[region]
+        tier_value = {
+            ScoringTier.NONE: 0,
+            ScoringTier.PRESENCE: presence,
+            ScoringTier.DOMINATION: domination,
+        }
+
+        def value_for(s: Side) -> int:
+            tier = self.board.region_tier(s, region)
+            if tier is ScoringTier.CONTROL:
+                # Europe leaves its Control value undefined (full control is
+                # the win handled above); approximate as Domination. VERIFY.
+                return control if control is not None else domination
+            return tier_value[tier]
+
+        return value_for(Side.US) - value_for(Side.USSR)
+
+    def _score_southeast_asia(self) -> int:
+        # 1 VP per Southeast Asia country controlled, netted US-positive.
+        # VERIFY: the printed card gives Thailand extra weight (not modeled).
+        net = 0
+        for cid, info in self.board.countries.items():
+            if info.subregion is Subregion.SOUTHEAST_ASIA:
+                controller = self.board.control(cid)
+                if controller is Side.US:
+                    net += 1
+                elif controller is Side.USSR:
+                    net -= 1
+        return net
+
+    def _award_vp(self, side: Side, amount: int) -> None:
+        self._change_vp_by(amount if side is Side.US else -amount)
+
+    def _change_vp_by(self, net: int) -> None:
+        self.vp += net
+        if self.vp >= VP_TO_WIN:
+            self._win(Side.US, "vp")
+        elif self.vp <= -VP_TO_WIN:
+            self._win(Side.USSR, "vp")
+
+    def _win(self, side: Side, reason: str) -> None:
+        if not self.is_terminal:
+            self._winner = side
+            self._game_over_reason = reason
+            self.phase = "complete"
+
+    def _file_card(self, side: Side, cid: str, fired: bool) -> None:
+        if cid == CHINA_CARD_ID:
+            # The China Card is never discarded: it passes to the opponent
+            # face-down and becomes available to them next turn.
+            self.china_card_owner = side.opponent.value
+            self.china_card_available = False
+            return
+        if cid in self.hands[side.value]:
+            self.hands[side.value].remove(cid)
+        if fired and self.cards[cid].remove_after_event:
+            self.removed_cards.append(cid)
+        else:
+            self.discard_pile.append(cid)
+
     # -- dispatch -----------------------------------------------------------
 
     def _dispatch(self, decision: Decision, action: Action) -> None:
@@ -157,6 +666,11 @@ class Engine:
             DecisionKind.REALIGNMENT_TARGET: self._handle_realignment_target,
             DecisionKind.REALIGNMENT_ACTOR_ROLL: self._handle_realignment_actor_roll,
             DecisionKind.REALIGNMENT_OPPONENT_ROLL: self._handle_realignment_opponent_roll,
+            DecisionKind.HEADLINE_PLAY: self._handle_headline_play,
+            DecisionKind.ACTION_ROUND_PLAY: self._handle_action_round_play,
+            DecisionKind.PLAY_MODE: self._handle_play_mode,
+            DecisionKind.OPS_TYPE: self._handle_ops_type,
+            DecisionKind.SPACE_RACE_ROLL: self._handle_space_race_roll,
         }[decision.kind]
         handler(decision, action)
 
@@ -317,6 +831,7 @@ class Engine:
         if self.defcon == 1 and not self.is_terminal:
             self._winner = caused_by.opponent
             self._game_over_reason = "defcon_1"
+            self.phase = "complete"
 
 
 # -- serialization helpers ---------------------------------------------------
