@@ -24,6 +24,7 @@ import random
 
 from struggler.board import SCORING, Board
 from struggler.cards import action_rounds, cards_entering, hand_limit, load_cards
+from struggler.events import EVENTS
 from struggler.types import (
     Action,
     Card,
@@ -139,6 +140,14 @@ class Engine:
         self._ars_played = 0  # completed action-round plays this turn (both sides)
         self._headline: dict[str, str | None] = {"US": None, "USSR": None}
 
+        # -- M3 card-event state --------------------------------------------
+        # `events_enabled` gates the whole event layer: False reproduces M2
+        # (every card is Ops-only, no event ever fires). `turn_effects` holds
+        # persistent per-turn modifiers set by events (e.g. Containment) and is
+        # cleared at end of turn; its values are JSON primitives (mandate #5).
+        self.events_enabled = False
+        self.turn_effects: dict[str, object] = {}
+
     # -- public API -------------------------------------------------------
 
     @property
@@ -222,6 +231,8 @@ class Engine:
             "military_ops": dict(self.military_ops),
             "ars_played": self._ars_played,
             "headline": dict(self._headline),
+            "events_enabled": self.events_enabled,
+            "turn_effects": dict(self.turn_effects),
         }
 
     @classmethod
@@ -254,6 +265,8 @@ class Engine:
         engine.military_ops = dict(data.get("military_ops", {"US": 0, "USSR": 0}))
         engine._ars_played = data.get("ars_played", 0)
         engine._headline = dict(data.get("headline", {"US": None, "USSR": None}))
+        engine.events_enabled = data.get("events_enabled", False)
+        engine.turn_effects = dict(data.get("turn_effects", {}))
         return engine
 
     # -- M1 test-harness entry points (no cards yet) -----------------------
@@ -280,7 +293,11 @@ class Engine:
 
     @classmethod
     def new_game(
-        cls, seed: int, include_optional: bool = False, board: Board | None = None
+        cls,
+        seed: int,
+        include_optional: bool = False,
+        board: Board | None = None,
+        events: bool = False,
     ) -> "Engine":
         """Start a complete game: build the Early War deck, deal opening
         hands, and push the first (USSR) headline decision.
@@ -289,9 +306,14 @@ class Engine:
         the USSR places 6 additional Influence in Eastern Europe and the US 7
         in Western Europe (as ordinary placement decisions), before the turn-1
         headline.
+
+        `events=False` (the default) runs the M2 game: every card is Ops-only
+        and no event ever fires. `events=True` turns on the M3 event layer —
+        cards with an implemented event (see events.EVENTS) now fire it.
         """
         engine = cls(seed=seed, board=board)
         engine.include_optional = include_optional
+        engine.events_enabled = events
         engine.china_card_owner = "USSR"
         engine.china_card_available = True
         engine.turn = 1
@@ -377,6 +399,9 @@ class Engine:
         self.military_ops = {"US": 0, "USSR": 0}
         self.space_race_attempts = {"US": 0, "USSR": 0}
         self._headline = {"US": None, "USSR": None}
+        # Persistent per-turn event modifiers (Containment, Red Scare, ...) last
+        # only "for the remainder of the turn"; they lapse here.
+        self.turn_effects = {}
 
         if self.turn >= 10:
             self._finish_game()
@@ -401,6 +426,7 @@ class Engine:
             self._win(Side.USSR, "final_vp")
         else:
             self.phase = "complete"  # draw: terminal with no winner
+            self._decision_stack.clear()
 
     def _begin_action_rounds(self) -> None:
         self.phase = "action_rounds"
@@ -572,7 +598,15 @@ class Engine:
         if mode == "event":
             if card.scoring:
                 self._resolve_scoring_card(cid)
-            self._file_card(side, cid, fired=card.scoring)
+                self._file_card(side, cid, fired=True)
+            elif self.events_enabled and self._has_event(cid):
+                # Playing a card for its (implemented) event: it fires now and
+                # the card leaves play (removed if remove_after_event).
+                self._file_card(side, cid, fired=True)
+                self._fire_event(side, cid)
+            else:
+                # M2 behavior: an unfired/unimplemented event is a no-op discard.
+                self._file_card(side, cid, fired=False)
             return
 
         if mode == "space_race":
@@ -588,8 +622,30 @@ class Engine:
             return
 
         # mode == "ops": the card's Ops value drives an influence/coup/realign.
-        ops = card.ops
+        ops = self._effective_ops(side, card)
+        if (
+            self.events_enabled
+            and self._is_opponent_event(side, card)
+            and self._has_event(cid)
+            and EVENTS[cid].eligible(self, side)
+        ):
+            # An opponent's event also fires when their card is played for Ops;
+            # the phasing player picks the order (event first or Ops first).
+            self._file_card(side, cid, fired=True)
+            self._push(
+                side,
+                DecisionKind.EVENT_OPS_ORDER,
+                (
+                    Action(DecisionKind.EVENT_OPS_ORDER, {"order": "event_first"}),
+                    Action(DecisionKind.EVENT_OPS_ORDER, {"order": "ops_first"}),
+                ),
+                {"side": side.value, "card": cid, "ops": ops},
+            )
+            return
         self._file_card(side, cid, fired=False)  # China Card passes here
+        self._push_ops_type(side, ops)
+
+    def _push_ops_type(self, side: Side, ops: int) -> None:
         self._push(
             side, DecisionKind.OPS_TYPE, self._ops_type_options(side, ops),
             {"side": side.value, "ops": ops},
@@ -628,7 +684,7 @@ class Engine:
         pos = self.space_race[side.value]
         if pos >= SPACE_RACE_MAX_BOX:
             return False
-        if card.ops < SPACE_RACE_BOXES[pos + 1]["ops"]:
+        if self._effective_ops(side, card) < SPACE_RACE_BOXES[pos + 1]["ops"]:
             return False
         return self.space_race_attempts[side.value] < self._space_attempts_allowed(side)
 
@@ -636,13 +692,170 @@ class Engine:
         side = Side(decision.context["side"])
         roll = action.payload["value"]
         next_box = self.space_race[side.value] + 1
+        if roll <= SPACE_RACE_BOXES[next_box]["roll_max"]:
+            self.advance_space_race_box(side)
+
+    def advance_space_race_box(self, side: Side) -> None:
+        """Move `side` one box up the Space Race track and award that box's VP
+        (first vs second to reach it). Shared by a successful attempt roll and
+        by events that advance the marker directly (e.g. Captured Nazi
+        Scientist). No-op at the top of the track."""
+        if self.space_race[side.value] >= SPACE_RACE_MAX_BOX:
+            return
+        next_box = self.space_race[side.value] + 1
         box = SPACE_RACE_BOXES[next_box]
-        if roll <= box["roll_max"]:
-            self.space_race[side.value] = next_box
-            first = self.space_race[side.opponent.value] < next_box
-            vp = box["vp_first"] if first else box["vp_second"]
-            if vp:
-                self._award_vp(side, vp)
+        first = self.space_race[side.opponent.value] < next_box
+        self.space_race[side.value] = next_box
+        vp = box["vp_first"] if first else box["vp_second"]
+        if vp:
+            self._award_vp(side, vp)
+
+    # -- M3: card events ----------------------------------------------------
+
+    def _has_event(self, cid: str) -> bool:
+        return cid in EVENTS
+
+    def _is_opponent_event(self, side: Side, card: Card) -> bool:
+        """Whether `card`'s event belongs to `side`'s opponent (so playing it
+        for Ops also fires the event). NEUTRAL cards never trigger this way."""
+        if card.side.value not in ("US", "USSR"):
+            return False
+        return Side(card.side.value) is side.opponent
+
+    def _effective_ops(self, side: Side, card: Card) -> int:
+        """The card's Ops value for `side` after persistent per-turn modifiers
+        (Containment/Brezhnev +1, Red Scare -1). Never below 1."""
+        ops = card.ops
+        if self.turn_effects.get("containment") and side is Side.US:
+            ops += 1
+        if self.turn_effects.get("brezhnev") and side is Side.USSR:
+            ops += 1
+        if self.turn_effects.get("red_scare") == side.value:
+            ops -= 1
+        return max(1, ops)
+
+    def _fire_event(self, side: Side, cid: str) -> None:
+        """Resolve `cid`'s event for the phasing `side`. Unimplemented events
+        fizzle (a no-op discard already happened at the call site)."""
+        ev = EVENTS.get(cid)
+        if ev is not None:
+            ev.resolve(self, side)
+
+    def _handle_event_ops_order(self, decision: Decision, action: Action) -> None:
+        side = Side(decision.context["side"])
+        cid = decision.context["card"]
+        ops = decision.context["ops"]
+        if action.payload["order"] == "event_first":
+            depth = len(self._decision_stack)
+            self._fire_event(side, cid)
+            if len(self._decision_stack) > depth:
+                # The event enqueued sub-decisions; run the Ops after they drain
+                # by slipping a resume marker underneath them.
+                self._decision_stack.insert(
+                    depth,
+                    self._new_decision(
+                        side, DecisionKind.EVENT_RESUME,
+                        (Action(DecisionKind.EVENT_RESUME, {}),),
+                        {"what": "ops", "side": side.value, "ops": ops},
+                    ),
+                )
+            elif not self.is_terminal:
+                self._push_ops_type(side, ops)
+        else:  # ops_first: Ops resolve, then the event fires afterward.
+            depth = len(self._decision_stack)
+            self._push_ops_type(side, ops)
+            self._decision_stack.insert(
+                depth,
+                self._new_decision(
+                    side, DecisionKind.EVENT_RESUME,
+                    (Action(DecisionKind.EVENT_RESUME, {}),),
+                    {"what": "event", "side": side.value, "card": cid},
+                ),
+            )
+
+    def _handle_event_resume(self, decision: Decision, action: Action) -> None:
+        ctx = decision.context
+        side = Side(ctx["side"])
+        if self.is_terminal:
+            return
+        if ctx["what"] == "ops":
+            self._push_ops_type(side, ctx["ops"])
+        else:  # "event"
+            self._fire_event(side, ctx["card"])
+
+    # -- M3: influence / control helpers used by events ---------------------
+
+    def add_influence(self, country: str, side: Side, amount: int) -> None:
+        self.board.influence[country][side.value] += amount
+
+    def remove_influence(self, country: str, side: Side, amount: int) -> None:
+        current = self.board.influence[country][side.value]
+        self.board.influence[country][side.value] = max(0, current - amount)
+
+    def remove_all_influence(self, country: str, side: Side) -> None:
+        self.board.influence[country][side.value] = 0
+
+    def gain_control(self, country: str, side: Side) -> None:
+        """Remove all opponent Influence in `country` and give `side` enough of
+        its own for Control ("adds sufficient Influence for Control")."""
+        self.board.influence[country][side.opponent.value] = 0
+        stability = self.board.countries[country].stability
+        if self.board.influence[country][side.value] < stability:
+            self.board.influence[country][side.value] = stability
+
+    # -- M3: the "war" family (fixed target, seeded CHANCE roll) ------------
+
+    def begin_war(
+        self,
+        card_id: str,
+        attacker: Side,
+        target: str,
+        win_from: int,
+        vp: int,
+        military_ops: int,
+        count_target_control: bool,
+    ) -> None:
+        """Start a war event: it always counts toward the attacker's required
+        military operations, then a logged CHANCE roll decides the outcome."""
+        self.military_ops[attacker.value] += military_ops
+        roll = self._roll_d6()
+        self._push(
+            Side.CHANCE,
+            DecisionKind.WAR_ROLL,
+            (Action(DecisionKind.WAR_ROLL, {"value": roll}),),
+            {
+                "card": card_id,
+                "attacker": attacker.value,
+                "target": target,
+                "win_from": win_from,
+                "vp": vp,
+                "count_target_control": count_target_control,
+            },
+        )
+
+    def _handle_war_roll(self, decision: Decision, action: Action) -> None:
+        ctx = decision.context
+        attacker = Side(ctx["attacker"])
+        defender = attacker.opponent
+        target = ctx["target"]
+        roll = action.payload["value"]
+
+        # -1 per defender-controlled country adjacent to the target, plus the
+        # target itself when the war counts it (e.g. Arab-Israeli War).
+        penalty = sum(
+            1 for n in self.board.neighbors(target) if self.board.control(n) is defender
+        )
+        if ctx["count_target_control"] and self.board.control(target) is defender:
+            penalty += 1
+
+        if roll - penalty >= ctx["win_from"]:
+            self._award_vp(attacker, ctx["vp"])
+            if self.is_terminal:
+                return
+            # Seize the target: the attacker takes over all defender Influence.
+            seized = self.board.influence[target][defender.value]
+            self.board.influence[target][defender.value] = 0
+            self.board.influence[target][attacker.value] += seized
 
     # -- M2: scoring & VP ---------------------------------------------------
 
@@ -711,6 +924,11 @@ class Engine:
             self._winner = side
             self._game_over_reason = reason
             self.phase = "complete"
+            # The game is over: no decision is pending (mandate #1 — pending is
+            # None iff the game ended). Any half-resolved Ops/event continuation
+            # still queued (e.g. an EVENT_RESUME marker below a coup that just
+            # hit DEFCON 1) is abandoned.
+            self._decision_stack.clear()
 
     def _file_card(self, side: Side, cid: str, fired: bool) -> None:
         if cid == CHINA_CARD_ID:
@@ -741,16 +959,24 @@ class Engine:
             DecisionKind.PLAY_MODE: self._handle_play_mode,
             DecisionKind.OPS_TYPE: self._handle_ops_type,
             DecisionKind.SPACE_RACE_ROLL: self._handle_space_race_roll,
+            DecisionKind.EVENT_OPS_ORDER: self._handle_event_ops_order,
+            DecisionKind.EVENT_RESUME: self._handle_event_resume,
+            DecisionKind.WAR_ROLL: self._handle_war_roll,
         }[decision.kind]
         handler(decision, action)
+
+    def _new_decision(
+        self, actor: Side, kind: DecisionKind, options: tuple[Action, ...], context: dict
+    ) -> Decision:
+        self._next_decision_id += 1
+        return Decision(
+            id=self._next_decision_id, actor=actor, kind=kind, options=options, context=context
+        )
 
     def _push(
         self, actor: Side, kind: DecisionKind, options: tuple[Action, ...], context: dict
     ) -> None:
-        self._next_decision_id += 1
-        self._decision_stack.append(
-            Decision(id=self._next_decision_id, actor=actor, kind=kind, options=options, context=context)
-        )
+        self._decision_stack.append(self._new_decision(actor, kind, options, context))
 
     def _roll_d6(self) -> int:
         return self._rng.randint(1, 6)
@@ -915,10 +1141,8 @@ class Engine:
 
     def _change_defcon(self, delta: int, caused_by: Side) -> None:
         self.defcon = max(1, min(5, self.defcon + delta))
-        if self.defcon == 1 and not self.is_terminal:
-            self._winner = caused_by.opponent
-            self._game_over_reason = "defcon_1"
-            self.phase = "complete"
+        if self.defcon == 1:
+            self._win(caused_by.opponent, "defcon_1")
 
 
 # -- serialization helpers ---------------------------------------------------

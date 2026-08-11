@@ -207,6 +207,52 @@ Introduce events in increasing order of implementation difficulty:
 Each tier is its own set of sub-milestones; a card is not "done" until
 it has a replay-log regression test (see Testing strategy).
 
+#### M3 implementation status and framework
+
+The event layer is **opt-in**, so it never regresses M2 (whose defining
+proof is that *zero events fire*): `Engine.new_game(..., events=False)`
+— the default — is the M2 game, byte-identical to before; `events=True`
+turns the layer on. `serialize()` carries `events_enabled` and
+`turn_effects`, so a saved game round-trips its event state (mandate #5;
+the M2 golden logs were regenerated once for these two additive keys —
+values only, no behavior change). As every card's event is implemented,
+`events=True` moves toward becoming the default and the flag becomes the
+historical "Ops-only" toggle.
+
+- **Registry.** `src/struggler/events.py` maps a card id → an `Event`
+  (`resolve(engine, side)`, plus an `eligible` predicate for
+  preconditions). A card *absent* from the registry has no event yet: in
+  events mode it is a no-op discard, exactly as in M2. This is what lets
+  M3 grow card-by-card without touching the game loop.
+- **Firing paths (mandates #1–#2).** An event fires when its owner (or a
+  NEUTRAL card's player) plays it as its event; and — per the core TS
+  rule — when the **opponent's** card is played for Ops, its event *also*
+  fires, with the phasing player choosing the order via an
+  `EVENT_OPS_ORDER` decision (`event_first`/`ops_first`). Ordering is
+  implemented on the decision stack itself: an `EVENT_RESUME` marker is
+  slipped beneath the first half's sub-decisions so the second half runs
+  only after they drain. Dice inside events (the "war" family) are logged
+  `WAR_ROLL` CHANCE decisions, never silent `random` calls (mandate #3).
+- **Implemented so far** (each with a unit test; the loop is covered by a
+  property test and the `m3_events.json` golden):
+  - *Tier 1, immediate:* Duck and Cover, Fidel, Nasser, Romanian
+    Abdication, De Gaulle Leads France, Captured Nazi Scientist, Nuclear
+    Test Ban.
+  - *Tier 1, war family (CHANCE roll):* Korean War, Arab-Israeli War.
+  - *Tier 3, persistent per-turn modifiers:* Containment, Brezhnev
+    Doctrine, Red Scare/Purge (consulted via `_effective_ops`, cleared at
+    end of turn).
+- **Known limitations / remaining M3 work** (tracked here as the
+  contract): non-scoring events do **not** yet fire during the *headline*
+  (they remain a no-op discard even in events mode) — headline event
+  firing needs the interrupt-ordering the action-round path already has,
+  and is the next increment. Tier 2 player-choice events (e.g. Warsaw
+  Pact, Marshall Plan, Suez Crisis), most Tier 3 persistent effects (NATO
+  — hence De Gaulle's "cancels NATO for France" clause is currently
+  inert), and all Tier 4 rule-modifiers (UN Intervention, Missile Envy,
+  etc.) are not implemented. The China Card's "+1 Op if used entirely in
+  one region" bonus is also still unmodeled.
+
 ## Testing strategy
 
 Testing is first-class, not an afterthought — this is a rules engine;

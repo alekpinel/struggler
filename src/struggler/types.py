@@ -76,6 +76,10 @@ class DecisionKind(Enum):
     PLAY_MODE = "play_mode"                # use the chosen card for ops / event / space race
     OPS_TYPE = "ops_type"                  # spend the ops on influence / coup / realignment
     SPACE_RACE_ROLL = "space_race_roll"    # CHANCE: the space-race attempt die
+    # -- M3: card events fire --
+    EVENT_OPS_ORDER = "event_ops_order"    # opponent's card played for Ops: event- or ops-first
+    EVENT_RESUME = "event_resume"          # forced continuation after the first half resolves
+    WAR_ROLL = "war_roll"                  # CHANCE: a "war" event's success die
 
 
 class ScoringTier(Enum):

@@ -1111,7 +1111,9 @@
         "headline": {
           "US": null,
           "USSR": null
-        }
+        },
+        "events_enabled": false,
+        "turn_effects": {}
       }
     },
     {
@@ -2128,7 +2130,9 @@
         "headline": {
           "US": null,
           "USSR": null
-        }
+        },
+        "events_enabled": false,
+        "turn_effects": {}
       }
     }
   ]

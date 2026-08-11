@@ -5,6 +5,7 @@ A replay log is {seed, actions, checkpoints} plus a start descriptor:
 - M2 full games set ``"new_game": true`` (optionally ``"include_optional"``);
   the whole game — headline picks, card plays, and dice — lives in
   ``actions``, since chance is a logged CHANCE decision (mandate #3).
+  Adding ``"events": true`` turns on the M3 event layer (see events.py).
 - M1 sandbox logs instead carry a ``setup`` object naming one of the
   begin_* Ops-only entry points, a scaffold for the pre-card milestone.
 
@@ -38,7 +39,9 @@ def make_engine(log: dict[str, Any]) -> Engine:
     """
     if log.get("new_game"):
         return Engine.new_game(
-            seed=log["seed"], include_optional=log.get("include_optional", False)
+            seed=log["seed"],
+            include_optional=log.get("include_optional", False),
+            events=log.get("events", False),
         )
     engine = Engine(seed=log["seed"])
     apply_setup(engine, log["setup"])
