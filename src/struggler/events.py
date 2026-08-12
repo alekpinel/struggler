@@ -427,7 +427,10 @@ def _kitchen_debates(engine: "Engine", side: Side) -> None:
         engine._award_vp(Side.US, 2)
 
 
-@event("OPEC")
+@event(
+    "OPEC",
+    eligible=lambda engine, side: not engine.game_effects.get("north_sea_oil"),
+)
 def _opec(engine: "Engine", side: Side) -> None:
     fields = ["Egypt", "Iran", "Libya", "Saudi_Arabia", "Iraq", "Gulf_States",
               "Venezuela", "Nigeria"]
@@ -969,6 +972,372 @@ def _cambridge_five(engine: "Engine", side: Side) -> None:
     )
 
 
+# ---------------------------------------------------------------------------
+# M3 tail cards — the most idiosyncratic events, each reusing/extending the
+# primitives above. Documented simplifications are noted per card and mirrored
+# in CLAUDE.md's "Known limitations" list.
+# ---------------------------------------------------------------------------
+
+# -- Missile Envy: take the opponent's top-Ops card, then use it -------------
+
+
+@event("Missile_Envy")
+def _missile_envy(engine: "Engine", side: Side) -> None:
+    # Exchange Missile Envy for the highest-Ops card in the opponent's hand
+    # (opponent chooses among ties); Missile Envy passes to the opponent. The
+    # taker then uses the card for Ops, or its Event when allowed. (The card's
+    # "opponent must play Missile Envy next action round" rider is not modeled —
+    # the opponent simply gains it in hand.)
+    opp = side.opponent
+    hand = engine.hands[opp.value]
+    if not hand:
+        return  # nothing to exchange: a no-op discard (Missile Envy stays filed)
+    max_ops = max(engine.cards[c].ops for c in hand)
+    candidates = [c for c in hand if engine.cards[c].ops == max_ops]
+    # Missile Envy was just filed to the discard pile by the play; move it to the
+    # opponent's hand instead (computed the candidates first, so it never counts).
+    if "Missile_Envy" in engine.discard_pile:
+        engine.discard_pile.remove("Missile_Envy")
+    engine.hands[opp.value].append("Missile_Envy")
+    if len(candidates) == 1:
+        engine.missile_envy_take(side, candidates[0])
+    else:
+        engine.push_event_choice("Missile_Envy_pick", opp, tuple(candidates))
+
+
+def _missile_envy_pick_choice(engine: "Engine", giver: Side, choice: str, context: dict) -> None:
+    engine.missile_envy_take(giver.opponent, choice)
+
+
+def _missile_envy_use_choice(engine: "Engine", taker: Side, choice: str, context: dict) -> None:
+    engine.missile_envy_use(taker, context["card"], choice)
+
+
+# -- Star Wars: take a card from the discard pile and play it immediately -----
+
+
+@event(
+    "Star_Wars",
+    eligible=lambda engine, side: engine.space_race["US"] > engine.space_race["USSR"],
+)
+def _star_wars(engine: "Engine", side: Side) -> None:
+    # Eligible only while the US leads the Space Race. The US takes any
+    # non-scoring card from the discard pile and plays its event immediately.
+    choices = tuple(cid for cid in engine.discard_pile if not engine.cards[cid].scoring)
+    if not choices:
+        return
+    engine.push_event_choice("Star_Wars", Side.US, choices + ("none",))
+
+
+def _star_wars_choice(engine: "Engine", side: Side, choice: str, context: dict) -> None:
+    if choice == "none":
+        return
+    if choice in engine.discard_pile:
+        engine.discard_pile.remove(choice)
+        engine.play_card_from_discard(Side.US, choice)
+
+
+# -- Che: a free USSR coup in the Americas/Africa, with a conditional repeat ---
+
+
+@event("Che")
+def _che(engine: "Engine", side: Side) -> None:
+    # The USSR makes a free Coup against a non-Battleground country in Central
+    # America, South America, or Africa; if it removes any US Influence, a second
+    # free Coup against a different such country. The coup is always the USSR's,
+    # even when the US plays Che for its Operations.
+    candidates = [
+        cid
+        for cid, info in engine.board.countries.items()
+        if not info.battleground
+        and info.region in (Region.CENTRAL_AMERICA, Region.SOUTH_AMERICA, Region.AFRICA)
+    ]
+    engine.push_che_coup(Side.USSR, ops=3, candidates=candidates)
+
+
+def _che_choice(engine: "Engine", side: Side, choice: str, context: dict) -> None:
+    if choice == "none":
+        return
+    engine.begin_che_coup(
+        side, choice, context["che_ops"], context["che_candidates"], context["che_used"]
+    )
+
+
+# -- Cuban Missile Crisis: coup = loss this turn, unless defused --------------
+
+
+@event("Cuban_Missile_Crisis")
+def _cuban_missile_crisis(engine: "Engine", side: Side) -> None:
+    # Set DEFCON to 2. For the rest of the turn any Coup attempt by the opponent
+    # loses them the game (checked in _handle_coup_roll). The opponent may defuse
+    # at once by removing 2 Influence from Cuba (USSR) or West Germany (US).
+    # (Faithful simplification: the real defuse can be taken at any later point in
+    # the turn; here it is offered immediately.)
+    engine.set_defcon(2, caused_by=side)
+    if engine.is_terminal:
+        return
+    opp = side.opponent
+    engine.turn_effects["cuban_missile_crisis"] = opp.value
+    country = "Cuba" if opp is Side.USSR else "West_Germany"
+    choices = ["defuse", "keep"] if engine.board.influence[country][opp.value] >= 2 else ["keep"]
+    if len(choices) > 1:
+        engine.push_event_choice(
+            "Cuban_Missile_Crisis", opp, tuple(choices), extra={"country": country}
+        )
+
+
+def _cuban_missile_crisis_choice(engine: "Engine", side: Side, choice: str, context: dict) -> None:
+    if choice == "defuse":
+        engine.remove_influence(context["country"], side, 2)
+        engine.turn_effects.pop("cuban_missile_crisis", None)
+
+
+# -- We Will Bury You: end-of-turn VP unless UN Intervention defuses it -------
+
+
+@event("We_Will_Bury_You")
+def _we_will_bury_you(engine: "Engine", side: Side) -> None:
+    # Degrade DEFCON one level; the USSR scores 3 VP at end of turn unless the US
+    # plays UN Intervention (which clears the flag, see _handle_play_mode).
+    engine._change_defcon(-1, caused_by=Side.USSR)
+    if not engine.is_terminal:
+        engine.turn_effects["we_will_bury_you"] = True
+
+
+# -- Formosan Resolution: Taiwan scores as a Battleground for the US ----------
+
+
+@event("Formosan_Resolution")
+def _formosan_resolution(engine: "Engine", side: Side) -> None:
+    # While active and the US controls Taiwan, Taiwan scores as a Battleground in
+    # Asia (see _scoring_overrides). Nullified once the China Card is played.
+    engine.game_effects["formosan_resolution"] = True
+
+
+# -- Shuttle Diplomacy: drop one USSR Battleground at the next ME/Asia score --
+
+
+@event("Shuttle_Diplomacy")
+def _shuttle_diplomacy(engine: "Engine", side: Side) -> None:
+    # At the next scoring of the Middle East or Asia, one USSR-controlled
+    # Battleground is not counted (consumed there; see _scoring_overrides). (The
+    # card is filed to the discard now rather than kept "in front of you" — a
+    # cosmetic simplification, since the effect flag is what matters.)
+    engine.game_effects["shuttle_diplomacy"] = True
+
+
+# -- North Sea Oil: block OPEC and grant the US an extra action round ----------
+
+
+@event("North_Sea_Oil")
+def _north_sea_oil(engine: "Engine", side: Side) -> None:
+    # OPEC may no longer be played as an event (game-long), and the US plays one
+    # extra action round this turn (see _total_action_rounds / _side_for_play_index).
+    engine.game_effects["north_sea_oil"] = True
+    engine.turn_effects["north_sea_oil_extra"] = True
+
+
+# ---------------------------------------------------------------------------
+# A further batch reusing the existing primitives (player-choice influence,
+# branches, conducted Operations) plus one small "relocate" flow. Numeric
+# effects are from the physical card text.
+# ---------------------------------------------------------------------------
+
+
+@event("East_European_Unrest")
+def _east_european_unrest(engine: "Engine", side: Side) -> None:
+    # Remove USSR Influence from three Eastern Europe countries: 1 each in the
+    # Early/Mid War, 2 each in the Late War (turn 8+).
+    amount = 2 if engine.turn >= 8 else 1
+    engine.push_event_influence(
+        event="East_European_Unrest", op="remove", choose_side=Side.US,
+        inf_side=Side.USSR, remaining=3,
+        candidates=_in_subregion(engine, Subregion.EASTERN_EUROPE), cap=1, amount=amount,
+    )
+
+
+@event("South_African_Unrest")
+def _south_african_unrest(engine: "Engine", side: Side) -> None:
+    # The USSR either adds 2 Influence to South Africa, or 1 to South Africa and
+    # 2 to a country adjacent to it.
+    engine.push_event_choice(
+        "South_African_Unrest", Side.USSR, ("south_africa_only", "and_adjacent")
+    )
+
+
+def _south_african_unrest_choice(engine: "Engine", side: Side, choice: str, context: dict) -> None:
+    if choice == "south_africa_only":
+        engine.add_influence("South_Africa", Side.USSR, 2)
+    else:  # and_adjacent
+        engine.add_influence("South_Africa", Side.USSR, 1)
+        adjacent = sorted(engine.board.neighbors("South_Africa"))
+        engine.push_event_choice("South_African_Unrest_adj", Side.USSR, tuple(adjacent))
+
+
+def _south_african_unrest_adj_choice(engine: "Engine", side: Side, choice: str, context: dict) -> None:
+    engine.add_influence(choice, Side.USSR, 2)
+
+
+def _payable_cards(engine: "Engine", side: Side) -> list[str]:
+    """`side`'s hand cards with a printed Ops value of 3 or more (the "discard a
+    3+ card to cancel" clause on Blockade and Latin American Debt Crisis)."""
+    return [
+        cid
+        for cid in engine.hands[side.value]
+        if not engine.cards[cid].scoring and engine.cards[cid].ops >= 3
+    ]
+
+
+@event("Blockade")
+def _blockade(engine: "Engine", side: Side) -> None:
+    # Unless the US discards a printed-3+-Ops card, remove all US Influence from
+    # West Germany. (The US picks among its own cards — the same own-hand choice
+    # Ask Not already surfaces.)
+    payable = _payable_cards(engine, Side.US)
+    if not payable:
+        engine.remove_all_influence("West_Germany", Side.US)
+        return
+    engine.push_event_choice("Blockade", Side.US, tuple(payable) + ("refuse",))
+
+
+def _blockade_choice(engine: "Engine", side: Side, choice: str, context: dict) -> None:
+    if choice == "refuse":
+        engine.remove_all_influence("West_Germany", Side.US)
+    else:
+        engine._file_card(Side.US, choice, fired=False)
+
+
+@event("Glasnost")
+def _glasnost(engine: "Engine", side: Side) -> None:
+    # USSR +2 VP and DEFCON improves one level; if The Reformer is in effect the
+    # USSR then conducts 4 Ops of Operations. (The card restricts those to
+    # Coup/Realignment; here they are full Operations — a documented rough edge.)
+    engine._award_vp(Side.USSR, 2)
+    if engine.is_terminal:
+        return
+    engine._change_defcon(+1, caused_by=Side.USSR)
+    if not engine.is_terminal and engine.game_effects.get("reformer"):
+        engine.push_event_operations(Side.USSR, 4)
+
+
+@event("Latin_American_Debt_Crisis")
+def _latin_american_debt_crisis(engine: "Engine", side: Side) -> None:
+    # Unless the US discards a printed-3+-Ops card, the USSR doubles its
+    # Influence in two South America countries.
+    payable = _payable_cards(engine, Side.US)
+    if payable:
+        engine.push_event_choice(
+            "Latin_American_Debt_Crisis", Side.US, tuple(payable) + ("refuse",)
+        )
+    else:
+        _latin_debt_double(engine, used=[])
+
+
+def _latin_american_debt_crisis_choice(engine: "Engine", side: Side, choice: str, context: dict) -> None:
+    if choice == "refuse":
+        _latin_debt_double(engine, used=[])
+    else:
+        engine._file_card(Side.US, choice, fired=False)
+
+
+def _latin_debt_double(engine: "Engine", used: list[str]) -> None:
+    if len(used) >= 2:
+        return
+    candidates = [
+        cid
+        for cid, info in engine.board.countries.items()
+        if info.region is Region.SOUTH_AMERICA
+        and engine.board.influence[cid]["USSR"] > 0
+        and cid not in used
+    ]
+    if not candidates:
+        return
+    engine.push_event_choice(
+        "Latin_American_Debt_Crisis_double", Side.USSR, tuple(candidates),
+        extra={"used": used},
+    )
+
+
+def _latin_debt_double_choice(engine: "Engine", side: Side, choice: str, context: dict) -> None:
+    engine.add_influence(choice, Side.USSR, engine.board.influence[choice]["USSR"])  # double
+    _latin_debt_double(engine, used=context["used"] + [choice])
+
+
+@event("Soviets_Shoot_Down_KAL_007")
+def _kal_007(engine: "Engine", side: Side) -> None:
+    # Degrade DEFCON one level; the US gains 2 VP; if the US controls South Korea
+    # it then conducts 4 Ops of Operations. (Restricted to Influence/Realignment
+    # on the card; full Operations here — a documented rough edge.)
+    engine._change_defcon(-1, caused_by=Side.US)
+    if engine.is_terminal:
+        return
+    engine._award_vp(Side.US, 2)
+    if not engine.is_terminal and engine.board.control("South_Korea") is Side.US:
+        engine.push_event_operations(Side.US, 4)
+
+
+@event("Ussuri_River_Skirmish")
+def _ussuri_river_skirmish(engine: "Engine", side: Side) -> None:
+    # If the USSR holds the China Card, the US takes it face-up; otherwise the US
+    # adds 4 Influence to Asia, no more than 2 per country.
+    if engine.china_card_owner == "USSR":
+        engine.china_card_owner = "US"
+        engine.china_card_available = True  # taken face up
+    else:
+        engine.push_event_influence(
+            event="Ussuri_River_Skirmish", op="place", choose_side=Side.US,
+            inf_side=Side.US, remaining=4, candidates=_in_region(engine, Region.ASIA), cap=2,
+        )
+
+
+@event("Arms_Race")
+def _arms_race(engine: "Engine", side: Side) -> None:
+    # Compare the Military Operations track: if the phasing player leads, they
+    # gain 3 VP for also meeting the required amount (DEFCON), else 1 VP.
+    mine = engine.military_ops[side.value]
+    theirs = engine.military_ops[side.opponent.value]
+    if mine > theirs:
+        engine._award_vp(side, 3 if mine >= engine.defcon else 1)
+
+
+@event("De_Stalinization")
+def _de_stalinization(engine: "Engine", side: Side) -> None:
+    # The USSR relocates up to 4 Influence: remove from anywhere it has some,
+    # then place the same number in non-US-controlled countries (max 2 each).
+    _destal_remove(engine, moved=0)
+
+
+def _destal_remove(engine: "Engine", moved: int) -> None:
+    candidates = [
+        cid for cid in engine.board.countries if engine.board.influence[cid]["USSR"] > 0
+    ]
+    if moved >= 4 or not candidates:
+        _destal_place(engine, moved)
+        return
+    engine.push_event_choice(
+        "De_Stalinization_remove", Side.USSR, tuple(candidates) + ("done",),
+        extra={"moved": moved},
+    )
+
+
+def _de_stalinization_remove_choice(engine: "Engine", side: Side, choice: str, context: dict) -> None:
+    if choice == "done":
+        _destal_place(engine, context["moved"])
+        return
+    engine.remove_influence(choice, Side.USSR, 1)
+    _destal_remove(engine, context["moved"] + 1)
+
+
+def _destal_place(engine: "Engine", moved: int) -> None:
+    if moved <= 0:
+        return
+    engine.push_event_influence(
+        event="De_Stalinization", op="place", choose_side=Side.USSR,
+        inf_side=Side.USSR, remaining=moved, candidates=list(engine.board.countries),
+        cap=2, exclude_controlled_by=Side.US,
+    )
+
+
 # -- shared helpers ---------------------------------------------------------
 
 
@@ -996,4 +1365,15 @@ CHOICE_ROUTERS: dict[str, Callable[["Engine", Side, str], None]] = {
     "Aldrich_Ames_Remix": _aldrich_ames_choice,
     "Grain_Sales_to_Soviets": _grain_sales_choice,
     "Ask_Not_What_Your_Country_Can_Do_For_You": _ask_not_choice,
+    "Missile_Envy_pick": _missile_envy_pick_choice,
+    "Missile_Envy_use": _missile_envy_use_choice,
+    "Star_Wars": _star_wars_choice,
+    "Che": _che_choice,
+    "Cuban_Missile_Crisis": _cuban_missile_crisis_choice,
+    "South_African_Unrest": _south_african_unrest_choice,
+    "South_African_Unrest_adj": _south_african_unrest_adj_choice,
+    "Blockade": _blockade_choice,
+    "Latin_American_Debt_Crisis": _latin_american_debt_crisis_choice,
+    "Latin_American_Debt_Crisis_double": _latin_debt_double_choice,
+    "De_Stalinization_remove": _de_stalinization_remove_choice,
 }
