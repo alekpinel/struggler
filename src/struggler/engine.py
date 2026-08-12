@@ -1114,6 +1114,54 @@ class Engine:
             self._file_card(owner, card, fired=False)
             self.push_random_discard(owner, ctx["purpose"], ctx["count"] - 1)
 
+    # -- M3: a two-die "both roll, higher wins" contest ---------------------
+    #
+    # Both sides roll (from the seeded RNG, logged as a single CHANCE option),
+    # a per-side modifier is added, ties reroll, and the winner takes `vp`.
+    # An optional per-event follow-up (events.CONTEST_RESOLVERS) runs after.
+
+    def push_dice_contest(
+        self, event: str, sponsor: Side, sponsor_mod: int, defender_mod: int, vp: int
+    ) -> None:
+        s_roll, d_roll = self._roll_d6(), self._roll_d6()
+        self._push(
+            Side.CHANCE, DecisionKind.CONTEST_ROLL,
+            (Action(DecisionKind.CONTEST_ROLL,
+                    {"sponsor_roll": s_roll, "defender_roll": d_roll}),),
+            {"event": event, "sponsor": sponsor.value,
+             "sponsor_mod": sponsor_mod, "defender_mod": defender_mod, "vp": vp},
+        )
+
+    def _handle_contest_roll(self, decision: Decision, action: Action) -> None:
+        from struggler.events import CONTEST_RESOLVERS
+
+        ctx = decision.context
+        sponsor = Side(ctx["sponsor"])
+        s_total = action.payload["sponsor_roll"] + ctx["sponsor_mod"]
+        d_total = action.payload["defender_roll"] + ctx["defender_mod"]
+        if s_total == d_total:  # tie: reroll
+            self.push_dice_contest(
+                ctx["event"], sponsor, ctx["sponsor_mod"], ctx["defender_mod"], ctx["vp"]
+            )
+            return
+        winner = sponsor if s_total > d_total else sponsor.opponent
+        if ctx["vp"]:
+            self._award_vp(winner, ctx["vp"])
+        if self.is_terminal:
+            return
+        resolver = CONTEST_RESOLVERS.get(ctx["event"])
+        if resolver is not None:
+            resolver(self, sponsor, winner)
+
+    def _regions_dominated(self, side: Side) -> int:
+        """How many regions `side` Dominates or Controls (Summit's modifier)."""
+        return sum(
+            1
+            for region in Region
+            if self.board.region_tier(side, region)
+            in (ScoringTier.DOMINATION, ScoringTier.CONTROL)
+        )
+
     # -- M3: the "war" family (seeded CHANCE roll) --------------------------
 
     def push_war_target_choice(
@@ -1309,6 +1357,7 @@ class Engine:
             DecisionKind.EVENT_INFLUENCE: self._handle_event_influence,
             DecisionKind.EVENT_CHOICE: self._handle_event_choice,
             DecisionKind.RANDOM_DISCARD: self._handle_random_discard,
+            DecisionKind.CONTEST_ROLL: self._handle_contest_roll,
         }[decision.kind]
         handler(decision, action)
 

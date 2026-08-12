@@ -84,6 +84,7 @@ class DecisionKind(Enum):
     EVENT_INFLUENCE = "event_influence"    # a player-choice event's targeted place/remove step
     EVENT_CHOICE = "event_choice"          # a player-choice event's branch (pick a sub-option)
     RANDOM_DISCARD = "random_discard"      # CHANCE: a forced random discard from a hand
+    CONTEST_ROLL = "contest_roll"          # CHANCE: a two-die "both roll, higher wins" contest
 
 
 class ScoringTier(Enum):

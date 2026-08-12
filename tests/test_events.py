@@ -770,6 +770,75 @@ def test_chernobyl_blocks_ussr_ops_influence_in_the_named_region():
     assert engine._chernobyl_blocks(Side.US, "Poland") is False
 
 
+# -- dice-contest / branch events -------------------------------------------
+
+
+def test_olympic_games_participate_runs_a_contest_awarding_two_vp():
+    engine = _bare(seed=1)
+    engine._fire_event(Side.US, "Olympic_Games")  # US sponsors; USSR decides
+    decision = engine.pending_decision
+    assert decision.actor is Side.USSR
+    assert {a.payload["choice"] for a in decision.options} == {"participate", "boycott"}
+    engine.step(Action(DecisionKind.EVENT_CHOICE, {"choice": "participate"}))
+    assert engine.pending_decision.kind is DecisionKind.CONTEST_ROLL
+    engine.step(engine.pending_decision.options[0])
+    assert abs(engine.vp) == 2  # exactly one side won 2 VP
+    assert engine.pending_decision is None
+
+
+def test_olympic_games_boycott_degrades_defcon_and_gives_sponsor_ops():
+    engine = _bare(seed=1)
+    engine.defcon = 5
+    engine._fire_event(Side.US, "Olympic_Games")
+    engine.step(Action(DecisionKind.EVENT_CHOICE, {"choice": "boycott"}))
+    assert engine.defcon == 4
+    assert engine.pending_decision.kind is DecisionKind.OPS_TYPE
+    assert engine.pending_decision.actor is Side.US
+    assert engine.pending_decision.context["ops"] == 4
+
+
+def test_summit_contest_then_winner_adjusts_defcon():
+    engine = _bare(seed=3)
+    engine.defcon = 3
+    engine._fire_event(Side.US, "Summit")
+    assert engine.pending_decision.kind is DecisionKind.CONTEST_ROLL
+    engine.step(engine.pending_decision.options[0])
+    follow = engine.pending_decision
+    assert follow.kind is DecisionKind.EVENT_CHOICE
+    assert {a.payload["choice"] for a in follow.options} == {"raise", "lower", "none"}
+    winner = follow.actor
+    engine.step(Action(DecisionKind.EVENT_CHOICE, {"choice": "raise"}))
+    assert engine.defcon == 4
+    assert abs(engine.vp) == 2  # the winner also took 2 VP
+    assert winner in (Side.US, Side.USSR)
+
+
+def test_summit_reroll_on_a_tie_is_deterministic_and_resolves():
+    # Equal modifiers make ties possible; the contest must still resolve.
+    engine = _bare(seed=11)
+    engine._fire_event(Side.USSR, "Summit")
+    guard = 0
+    while engine.pending_decision.kind is DecisionKind.CONTEST_ROLL:
+        engine.step(engine.pending_decision.options[0])
+        guard += 1
+        assert guard < 100
+    assert engine.pending_decision.kind is DecisionKind.EVENT_CHOICE  # a winner emerged
+
+
+def test_wargames_only_playable_at_defcon_two_and_can_end_the_game():
+    engine = _bare(seed=1)
+    engine.defcon = 3
+    engine._fire_event(Side.US, "Wargames")  # ineligible above DEFCON 2
+    assert engine.pending_decision is None
+    engine.defcon = 2
+    engine._fire_event(Side.US, "Wargames")
+    assert {a.payload["choice"] for a in engine.pending_decision.options} == {
+        "end_game", "decline"
+    }
+    engine.step(Action(DecisionKind.EVENT_CHOICE, {"choice": "end_game"}))
+    assert engine.is_terminal  # the US gave the USSR 6 VP and the game was scored
+
+
 # -- the "opponent event fires when played for Ops" rule --------------------
 
 
@@ -883,13 +952,13 @@ def test_headline_event_interrupt_drains_before_the_second_card():
 
 def test_headline_non_event_card_is_still_a_no_op_discard():
     engine = _bare(seed=2)
-    # Socialist Governments has no implemented event yet: headlining it must be
-    # a plain discard, exactly as in M2, even with events on.
-    _headline_setup(engine, "Socialist_Governments", "Olympic_Games")
-    engine.step(Action(DecisionKind.HEADLINE_PLAY, {"card": "Socialist_Governments"}))
-    engine.step(Action(DecisionKind.HEADLINE_PLAY, {"card": "Olympic_Games"}))
-    assert "Socialist_Governments" in engine.discard_pile
-    assert "Olympic_Games" in engine.discard_pile
+    # Quagmire and Defectors have no implemented event yet: headlining them must
+    # be a plain discard, exactly as in M2, even with events on.
+    _headline_setup(engine, "Quagmire", "Defectors")
+    engine.step(Action(DecisionKind.HEADLINE_PLAY, {"card": "Quagmire"}))
+    engine.step(Action(DecisionKind.HEADLINE_PLAY, {"card": "Defectors"}))
+    assert "Quagmire" in engine.discard_pile
+    assert "Defectors" in engine.discard_pile
     assert engine.phase == "action_rounds"
 
 

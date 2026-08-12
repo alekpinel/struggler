@@ -810,6 +810,70 @@ def _salt_reclaim_choice(engine: "Engine", side: Side, choice: str) -> None:
         engine.hands[side.value].append(choice)
 
 
+# -- dice-contest / branch events -------------------------------------------
+
+
+@event("Olympic_Games")
+def _olympic_games(engine: "Engine", side: Side) -> None:
+    # The sponsor is the phasing player; the opponent chooses to participate
+    # (a die contest, sponsor +2, winner +2 VP) or boycott (DEFCON -1 and the
+    # sponsor conducts 4 Ops).
+    engine.push_event_choice("Olympic_Games", side.opponent, ("participate", "boycott"))
+
+
+def _olympic_choice(engine: "Engine", chooser: Side, choice: str) -> None:
+    sponsor = chooser.opponent
+    if choice == "participate":
+        engine.push_dice_contest("Olympic_Games", sponsor, sponsor_mod=2, defender_mod=0, vp=2)
+    else:  # boycott
+        engine._change_defcon(-1, caused_by=sponsor)
+        if not engine.is_terminal:
+            engine.push_event_operations(sponsor, 4)
+
+
+@event("Summit")
+def _summit(engine: "Engine", side: Side) -> None:
+    # Both roll, +1 per region Dominated/Controlled; winner +2 VP and may raise
+    # or lower DEFCON one level.
+    engine.push_dice_contest(
+        "Summit", side,
+        sponsor_mod=engine._regions_dominated(side),
+        defender_mod=engine._regions_dominated(side.opponent),
+        vp=2,
+    )
+
+
+def _summit_result(engine: "Engine", sponsor: Side, winner: Side) -> None:
+    engine.push_event_choice("Summit_defcon", winner, ("raise", "lower", "none"))
+
+
+def _summit_defcon_choice(engine: "Engine", side: Side, choice: str) -> None:
+    if choice == "raise":
+        engine._change_defcon(+1, caused_by=side)
+    elif choice == "lower":
+        engine._change_defcon(-1, caused_by=side)
+
+
+@event("Wargames", eligible=lambda engine, side: engine.defcon <= 2)
+def _wargames(engine: "Engine", side: Side) -> None:
+    # Only at DEFCON 2: the player may give the opponent 6 VP and end the game
+    # (final scoring), or decline.
+    engine.push_event_choice("Wargames", side, ("end_game", "decline"))
+
+
+def _wargames_choice(engine: "Engine", side: Side, choice: str) -> None:
+    if choice == "end_game":
+        engine._award_vp(side.opponent, 6)
+        if not engine.is_terminal:
+            engine._finish_game()
+
+
+# Per-event follow-ups after a dice contest resolves (see push_dice_contest).
+CONTEST_RESOLVERS: dict[str, Callable[["Engine", Side, Side], None]] = {
+    "Summit": _summit_result,
+}
+
+
 # -- shared helpers ---------------------------------------------------------
 
 
@@ -831,4 +895,7 @@ CHOICE_ROUTERS: dict[str, Callable[["Engine", Side, str], None]] = {
     "Salt_Negotiations": _salt_reclaim_choice,
     "Junta": _junta_choice,
     "Chernobyl": _chernobyl_choice,
+    "Olympic_Games": _olympic_choice,
+    "Wargames": _wargames_choice,
+    "Summit_defcon": _summit_defcon_choice,
 }
