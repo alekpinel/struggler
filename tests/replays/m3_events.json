@@ -19,25 +19,49 @@
     {
       "kind": "place_influence",
       "payload": {
-        "country": "Yugoslavia"
+        "country": "Bulgaria"
       }
     },
     {
       "kind": "place_influence",
       "payload": {
-        "country": "Poland"
+        "country": "Bulgaria"
       }
     },
     {
       "kind": "place_influence",
       "payload": {
-        "country": "Czechoslovakia"
+        "country": "Bulgaria"
       }
     },
     {
       "kind": "place_influence",
       "payload": {
-        "country": "Yugoslavia"
+        "country": "East_Germany"
+      }
+    },
+    {
+      "kind": "place_influence",
+      "payload": {
+        "country": "Denmark"
+      }
+    },
+    {
+      "kind": "place_influence",
+      "payload": {
+        "country": "UK"
+      }
+    },
+    {
+      "kind": "place_influence",
+      "payload": {
+        "country": "Spain_Portugal"
+      }
+    },
+    {
+      "kind": "place_influence",
+      "payload": {
+        "country": "Spain_Portugal"
       }
     },
     {
@@ -55,43 +79,19 @@
     {
       "kind": "place_influence",
       "payload": {
-        "country": "Greece"
-      }
-    },
-    {
-      "kind": "place_influence",
-      "payload": {
-        "country": "UK"
-      }
-    },
-    {
-      "kind": "place_influence",
-      "payload": {
-        "country": "Greece"
-      }
-    },
-    {
-      "kind": "place_influence",
-      "payload": {
-        "country": "Canada"
-      }
-    },
-    {
-      "kind": "place_influence",
-      "payload": {
-        "country": "Spain_Portugal"
+        "country": "France"
       }
     },
     {
       "kind": "headline_play",
       "payload": {
-        "card": "Socialist_Governments"
+        "card": "Middle_East_Scoring"
       }
     },
     {
       "kind": "headline_play",
       "payload": {
-        "card": "Nuclear_Test_Ban"
+        "card": "Suez_Crisis"
       }
     },
     {
@@ -103,19 +103,25 @@
     {
       "kind": "event_influence",
       "payload": {
-        "country": "Greece"
+        "country": "France"
       }
     },
     {
       "kind": "event_influence",
       "payload": {
-        "country": "Turkey"
+        "country": "Israel"
+      }
+    },
+    {
+      "kind": "event_influence",
+      "payload": {
+        "country": "UK"
       }
     },
     {
       "kind": "action_round_play",
       "payload": {
-        "card": "The_China_Card"
+        "card": "Duck_and_Cover"
       }
     },
     {
@@ -133,7 +139,7 @@
     {
       "kind": "action_round_play",
       "payload": {
-        "card": "Suez_Crisis"
+        "card": "Nuclear_Test_Ban"
       }
     },
     {
@@ -151,19 +157,67 @@
     {
       "kind": "action_round_play",
       "payload": {
-        "card": "Red_Scare_Purge"
+        "card": "Olympic_Games"
       }
     },
     {
       "kind": "play_mode",
       "payload": {
-        "mode": "event"
+        "mode": "ops"
+      }
+    },
+    {
+      "kind": "ops_type",
+      "payload": {
+        "type": "coup"
+      }
+    },
+    {
+      "kind": "coup_target",
+      "payload": {
+        "country": "Sweden"
+      }
+    },
+    {
+      "kind": "coup_roll",
+      "payload": {
+        "value": 3
       }
     },
     {
       "kind": "action_round_play",
       "payload": {
-        "card": "Containment"
+        "card": "Five_Year_Plan"
+      }
+    },
+    {
+      "kind": "play_mode",
+      "payload": {
+        "mode": "ops"
+      }
+    },
+    {
+      "kind": "ops_type",
+      "payload": {
+        "type": "coup"
+      }
+    },
+    {
+      "kind": "coup_target",
+      "payload": {
+        "country": "Morocco"
+      }
+    },
+    {
+      "kind": "coup_roll",
+      "payload": {
+        "value": 2
+      }
+    },
+    {
+      "kind": "action_round_play",
+      "payload": {
+        "card": "The_China_Card"
       }
     },
     {
@@ -181,25 +235,7 @@
     {
       "kind": "realignment_target",
       "payload": {
-        "country": "Italy"
-      }
-    },
-    {
-      "kind": "realignment_actor_roll",
-      "payload": {
-        "value": 3
-      }
-    },
-    {
-      "kind": "realignment_opponent_roll",
-      "payload": {
-        "value": 2
-      }
-    },
-    {
-      "kind": "realignment_target",
-      "payload": {
-        "country": "North_Korea"
+        "country": "Jordan"
       }
     },
     {
@@ -215,9 +251,99 @@
       }
     },
     {
+      "kind": "realignment_target",
+      "payload": {
+        "country": "Panama"
+      }
+    },
+    {
+      "kind": "realignment_actor_roll",
+      "payload": {
+        "value": 5
+      }
+    },
+    {
+      "kind": "realignment_opponent_roll",
+      "payload": {
+        "value": 1
+      }
+    },
+    {
+      "kind": "realignment_target",
+      "payload": {
+        "country": "Gulf_States"
+      }
+    },
+    {
+      "kind": "realignment_actor_roll",
+      "payload": {
+        "value": 6
+      }
+    },
+    {
+      "kind": "realignment_opponent_roll",
+      "payload": {
+        "value": 6
+      }
+    },
+    {
+      "kind": "realignment_target",
+      "payload": {
+        "country": "South_Korea"
+      }
+    },
+    {
+      "kind": "realignment_actor_roll",
+      "payload": {
+        "value": 5
+      }
+    },
+    {
+      "kind": "realignment_opponent_roll",
+      "payload": {
+        "value": 1
+      }
+    },
+    {
       "kind": "action_round_play",
       "payload": {
-        "card": "Middle_East_Scoring"
+        "card": "Containment"
+      }
+    },
+    {
+      "kind": "play_mode",
+      "payload": {
+        "mode": "ops"
+      }
+    },
+    {
+      "kind": "ops_type",
+      "payload": {
+        "type": "influence"
+      }
+    },
+    {
+      "kind": "place_influence",
+      "payload": {
+        "country": "Pakistan"
+      }
+    },
+    {
+      "kind": "place_influence",
+      "payload": {
+        "country": "Spain_Portugal"
+      }
+    },
+    {
+      "kind": "place_influence",
+      "payload": {
+        "country": "Taiwan"
+      }
+    },
+    {
+      "kind": "action_round_play",
+      "payload": {
+        "card": "Red_Scare_Purge"
       }
     },
     {
@@ -229,7 +355,7 @@
     {
       "kind": "action_round_play",
       "payload": {
-        "card": "Warsaw_Pact_Formed"
+        "card": "Indo_Pakistani_War"
       }
     },
     {
@@ -239,39 +365,15 @@
       }
     },
     {
-      "kind": "event_choice",
+      "kind": "war_target",
       "payload": {
-        "choice": "add"
+        "country": "Pakistan"
       }
     },
     {
-      "kind": "event_influence",
+      "kind": "war_roll",
       "payload": {
-        "country": "Poland"
-      }
-    },
-    {
-      "kind": "event_influence",
-      "payload": {
-        "country": "Czechoslovakia"
-      }
-    },
-    {
-      "kind": "event_influence",
-      "payload": {
-        "country": "East_Germany"
-      }
-    },
-    {
-      "kind": "event_influence",
-      "payload": {
-        "country": "East_Germany"
-      }
-    },
-    {
-      "kind": "event_influence",
-      "payload": {
-        "country": "Czechoslovakia"
+        "value": 6
       }
     },
     {
@@ -295,90 +397,36 @@
     {
       "kind": "ops_type",
       "payload": {
-        "type": "realignment"
+        "type": "influence"
       }
     },
     {
-      "kind": "realignment_target",
+      "kind": "place_influence",
       "payload": {
-        "country": "Zaire"
+        "country": "South_Korea"
       }
     },
     {
-      "kind": "realignment_actor_roll",
+      "kind": "place_influence",
       "payload": {
-        "value": 5
+        "country": "South_Korea"
       }
     },
     {
-      "kind": "realignment_opponent_roll",
+      "kind": "place_influence",
       "payload": {
-        "value": 1
+        "country": "Romania"
       }
     },
     {
-      "kind": "realignment_target",
+      "kind": "place_influence",
       "payload": {
-        "country": "Sudan"
-      }
-    },
-    {
-      "kind": "realignment_actor_roll",
-      "payload": {
-        "value": 6
-      }
-    },
-    {
-      "kind": "realignment_opponent_roll",
-      "payload": {
-        "value": 6
-      }
-    },
-    {
-      "kind": "realignment_target",
-      "payload": {
-        "country": "Honduras"
-      }
-    },
-    {
-      "kind": "realignment_actor_roll",
-      "payload": {
-        "value": 5
-      }
-    },
-    {
-      "kind": "realignment_opponent_roll",
-      "payload": {
-        "value": 1
-      }
-    },
-    {
-      "kind": "realignment_target",
-      "payload": {
-        "country": "Vietnam"
-      }
-    },
-    {
-      "kind": "realignment_actor_roll",
-      "payload": {
-        "value": 6
-      }
-    },
-    {
-      "kind": "realignment_opponent_roll",
-      "payload": {
-        "value": 2
+        "country": "Bulgaria"
       }
     },
     {
       "kind": "event_resume",
       "payload": {}
-    },
-    {
-      "kind": "event_influence",
-      "payload": {
-        "country": "West_Germany"
-      }
     },
     {
       "kind": "event_influence",
@@ -395,13 +443,19 @@
     {
       "kind": "event_influence",
       "payload": {
+        "country": "France"
+      }
+    },
+    {
+      "kind": "event_influence",
+      "payload": {
         "country": "UK"
       }
     },
     {
       "kind": "event_influence",
       "payload": {
-        "country": "Denmark"
+        "country": "West_Germany"
       }
     },
     {
@@ -419,69 +473,42 @@
     {
       "kind": "action_round_play",
       "payload": {
-        "card": "Indo_Pakistani_War"
+        "card": "De_Gaulle_Leads_France"
       }
     },
     {
       "kind": "play_mode",
       "payload": {
-        "mode": "event"
+        "mode": "ops"
       }
     },
     {
-      "kind": "war_target",
+      "kind": "event_ops_order",
       "payload": {
-        "country": "India"
+        "order": "ops_first"
       }
     },
     {
-      "kind": "war_roll",
+      "kind": "ops_type",
       "payload": {
-        "value": 3
+        "type": "coup"
       }
     },
     {
-      "kind": "action_round_play",
+      "kind": "coup_target",
       "payload": {
-        "card": "Olympic_Games"
+        "country": "Honduras"
       }
     },
     {
-      "kind": "play_mode",
+      "kind": "coup_roll",
       "payload": {
-        "mode": "event"
+        "value": 2
       }
     },
     {
-      "kind": "event_choice",
-      "payload": {
-        "choice": "participate"
-      }
-    },
-    {
-      "kind": "contest_roll",
-      "payload": {
-        "sponsor_roll": 4,
-        "defender_roll": 5
-      }
-    },
-    {
-      "kind": "action_round_play",
-      "payload": {
-        "card": "Five_Year_Plan"
-      }
-    },
-    {
-      "kind": "play_mode",
-      "payload": {
-        "mode": "event"
-      }
-    },
-    {
-      "kind": "random_discard",
-      "payload": {
-        "card": "Duck_and_Cover"
-      }
+      "kind": "event_resume",
+      "payload": {}
     },
     {
       "kind": "action_round_play",
@@ -504,84 +531,6 @@
     {
       "kind": "play_mode",
       "payload": {
-        "mode": "event"
-      }
-    },
-    {
-      "kind": "war_roll",
-      "payload": {
-        "value": 3
-      }
-    },
-    {
-      "kind": "headline_play",
-      "payload": {
-        "card": "The_Cambridge_Five"
-      }
-    },
-    {
-      "kind": "headline_play",
-      "payload": {
-        "card": "De_Gaulle_Leads_France"
-      }
-    },
-    {
-      "kind": "action_round_play",
-      "payload": {
-        "card": "Defectors"
-      }
-    },
-    {
-      "kind": "play_mode",
-      "payload": {
-        "mode": "space_race"
-      }
-    },
-    {
-      "kind": "space_race_roll",
-      "payload": {
-        "value": 4
-      }
-    },
-    {
-      "kind": "action_round_play",
-      "payload": {
-        "card": "De_Stalinization"
-      }
-    },
-    {
-      "kind": "play_mode",
-      "payload": {
-        "mode": "space_race"
-      }
-    },
-    {
-      "kind": "space_race_roll",
-      "payload": {
-        "value": 6
-      }
-    },
-    {
-      "kind": "action_round_play",
-      "payload": {
-        "card": "Formosan_Resolution"
-      }
-    },
-    {
-      "kind": "play_mode",
-      "payload": {
-        "mode": "event"
-      }
-    },
-    {
-      "kind": "action_round_play",
-      "payload": {
-        "card": "Fidel"
-      }
-    },
-    {
-      "kind": "play_mode",
-      "payload": {
         "mode": "ops"
       }
     },
@@ -592,45 +541,91 @@
       }
     },
     {
+      "kind": "war_roll",
+      "payload": {
+        "value": 3
+      }
+    },
+    {
+      "kind": "event_resume",
+      "payload": {}
+    },
+    {
       "kind": "ops_type",
       "payload": {
-        "type": "realignment"
+        "type": "influence"
       }
     },
     {
-      "kind": "realignment_target",
+      "kind": "place_influence",
       "payload": {
-        "country": "Honduras"
+        "country": "Romania"
       }
     },
     {
-      "kind": "realignment_actor_roll",
+      "kind": "headline_play",
       "payload": {
-        "value": 3
+        "card": "Truman_Doctrine"
       }
     },
     {
-      "kind": "realignment_opponent_roll",
+      "kind": "headline_play",
       "payload": {
-        "value": 3
+        "card": "De_Stalinization"
       }
     },
     {
-      "kind": "realignment_target",
+      "kind": "event_choice",
+      "payload": {
+        "choice": "South_Korea"
+      }
+    },
+    {
+      "kind": "event_choice",
+      "payload": {
+        "choice": "Romania"
+      }
+    },
+    {
+      "kind": "event_choice",
+      "payload": {
+        "choice": "Iraq"
+      }
+    },
+    {
+      "kind": "event_choice",
+      "payload": {
+        "choice": "Yugoslavia"
+      }
+    },
+    {
+      "kind": "event_influence",
+      "payload": {
+        "country": "Haiti"
+      }
+    },
+    {
+      "kind": "event_influence",
+      "payload": {
+        "country": "Uruguay"
+      }
+    },
+    {
+      "kind": "event_influence",
+      "payload": {
+        "country": "Canada"
+      }
+    },
+    {
+      "kind": "event_influence",
       "payload": {
         "country": "Saharan_States"
       }
     },
     {
-      "kind": "realignment_actor_roll",
+      "kind": "event_influence",
       "payload": {
-        "value": 2
-      }
-    },
-    {
-      "kind": "realignment_opponent_roll",
-      "payload": {
-        "value": 3
+        "country": "France"
       }
     },
     {
@@ -654,13 +649,43 @@
     {
       "kind": "coup_target",
       "payload": {
-        "country": "Vietnam"
+        "country": "Lebanon"
       }
     },
     {
       "kind": "coup_roll",
       "payload": {
-        "value": 3
+        "value": 4
+      }
+    },
+    {
+      "kind": "action_round_play",
+      "payload": {
+        "card": "US_Japan_Mutual_Defense_Pact"
+      }
+    },
+    {
+      "kind": "play_mode",
+      "payload": {
+        "mode": "space_race"
+      }
+    },
+    {
+      "kind": "space_race_roll",
+      "payload": {
+        "value": 5
+      }
+    },
+    {
+      "kind": "action_round_play",
+      "payload": {
+        "card": "Defectors"
+      }
+    },
+    {
+      "kind": "play_mode",
+      "payload": {
+        "mode": "event"
       }
     },
     {
@@ -676,129 +701,45 @@
       }
     },
     {
-      "kind": "action_round_play",
-      "payload": {
-        "card": "Nasser"
-      }
-    },
-    {
-      "kind": "play_mode",
-      "payload": {
-        "mode": "event"
-      }
-    },
-    {
-      "kind": "action_round_play",
-      "payload": {
-        "card": "The_China_Card"
-      }
-    },
-    {
-      "kind": "play_mode",
-      "payload": {
-        "mode": "ops"
-      }
-    },
-    {
-      "kind": "ops_type",
-      "payload": {
-        "type": "realignment"
-      }
-    },
-    {
       "kind": "realignment_target",
       "payload": {
-        "country": "Ecuador"
+        "country": "West_Germany"
       }
     },
     {
       "kind": "realignment_actor_roll",
       "payload": {
-        "value": 3
+        "value": 1
       }
     },
     {
       "kind": "realignment_opponent_roll",
+      "payload": {
+        "value": 3
+      }
+    },
+    {
+      "kind": "action_round_play",
+      "payload": {
+        "card": "Vietnam_Revolts"
+      }
+    },
+    {
+      "kind": "play_mode",
+      "payload": {
+        "mode": "space_race"
+      }
+    },
+    {
+      "kind": "space_race_roll",
       "payload": {
         "value": 4
       }
     },
     {
-      "kind": "realignment_target",
-      "payload": {
-        "country": "Zaire"
-      }
-    },
-    {
-      "kind": "realignment_actor_roll",
-      "payload": {
-        "value": 1
-      }
-    },
-    {
-      "kind": "realignment_opponent_roll",
-      "payload": {
-        "value": 3
-      }
-    },
-    {
-      "kind": "realignment_target",
-      "payload": {
-        "country": "Zaire"
-      }
-    },
-    {
-      "kind": "realignment_actor_roll",
-      "payload": {
-        "value": 6
-      }
-    },
-    {
-      "kind": "realignment_opponent_roll",
-      "payload": {
-        "value": 5
-      }
-    },
-    {
-      "kind": "realignment_target",
-      "payload": {
-        "country": "Panama"
-      }
-    },
-    {
-      "kind": "realignment_actor_roll",
-      "payload": {
-        "value": 5
-      }
-    },
-    {
-      "kind": "realignment_opponent_roll",
-      "payload": {
-        "value": 1
-      }
-    },
-    {
       "kind": "action_round_play",
       "payload": {
-        "card": "Truman_Doctrine"
-      }
-    },
-    {
-      "kind": "play_mode",
-      "payload": {
-        "mode": "event"
-      }
-    },
-    {
-      "kind": "event_influence",
-      "payload": {
-        "country": "France"
-      }
-    },
-    {
-      "kind": "action_round_play",
-      "payload": {
-        "card": "East_European_Unrest"
+        "card": "CIA_Created"
       }
     },
     {
@@ -816,37 +757,19 @@
     {
       "kind": "place_influence",
       "payload": {
-        "country": "Cuba"
-      }
-    },
-    {
-      "kind": "place_influence",
-      "payload": {
-        "country": "Colombia"
+        "country": "Austria"
       }
     },
     {
       "kind": "action_round_play",
       "payload": {
-        "card": "Europe_Scoring"
+        "card": "Socialist_Governments"
       }
     },
     {
       "kind": "play_mode",
       "payload": {
-        "mode": "event"
-      }
-    },
-    {
-      "kind": "action_round_play",
-      "payload": {
-        "card": "CIA_Created"
-      }
-    },
-    {
-      "kind": "play_mode",
-      "payload": {
-        "mode": "event"
+        "mode": "ops"
       }
     },
     {
@@ -858,211 +781,25 @@
     {
       "kind": "realignment_target",
       "payload": {
-        "country": "Japan"
+        "country": "Australia"
       }
     },
     {
       "kind": "realignment_actor_roll",
       "payload": {
-        "value": 4
+        "value": 6
       }
     },
     {
       "kind": "realignment_opponent_roll",
       "payload": {
-        "value": 4
-      }
-    },
-    {
-      "kind": "headline_play",
-      "payload": {
-        "card": "Vietnam_Revolts"
-      }
-    },
-    {
-      "kind": "headline_play",
-      "payload": {
-        "card": "Korean_War"
-      }
-    },
-    {
-      "kind": "war_roll",
-      "payload": {
-        "value": 2
-      }
-    },
-    {
-      "kind": "action_round_play",
-      "payload": {
-        "card": "The_Cambridge_Five"
-      }
-    },
-    {
-      "kind": "play_mode",
-      "payload": {
-        "mode": "space_race"
-      }
-    },
-    {
-      "kind": "space_race_roll",
-      "payload": {
-        "value": 2
-      }
-    },
-    {
-      "kind": "action_round_play",
-      "payload": {
-        "card": "COMECON"
-      }
-    },
-    {
-      "kind": "play_mode",
-      "payload": {
-        "mode": "space_race"
-      }
-    },
-    {
-      "kind": "space_race_roll",
-      "payload": {
-        "value": 4
-      }
-    },
-    {
-      "kind": "action_round_play",
-      "payload": {
-        "card": "Romanian_Abdication"
-      }
-    },
-    {
-      "kind": "play_mode",
-      "payload": {
-        "mode": "event"
-      }
-    },
-    {
-      "kind": "action_round_play",
-      "payload": {
-        "card": "Captured_Nazi_Scientist"
-      }
-    },
-    {
-      "kind": "play_mode",
-      "payload": {
-        "mode": "event"
-      }
-    },
-    {
-      "kind": "action_round_play",
-      "payload": {
-        "card": "Asia_Scoring"
-      }
-    },
-    {
-      "kind": "play_mode",
-      "payload": {
-        "mode": "event"
-      }
-    },
-    {
-      "kind": "action_round_play",
-      "payload": {
-        "card": "Independent_Reds"
-      }
-    },
-    {
-      "kind": "play_mode",
-      "payload": {
-        "mode": "event"
-      }
-    },
-    {
-      "kind": "event_choice",
-      "payload": {
-        "choice": "Yugoslavia"
-      }
-    },
-    {
-      "kind": "action_round_play",
-      "payload": {
-        "card": "UN_Intervention"
-      }
-    },
-    {
-      "kind": "play_mode",
-      "payload": {
-        "mode": "ops"
-      }
-    },
-    {
-      "kind": "ops_type",
-      "payload": {
-        "type": "coup"
-      }
-    },
-    {
-      "kind": "coup_target",
-      "payload": {
-        "country": "El_Salvador"
-      }
-    },
-    {
-      "kind": "coup_roll",
-      "payload": {
-        "value": 4
-      }
-    },
-    {
-      "kind": "action_round_play",
-      "payload": {
-        "card": "Indo_Pakistani_War"
-      }
-    },
-    {
-      "kind": "play_mode",
-      "payload": {
-        "mode": "ops"
-      }
-    },
-    {
-      "kind": "ops_type",
-      "payload": {
-        "type": "coup"
-      }
-    },
-    {
-      "kind": "coup_target",
-      "payload": {
-        "country": "Malaysia"
-      }
-    },
-    {
-      "kind": "coup_roll",
-      "payload": {
-        "value": 5
-      }
-    },
-    {
-      "kind": "action_round_play",
-      "payload": {
-        "card": "NORAD"
-      }
-    },
-    {
-      "kind": "play_mode",
-      "payload": {
-        "mode": "ops"
-      }
-    },
-    {
-      "kind": "ops_type",
-      "payload": {
-        "type": "realignment"
+        "value": 3
       }
     },
     {
       "kind": "realignment_target",
       "payload": {
-        "country": "Malaysia"
+        "country": "Finland"
       }
     },
     {
@@ -1080,7 +817,261 @@
     {
       "kind": "realignment_target",
       "payload": {
-        "country": "Zimbabwe"
+        "country": "Norway"
+      }
+    },
+    {
+      "kind": "realignment_actor_roll",
+      "payload": {
+        "value": 3
+      }
+    },
+    {
+      "kind": "realignment_opponent_roll",
+      "payload": {
+        "value": 3
+      }
+    },
+    {
+      "kind": "action_round_play",
+      "payload": {
+        "card": "Korean_War"
+      }
+    },
+    {
+      "kind": "play_mode",
+      "payload": {
+        "mode": "ops"
+      }
+    },
+    {
+      "kind": "event_ops_order",
+      "payload": {
+        "order": "event_first"
+      }
+    },
+    {
+      "kind": "war_roll",
+      "payload": {
+        "value": 3
+      }
+    },
+    {
+      "kind": "event_resume",
+      "payload": {}
+    },
+    {
+      "kind": "ops_type",
+      "payload": {
+        "type": "influence"
+      }
+    },
+    {
+      "kind": "place_influence",
+      "payload": {
+        "country": "Turkey"
+      }
+    },
+    {
+      "kind": "place_influence",
+      "payload": {
+        "country": "Turkey"
+      }
+    },
+    {
+      "kind": "action_round_play",
+      "payload": {
+        "card": "Formosan_Resolution"
+      }
+    },
+    {
+      "kind": "play_mode",
+      "payload": {
+        "mode": "ops"
+      }
+    },
+    {
+      "kind": "event_ops_order",
+      "payload": {
+        "order": "ops_first"
+      }
+    },
+    {
+      "kind": "ops_type",
+      "payload": {
+        "type": "realignment"
+      }
+    },
+    {
+      "kind": "realignment_target",
+      "payload": {
+        "country": "Burma"
+      }
+    },
+    {
+      "kind": "realignment_actor_roll",
+      "payload": {
+        "value": 4
+      }
+    },
+    {
+      "kind": "realignment_opponent_roll",
+      "payload": {
+        "value": 1
+      }
+    },
+    {
+      "kind": "realignment_target",
+      "payload": {
+        "country": "Guatemala"
+      }
+    },
+    {
+      "kind": "realignment_actor_roll",
+      "payload": {
+        "value": 3
+      }
+    },
+    {
+      "kind": "realignment_opponent_roll",
+      "payload": {
+        "value": 6
+      }
+    },
+    {
+      "kind": "event_resume",
+      "payload": {}
+    },
+    {
+      "kind": "action_round_play",
+      "payload": {
+        "card": "Nasser"
+      }
+    },
+    {
+      "kind": "play_mode",
+      "payload": {
+        "mode": "event"
+      }
+    },
+    {
+      "kind": "action_round_play",
+      "payload": {
+        "card": "Europe_Scoring"
+      }
+    },
+    {
+      "kind": "play_mode",
+      "payload": {
+        "mode": "event"
+      }
+    },
+    {
+      "kind": "action_round_play",
+      "payload": {
+        "card": "Warsaw_Pact_Formed"
+      }
+    },
+    {
+      "kind": "play_mode",
+      "payload": {
+        "mode": "event"
+      }
+    },
+    {
+      "kind": "event_choice",
+      "payload": {
+        "choice": "remove"
+      }
+    },
+    {
+      "kind": "event_influence",
+      "payload": {
+        "country": "Romania"
+      }
+    },
+    {
+      "kind": "headline_play",
+      "payload": {
+        "card": "COMECON"
+      }
+    },
+    {
+      "kind": "headline_play",
+      "payload": {
+        "card": "Red_Scare_Purge"
+      }
+    },
+    {
+      "kind": "event_influence",
+      "payload": {
+        "country": "Bulgaria"
+      }
+    },
+    {
+      "kind": "event_influence",
+      "payload": {
+        "country": "East_Germany"
+      }
+    },
+    {
+      "kind": "event_influence",
+      "payload": {
+        "country": "Czechoslovakia"
+      }
+    },
+    {
+      "kind": "event_influence",
+      "payload": {
+        "country": "Poland"
+      }
+    },
+    {
+      "kind": "action_round_play",
+      "payload": {
+        "card": "Decolonization"
+      }
+    },
+    {
+      "kind": "play_mode",
+      "payload": {
+        "mode": "ops"
+      }
+    },
+    {
+      "kind": "ops_type",
+      "payload": {
+        "type": "influence"
+      }
+    },
+    {
+      "kind": "place_influence",
+      "payload": {
+        "country": "Romania"
+      }
+    },
+    {
+      "kind": "action_round_play",
+      "payload": {
+        "card": "The_China_Card"
+      }
+    },
+    {
+      "kind": "play_mode",
+      "payload": {
+        "mode": "space_race"
+      }
+    },
+    {
+      "kind": "space_race_roll",
+      "payload": {
+        "value": 4
+      }
+    },
+    {
+      "kind": "action_round_play",
+      "payload": {
+        "card": "CIA_Created"
       }
     }
   ],
@@ -1716,18 +1707,18 @@
             3250785179,
             908570166,
             3110049594,
-            73
+            70
           ],
           null
         ],
         "board": {
           "influence": {
             "Canada": {
-              "US": 3,
+              "US": 2,
               "USSR": 0
             },
             "UK": {
-              "US": 5,
+              "US": 4,
               "USSR": 0
             },
             "Norway": {
@@ -1739,7 +1730,7 @@
               "USSR": 0
             },
             "Denmark": {
-              "US": 0,
+              "US": 1,
               "USSR": 0
             },
             "Benelux": {
@@ -1751,7 +1742,7 @@
               "USSR": 0
             },
             "Spain_Portugal": {
-              "US": 2,
+              "US": 4,
               "USSR": 0
             },
             "Italy": {
@@ -1759,11 +1750,11 @@
               "USSR": 0
             },
             "Greece": {
-              "US": 1,
+              "US": 0,
               "USSR": 0
             },
             "Turkey": {
-              "US": 0,
+              "US": 1,
               "USSR": 0
             },
             "Austria": {
@@ -1780,15 +1771,15 @@
             },
             "East_Germany": {
               "US": 0,
-              "USSR": 5
+              "USSR": 4
             },
             "Poland": {
               "US": 0,
-              "USSR": 3
+              "USSR": 1
             },
             "Czechoslovakia": {
               "US": 0,
-              "USSR": 3
+              "USSR": 0
             },
             "Hungary": {
               "US": 0,
@@ -1796,7 +1787,7 @@
             },
             "Yugoslavia": {
               "US": 0,
-              "USSR": 3
+              "USSR": 1
             },
             "Romania": {
               "US": 0,
@@ -1804,7 +1795,7 @@
             },
             "Bulgaria": {
               "US": 0,
-              "USSR": 0
+              "USSR": 3
             },
             "Libya": {
               "US": 0,
@@ -1815,7 +1806,7 @@
               "USSR": 0
             },
             "Israel": {
-              "US": 1,
+              "US": 0,
               "USSR": 0
             },
             "Lebanon": {
@@ -1851,7 +1842,7 @@
               "USSR": 0
             },
             "Pakistan": {
-              "US": 0,
+              "US": 1,
               "USSR": 0
             },
             "India": {
@@ -1867,16 +1858,16 @@
               "USSR": 0
             },
             "Taiwan": {
-              "US": 0,
+              "US": 1,
               "USSR": 0
             },
             "South_Korea": {
-              "US": 1,
+              "US": 0,
               "USSR": 0
             },
             "North_Korea": {
               "US": 0,
-              "USSR": 0
+              "USSR": 3
             },
             "Chinese_Civil_War": {
               "US": 0,
@@ -2003,7 +1994,7 @@
               "USSR": 0
             },
             "Panama": {
-              "US": 1,
+              "US": 0,
               "USSR": 0
             },
             "Nicaragua": {
@@ -2064,46 +2055,37 @@
             }
           }
         },
-        "defcon": 5,
-        "vp": 5,
+        "defcon": 3,
+        "vp": 2,
         "turn": 1,
         "action_round": 4,
-        "next_decision_id": 62,
+        "next_decision_id": 61,
         "decision_stack": [
           {
-            "id": 50,
-            "actor": "USSR",
-            "kind": "event_resume",
+            "id": 61,
+            "actor": "US",
+            "kind": "war_target",
             "options": [
               {
-                "kind": "event_resume",
-                "payload": {}
-              }
-            ],
-            "context": {
-              "what": "event",
-              "side": "USSR",
-              "card": "Marshall_Plan"
-            }
-          },
-          {
-            "id": 62,
-            "actor": "CHANCE",
-            "kind": "realignment_opponent_roll",
-            "options": [
-              {
-                "kind": "realignment_opponent_roll",
+                "kind": "war_target",
                 "payload": {
-                  "value": 2
+                  "country": "India"
+                }
+              },
+              {
+                "kind": "war_target",
+                "payload": {
+                  "country": "Pakistan"
                 }
               }
             ],
             "context": {
-              "side": "USSR",
-              "country": "Vietnam",
-              "card_ops": 4,
-              "attempts_remaining": 1,
-              "actor_roll": 6
+              "card": "Indo_Pakistani_War",
+              "attacker": "US",
+              "win_from": 4,
+              "vp": 2,
+              "military_ops": 2,
+              "count_target_control": true
             }
           }
         ],
@@ -2136,29 +2118,29 @@
           "Formosan_Resolution"
         ],
         "discard_pile": [
+          "Middle_East_Scoring",
+          "Duck_and_Cover",
           "Nuclear_Test_Ban",
-          "Socialist_Governments",
-          "Suez_Crisis",
-          "Red_Scare_Purge",
+          "Olympic_Games",
+          "Five_Year_Plan",
           "Containment",
-          "Middle_East_Scoring"
+          "Red_Scare_Purge",
+          "Indo_Pakistani_War"
         ],
         "removed_cards": [
-          "Warsaw_Pact_Formed",
-          "Marshall_Plan"
+          "Suez_Crisis"
         ],
         "hands": {
           "US": [
-            "Five_Year_Plan",
             "De_Gaulle_Leads_France",
-            "Indo_Pakistani_War",
+            "Warsaw_Pact_Formed",
             "Arab_Israeli_War"
           ],
           "USSR": [
-            "Duck_and_Cover",
             "NATO",
             "The_Cambridge_Five",
-            "Olympic_Games"
+            "Socialist_Governments",
+            "Marshall_Plan"
           ]
         },
         "china_card_owner": "US",
@@ -2172,10 +2154,10 @@
           "USSR": 1
         },
         "military_ops": {
-          "US": 0,
-          "USSR": 0
+          "US": 3,
+          "USSR": 2
         },
-        "ars_played": 7,
+        "ars_played": 8,
         "headline": {
           "US": null,
           "USSR": null
@@ -2186,9 +2168,9 @@
         "turn_effects": {
           "red_scare": "US"
         },
-        "game_effects": {
-          "marshall_or_warsaw": true
-        }
+        "game_effects": {},
+        "our_man_queue": [],
+        "our_man_kept": []
       }
     },
     {
@@ -2822,18 +2804,18 @@
             3250785179,
             908570166,
             3110049594,
-            92
+            80
           ],
           null
         ],
         "board": {
           "influence": {
             "Canada": {
-              "US": 3,
-              "USSR": 0
+              "US": 2,
+              "USSR": 1
             },
             "UK": {
-              "US": 6,
+              "US": 5,
               "USSR": 0
             },
             "Norway": {
@@ -2854,10 +2836,10 @@
             },
             "France": {
               "US": 0,
-              "USSR": 1
+              "USSR": 0
             },
             "Spain_Portugal": {
-              "US": 3,
+              "US": 5,
               "USSR": 0
             },
             "Italy": {
@@ -2865,11 +2847,11 @@
               "USSR": 0
             },
             "Greece": {
-              "US": 2,
+              "US": 1,
               "USSR": 0
             },
             "Turkey": {
-              "US": 0,
+              "US": 1,
               "USSR": 0
             },
             "Austria": {
@@ -2881,20 +2863,20 @@
               "USSR": 1
             },
             "West_Germany": {
-              "US": 1,
+              "US": 0,
               "USSR": 0
             },
             "East_Germany": {
               "US": 0,
-              "USSR": 5
+              "USSR": 4
             },
             "Poland": {
               "US": 0,
-              "USSR": 3
+              "USSR": 1
             },
             "Czechoslovakia": {
               "US": 0,
-              "USSR": 3
+              "USSR": 0
             },
             "Hungary": {
               "US": 0,
@@ -2902,15 +2884,15 @@
             },
             "Yugoslavia": {
               "US": 0,
-              "USSR": 3
+              "USSR": 0
             },
             "Romania": {
-              "US": 0,
+              "US": 1,
               "USSR": 0
             },
             "Bulgaria": {
               "US": 0,
-              "USSR": 0
+              "USSR": 4
             },
             "Libya": {
               "US": 0,
@@ -2918,15 +2900,15 @@
             },
             "Egypt": {
               "US": 0,
-              "USSR": 2
+              "USSR": 0
             },
             "Israel": {
-              "US": 1,
+              "US": 0,
               "USSR": 0
             },
             "Lebanon": {
               "US": 0,
-              "USSR": 0
+              "USSR": 3
             },
             "Syria": {
               "US": 0,
@@ -2934,7 +2916,7 @@
             },
             "Iraq": {
               "US": 0,
-              "USSR": 1
+              "USSR": 0
             },
             "Iran": {
               "US": 1,
@@ -2957,7 +2939,7 @@
               "USSR": 0
             },
             "Pakistan": {
-              "US": 0,
+              "US": 1,
               "USSR": 0
             },
             "India": {
@@ -2973,16 +2955,16 @@
               "USSR": 0
             },
             "Taiwan": {
-              "US": 0,
-              "USSR": 0
-            },
-            "South_Korea": {
               "US": 1,
               "USSR": 0
             },
+            "South_Korea": {
+              "US": 0,
+              "USSR": 1
+            },
             "North_Korea": {
               "US": 0,
-              "USSR": 0
+              "USSR": 3
             },
             "Chinese_Civil_War": {
               "US": 0,
@@ -3002,7 +2984,7 @@
             },
             "Vietnam": {
               "US": 0,
-              "USSR": 2
+              "USSR": 0
             },
             "Malaysia": {
               "US": 0,
@@ -3038,7 +3020,7 @@
             },
             "Saharan_States": {
               "US": 0,
-              "USSR": 0
+              "USSR": 1
             },
             "Nigeria": {
               "US": 0,
@@ -3109,7 +3091,7 @@
               "USSR": 0
             },
             "Panama": {
-              "US": 1,
+              "US": 0,
               "USSR": 0
             },
             "Nicaragua": {
@@ -3118,11 +3100,11 @@
             },
             "Cuba": {
               "US": 0,
-              "USSR": 3
+              "USSR": 0
             },
             "Haiti": {
               "US": 0,
-              "USSR": 0
+              "USSR": 1
             },
             "Dominican_Republic": {
               "US": 0,
@@ -3150,7 +3132,7 @@
             },
             "Uruguay": {
               "US": 0,
-              "USSR": 0
+              "USSR": 1
             },
             "Paraguay": {
               "US": 0,
@@ -3170,532 +3152,49 @@
             }
           }
         },
-        "defcon": 4,
-        "vp": 3,
+        "defcon": 2,
+        "vp": 6,
         "turn": 2,
-        "action_round": 4,
+        "action_round": 3,
         "next_decision_id": 121,
         "decision_stack": [
           {
             "id": 121,
-            "actor": "US",
-            "kind": "realignment_target",
+            "actor": "USSR",
+            "kind": "action_round_play",
             "options": [
               {
-                "kind": "realignment_target",
+                "kind": "action_round_play",
                 "payload": {
-                  "country": "Canada"
+                  "card": "The_Cambridge_Five"
                 }
               },
               {
-                "kind": "realignment_target",
+                "kind": "action_round_play",
                 "payload": {
-                  "country": "UK"
+                  "card": "Socialist_Governments"
                 }
               },
               {
-                "kind": "realignment_target",
+                "kind": "action_round_play",
                 "payload": {
-                  "country": "Norway"
+                  "card": "Formosan_Resolution"
                 }
               },
               {
-                "kind": "realignment_target",
+                "kind": "action_round_play",
                 "payload": {
-                  "country": "Sweden"
+                  "card": "Europe_Scoring"
                 }
               },
               {
-                "kind": "realignment_target",
+                "kind": "action_round_play",
                 "payload": {
-                  "country": "Denmark"
-                }
-              },
-              {
-                "kind": "realignment_target",
-                "payload": {
-                  "country": "Benelux"
-                }
-              },
-              {
-                "kind": "realignment_target",
-                "payload": {
-                  "country": "France"
-                }
-              },
-              {
-                "kind": "realignment_target",
-                "payload": {
-                  "country": "Spain_Portugal"
-                }
-              },
-              {
-                "kind": "realignment_target",
-                "payload": {
-                  "country": "Italy"
-                }
-              },
-              {
-                "kind": "realignment_target",
-                "payload": {
-                  "country": "Greece"
-                }
-              },
-              {
-                "kind": "realignment_target",
-                "payload": {
-                  "country": "Turkey"
-                }
-              },
-              {
-                "kind": "realignment_target",
-                "payload": {
-                  "country": "Austria"
-                }
-              },
-              {
-                "kind": "realignment_target",
-                "payload": {
-                  "country": "Finland"
-                }
-              },
-              {
-                "kind": "realignment_target",
-                "payload": {
-                  "country": "West_Germany"
-                }
-              },
-              {
-                "kind": "realignment_target",
-                "payload": {
-                  "country": "East_Germany"
-                }
-              },
-              {
-                "kind": "realignment_target",
-                "payload": {
-                  "country": "Poland"
-                }
-              },
-              {
-                "kind": "realignment_target",
-                "payload": {
-                  "country": "Czechoslovakia"
-                }
-              },
-              {
-                "kind": "realignment_target",
-                "payload": {
-                  "country": "Hungary"
-                }
-              },
-              {
-                "kind": "realignment_target",
-                "payload": {
-                  "country": "Yugoslavia"
-                }
-              },
-              {
-                "kind": "realignment_target",
-                "payload": {
-                  "country": "Romania"
-                }
-              },
-              {
-                "kind": "realignment_target",
-                "payload": {
-                  "country": "Bulgaria"
-                }
-              },
-              {
-                "kind": "realignment_target",
-                "payload": {
-                  "country": "Libya"
-                }
-              },
-              {
-                "kind": "realignment_target",
-                "payload": {
-                  "country": "Egypt"
-                }
-              },
-              {
-                "kind": "realignment_target",
-                "payload": {
-                  "country": "Israel"
-                }
-              },
-              {
-                "kind": "realignment_target",
-                "payload": {
-                  "country": "Lebanon"
-                }
-              },
-              {
-                "kind": "realignment_target",
-                "payload": {
-                  "country": "Syria"
-                }
-              },
-              {
-                "kind": "realignment_target",
-                "payload": {
-                  "country": "Iraq"
-                }
-              },
-              {
-                "kind": "realignment_target",
-                "payload": {
-                  "country": "Iran"
-                }
-              },
-              {
-                "kind": "realignment_target",
-                "payload": {
-                  "country": "Jordan"
-                }
-              },
-              {
-                "kind": "realignment_target",
-                "payload": {
-                  "country": "Gulf_States"
-                }
-              },
-              {
-                "kind": "realignment_target",
-                "payload": {
-                  "country": "Saudi_Arabia"
-                }
-              },
-              {
-                "kind": "realignment_target",
-                "payload": {
-                  "country": "Afghanistan"
-                }
-              },
-              {
-                "kind": "realignment_target",
-                "payload": {
-                  "country": "Pakistan"
-                }
-              },
-              {
-                "kind": "realignment_target",
-                "payload": {
-                  "country": "India"
-                }
-              },
-              {
-                "kind": "realignment_target",
-                "payload": {
-                  "country": "Australia"
-                }
-              },
-              {
-                "kind": "realignment_target",
-                "payload": {
-                  "country": "Japan"
-                }
-              },
-              {
-                "kind": "realignment_target",
-                "payload": {
-                  "country": "Taiwan"
-                }
-              },
-              {
-                "kind": "realignment_target",
-                "payload": {
-                  "country": "South_Korea"
-                }
-              },
-              {
-                "kind": "realignment_target",
-                "payload": {
-                  "country": "North_Korea"
-                }
-              },
-              {
-                "kind": "realignment_target",
-                "payload": {
-                  "country": "Chinese_Civil_War"
-                }
-              },
-              {
-                "kind": "realignment_target",
-                "payload": {
-                  "country": "Burma"
-                }
-              },
-              {
-                "kind": "realignment_target",
-                "payload": {
-                  "country": "Laos_Cambodia"
-                }
-              },
-              {
-                "kind": "realignment_target",
-                "payload": {
-                  "country": "Thailand"
-                }
-              },
-              {
-                "kind": "realignment_target",
-                "payload": {
-                  "country": "Vietnam"
-                }
-              },
-              {
-                "kind": "realignment_target",
-                "payload": {
-                  "country": "Malaysia"
-                }
-              },
-              {
-                "kind": "realignment_target",
-                "payload": {
-                  "country": "Indonesia"
-                }
-              },
-              {
-                "kind": "realignment_target",
-                "payload": {
-                  "country": "Philippines"
-                }
-              },
-              {
-                "kind": "realignment_target",
-                "payload": {
-                  "country": "Algeria"
-                }
-              },
-              {
-                "kind": "realignment_target",
-                "payload": {
-                  "country": "Morocco"
-                }
-              },
-              {
-                "kind": "realignment_target",
-                "payload": {
-                  "country": "Tunisia"
-                }
-              },
-              {
-                "kind": "realignment_target",
-                "payload": {
-                  "country": "West_African_States"
-                }
-              },
-              {
-                "kind": "realignment_target",
-                "payload": {
-                  "country": "Ivory_Coast"
-                }
-              },
-              {
-                "kind": "realignment_target",
-                "payload": {
-                  "country": "Saharan_States"
-                }
-              },
-              {
-                "kind": "realignment_target",
-                "payload": {
-                  "country": "Nigeria"
-                }
-              },
-              {
-                "kind": "realignment_target",
-                "payload": {
-                  "country": "Cameroon"
-                }
-              },
-              {
-                "kind": "realignment_target",
-                "payload": {
-                  "country": "Zaire"
-                }
-              },
-              {
-                "kind": "realignment_target",
-                "payload": {
-                  "country": "Angola"
-                }
-              },
-              {
-                "kind": "realignment_target",
-                "payload": {
-                  "country": "South_Africa"
-                }
-              },
-              {
-                "kind": "realignment_target",
-                "payload": {
-                  "country": "Botswana"
-                }
-              },
-              {
-                "kind": "realignment_target",
-                "payload": {
-                  "country": "Zimbabwe"
-                }
-              },
-              {
-                "kind": "realignment_target",
-                "payload": {
-                  "country": "SE_African_States"
-                }
-              },
-              {
-                "kind": "realignment_target",
-                "payload": {
-                  "country": "Kenya"
-                }
-              },
-              {
-                "kind": "realignment_target",
-                "payload": {
-                  "country": "Somalia"
-                }
-              },
-              {
-                "kind": "realignment_target",
-                "payload": {
-                  "country": "Ethiopia"
-                }
-              },
-              {
-                "kind": "realignment_target",
-                "payload": {
-                  "country": "Sudan"
-                }
-              },
-              {
-                "kind": "realignment_target",
-                "payload": {
-                  "country": "Mexico"
-                }
-              },
-              {
-                "kind": "realignment_target",
-                "payload": {
-                  "country": "Guatemala"
-                }
-              },
-              {
-                "kind": "realignment_target",
-                "payload": {
-                  "country": "El_Salvador"
-                }
-              },
-              {
-                "kind": "realignment_target",
-                "payload": {
-                  "country": "Honduras"
-                }
-              },
-              {
-                "kind": "realignment_target",
-                "payload": {
-                  "country": "Costa_Rica"
-                }
-              },
-              {
-                "kind": "realignment_target",
-                "payload": {
-                  "country": "Panama"
-                }
-              },
-              {
-                "kind": "realignment_target",
-                "payload": {
-                  "country": "Nicaragua"
-                }
-              },
-              {
-                "kind": "realignment_target",
-                "payload": {
-                  "country": "Cuba"
-                }
-              },
-              {
-                "kind": "realignment_target",
-                "payload": {
-                  "country": "Haiti"
-                }
-              },
-              {
-                "kind": "realignment_target",
-                "payload": {
-                  "country": "Dominican_Republic"
-                }
-              },
-              {
-                "kind": "realignment_target",
-                "payload": {
-                  "country": "Colombia"
-                }
-              },
-              {
-                "kind": "realignment_target",
-                "payload": {
-                  "country": "Ecuador"
-                }
-              },
-              {
-                "kind": "realignment_target",
-                "payload": {
-                  "country": "Peru"
-                }
-              },
-              {
-                "kind": "realignment_target",
-                "payload": {
-                  "country": "Chile"
-                }
-              },
-              {
-                "kind": "realignment_target",
-                "payload": {
-                  "country": "Argentina"
-                }
-              },
-              {
-                "kind": "realignment_target",
-                "payload": {
-                  "country": "Uruguay"
-                }
-              },
-              {
-                "kind": "realignment_target",
-                "payload": {
-                  "country": "Paraguay"
-                }
-              },
-              {
-                "kind": "realignment_target",
-                "payload": {
-                  "country": "Bolivia"
-                }
-              },
-              {
-                "kind": "realignment_target",
-                "payload": {
-                  "country": "Brazil"
-                }
-              },
-              {
-                "kind": "realignment_target",
-                "payload": {
-                  "country": "Venezuela"
+                  "card": "Vietnam_Revolts"
                 }
               }
             ],
-            "context": {
-              "card_ops": 4,
-              "attempts_remaining": 3
-            }
+            "context": {}
           }
         ],
         "winner": null,
@@ -3710,63 +3209,63 @@
           "COMECON",
           "Romanian_Abdication",
           "Captured_Nazi_Scientist",
-          "UN_Intervention"
+          "UN_Intervention",
+          "East_European_Unrest"
         ],
         "discard_pile": [
-          "Nuclear_Test_Ban",
-          "Socialist_Governments",
-          "Suez_Crisis",
-          "Red_Scare_Purge",
-          "Containment",
           "Middle_East_Scoring",
-          "Indo_Pakistani_War",
+          "Duck_and_Cover",
+          "Nuclear_Test_Ban",
           "Olympic_Games",
           "Five_Year_Plan",
-          "Duck_and_Cover",
+          "Containment",
+          "Red_Scare_Purge",
+          "Indo_Pakistani_War",
           "Arab_Israeli_War",
-          "The_Cambridge_Five",
-          "Defectors",
-          "De_Stalinization",
           "Blockade",
+          "US_Japan_Mutual_Defense_Pact",
+          "Defectors",
           "Special_Relationship"
         ],
         "removed_cards": [
-          "Warsaw_Pact_Formed",
+          "Suez_Crisis",
           "Marshall_Plan",
-          "NATO",
           "De_Gaulle_Leads_France",
-          "Formosan_Resolution",
-          "Fidel",
-          "Nasser"
+          "NATO",
+          "De_Stalinization",
+          "Truman_Doctrine"
         ],
         "hands": {
           "US": [
+            "Warsaw_Pact_Formed",
+            "Fidel",
             "Korean_War",
             "CIA_Created",
-            "US_Japan_Mutual_Defense_Pact",
-            "East_European_Unrest"
+            "Nasser"
           ],
           "USSR": [
+            "The_Cambridge_Five",
+            "Socialist_Governments",
+            "Formosan_Resolution",
             "Europe_Scoring",
-            "Truman_Doctrine",
             "Vietnam_Revolts"
           ]
         },
-        "china_card_owner": "USSR",
-        "china_card_available": false,
+        "china_card_owner": "US",
+        "china_card_available": true,
         "space_race": {
           "US": 1,
           "USSR": 0
         },
         "space_race_attempts": {
           "US": 1,
-          "USSR": 1
+          "USSR": 0
         },
         "military_ops": {
           "US": 0,
           "USSR": 1
         },
-        "ars_played": 8,
+        "ars_played": 5,
         "headline": {
           "US": null,
           "USSR": null
@@ -3777,9 +3276,11 @@
         "turn_effects": {},
         "game_effects": {
           "marshall_or_warsaw": true,
-          "nato": true,
-          "degaulle_france": true
-        }
+          "degaulle_france": true,
+          "nato": true
+        },
+        "our_man_queue": [],
+        "our_man_kept": []
       }
     },
     {
@@ -4413,18 +3914,18 @@
             3250785179,
             908570166,
             3110049594,
-            138
+            115
           ],
           null
         ],
         "board": {
           "influence": {
             "Canada": {
-              "US": 3,
-              "USSR": 0
+              "US": 2,
+              "USSR": 1
             },
             "UK": {
-              "US": 6,
+              "US": 5,
               "USSR": 0
             },
             "Norway": {
@@ -4448,7 +3949,7 @@
               "USSR": 0
             },
             "Spain_Portugal": {
-              "US": 3,
+              "US": 5,
               "USSR": 0
             },
             "Italy": {
@@ -4456,15 +3957,15 @@
               "USSR": 0
             },
             "Greece": {
-              "US": 2,
+              "US": 1,
               "USSR": 0
             },
             "Turkey": {
-              "US": 0,
+              "US": 3,
               "USSR": 0
             },
             "Austria": {
-              "US": 0,
+              "US": 1,
               "USSR": 0
             },
             "Finland": {
@@ -4472,7 +3973,7 @@
               "USSR": 1
             },
             "West_Germany": {
-              "US": 1,
+              "US": 0,
               "USSR": 0
             },
             "East_Germany": {
@@ -4481,27 +3982,27 @@
             },
             "Poland": {
               "US": 0,
-              "USSR": 3
+              "USSR": 2
             },
             "Czechoslovakia": {
               "US": 0,
-              "USSR": 3
+              "USSR": 1
             },
             "Hungary": {
               "US": 0,
               "USSR": 0
             },
             "Yugoslavia": {
-              "US": 3,
-              "USSR": 3
+              "US": 0,
+              "USSR": 0
             },
             "Romania": {
               "US": 0,
-              "USSR": 3
+              "USSR": 1
             },
             "Bulgaria": {
               "US": 0,
-              "USSR": 0
+              "USSR": 5
             },
             "Libya": {
               "US": 0,
@@ -4512,12 +4013,12 @@
               "USSR": 2
             },
             "Israel": {
-              "US": 1,
+              "US": 0,
               "USSR": 0
             },
             "Lebanon": {
               "US": 0,
-              "USSR": 0
+              "USSR": 3
             },
             "Syria": {
               "US": 0,
@@ -4525,7 +4026,7 @@
             },
             "Iraq": {
               "US": 0,
-              "USSR": 1
+              "USSR": 0
             },
             "Iran": {
               "US": 1,
@@ -4548,7 +4049,7 @@
               "USSR": 0
             },
             "Pakistan": {
-              "US": 0,
+              "US": 1,
               "USSR": 0
             },
             "India": {
@@ -4556,7 +4057,7 @@
               "USSR": 0
             },
             "Australia": {
-              "US": 4,
+              "US": 0,
               "USSR": 0
             },
             "Japan": {
@@ -4564,16 +4065,16 @@
               "USSR": 0
             },
             "Taiwan": {
-              "US": 0,
-              "USSR": 0
-            },
-            "South_Korea": {
               "US": 1,
               "USSR": 0
             },
+            "South_Korea": {
+              "US": 0,
+              "USSR": 1
+            },
             "North_Korea": {
               "US": 0,
-              "USSR": 0
+              "USSR": 3
             },
             "Chinese_Civil_War": {
               "US": 0,
@@ -4593,7 +4094,7 @@
             },
             "Vietnam": {
               "US": 0,
-              "USSR": 4
+              "USSR": 0
             },
             "Malaysia": {
               "US": 0,
@@ -4629,7 +4130,7 @@
             },
             "Saharan_States": {
               "US": 0,
-              "USSR": 0
+              "USSR": 1
             },
             "Nigeria": {
               "US": 0,
@@ -4689,7 +4190,7 @@
             },
             "El_Salvador": {
               "US": 0,
-              "USSR": 3
+              "USSR": 0
             },
             "Honduras": {
               "US": 0,
@@ -4700,7 +4201,7 @@
               "USSR": 0
             },
             "Panama": {
-              "US": 1,
+              "US": 0,
               "USSR": 0
             },
             "Nicaragua": {
@@ -4708,19 +4209,19 @@
               "USSR": 0
             },
             "Cuba": {
-              "US": 1,
-              "USSR": 3
+              "US": 0,
+              "USSR": 0
             },
             "Haiti": {
               "US": 0,
-              "USSR": 0
+              "USSR": 1
             },
             "Dominican_Republic": {
               "US": 0,
               "USSR": 0
             },
             "Colombia": {
-              "US": 1,
+              "US": 0,
               "USSR": 0
             },
             "Ecuador": {
@@ -4741,7 +4242,7 @@
             },
             "Uruguay": {
               "US": 0,
-              "USSR": 0
+              "USSR": 1
             },
             "Paraguay": {
               "US": 0,
@@ -4762,28 +4263,31 @@
           }
         },
         "defcon": 3,
-        "vp": -1,
+        "vp": 4,
         "turn": 3,
-        "action_round": 5,
+        "action_round": 2,
         "next_decision_id": 181,
         "decision_stack": [
           {
             "id": 181,
-            "actor": "CHANCE",
-            "kind": "realignment_actor_roll",
+            "actor": "USSR",
+            "kind": "play_mode",
             "options": [
               {
-                "kind": "realignment_actor_roll",
+                "kind": "play_mode",
                 "payload": {
-                  "value": 3
+                  "mode": "ops"
+                }
+              },
+              {
+                "kind": "play_mode",
+                "payload": {
+                  "mode": "event"
                 }
               }
             ],
             "context": {
-              "side": "USSR",
-              "country": "Zimbabwe",
-              "card_ops": 3,
-              "attempts_remaining": 2
+              "card": "CIA_Created"
             }
           }
         ],
@@ -4792,70 +4296,70 @@
         "phase": "action_rounds",
         "include_optional": true,
         "draw_pile": [
+          "Defectors",
           "Duck_and_Cover",
-          "Socialist_Governments",
+          "Middle_East_Scoring",
+          "US_Japan_Mutual_Defense_Pact",
+          "Indo_Pakistani_War",
+          "Blockade",
           "Nuclear_Test_Ban",
-          "De_Stalinization",
+          "Vietnam_Revolts",
           "Five_Year_Plan",
           "Special_Relationship",
-          "Red_Scare_Purge",
-          "Olympic_Games",
-          "Suez_Crisis",
-          "Defectors",
-          "Middle_East_Scoring",
           "Arab_Israeli_War",
-          "Blockade"
+          "Socialist_Governments"
         ],
         "discard_pile": [
-          "The_Cambridge_Five",
-          "COMECON",
-          "Asia_Scoring",
-          "UN_Intervention",
-          "Indo_Pakistani_War",
-          "NORAD"
+          "Red_Scare_Purge",
+          "Decolonization"
         ],
         "removed_cards": [
-          "Warsaw_Pact_Formed",
+          "Suez_Crisis",
           "Marshall_Plan",
-          "NATO",
           "De_Gaulle_Leads_France",
-          "Formosan_Resolution",
-          "Fidel",
-          "Nasser",
+          "NATO",
+          "De_Stalinization",
           "Truman_Doctrine",
-          "CIA_Created",
           "Korean_War",
-          "Vietnam_Revolts",
-          "Romanian_Abdication",
-          "Captured_Nazi_Scientist",
-          "Independent_Reds"
+          "Formosan_Resolution",
+          "Nasser",
+          "Warsaw_Pact_Formed",
+          "COMECON"
         ],
         "hands": {
           "US": [
-            "US_Japan_Mutual_Defense_Pact",
-            "Decolonization",
+            "Fidel",
+            "UN_Intervention",
+            "Romanian_Abdication",
+            "NORAD",
+            "Asia_Scoring",
+            "Europe_Scoring",
             "Containment"
           ],
           "USSR": [
-            "Europe_Scoring",
-            "East_European_Unrest"
+            "The_Cambridge_Five",
+            "East_European_Unrest",
+            "Captured_Nazi_Scientist",
+            "Independent_Reds",
+            "Olympic_Games",
+            "CIA_Created"
           ]
         },
         "china_card_owner": "USSR",
-        "china_card_available": true,
+        "china_card_available": false,
         "space_race": {
-          "US": 3,
-          "USSR": 1
+          "US": 2,
+          "USSR": 0
         },
         "space_race_attempts": {
           "US": 1,
-          "USSR": 1
+          "USSR": 0
         },
         "military_ops": {
-          "US": 2,
-          "USSR": 3
+          "US": 0,
+          "USSR": 0
         },
-        "ars_played": 9,
+        "ars_played": 3,
         "headline": {
           "US": null,
           "USSR": null
@@ -4864,13 +4368,15 @@
         "headline_pending": [],
         "events_enabled": true,
         "turn_effects": {
-          "vietnam_revolts": true
+          "red_scare": "USSR"
         },
         "game_effects": {
           "marshall_or_warsaw": true,
-          "nato": true,
-          "degaulle_france": true
-        }
+          "degaulle_france": true,
+          "nato": true
+        },
+        "our_man_queue": [],
+        "our_man_kept": []
       }
     }
   ]

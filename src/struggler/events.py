@@ -1338,6 +1338,129 @@ def _destal_place(engine: "Engine", moved: int) -> None:
     )
 
 
+# ---------------------------------------------------------------------------
+# The last four cards, each needing a small subsystem of its own: a persistent
+# scoring/legality hook reacting to game state, a peek at the top of the draw
+# pile, a headline-cancellation interaction, and a persistent per-player
+# operating restriction.
+# ---------------------------------------------------------------------------
+
+
+@event("NORAD")
+def _norad(engine: "Engine", side: Side) -> None:
+    # As long as NORAD is in effect, every time DEFCON moves to level 2 the US
+    # adds 1 Influence to a country where it already has some (see the hook in
+    # Engine._change_defcon / _push_norad_influence).
+    engine.game_effects["norad"] = True
+
+
+@event(
+    "Special_Relationship",
+    eligible=lambda engine, side: engine.board.control("UK") is Side.US,
+)
+def _special_relationship(engine: "Engine", side: Side) -> None:
+    # VERIFY: reconstructed from memory, not independently reconfirmed against
+    # the physical card here. Approximated as: 2 VP for the US (the card is
+    # only eligible while the US Controls the UK); if NATO is also in effect,
+    # the US may additionally attempt one Realignment roll (no Ops bonus, per
+    # push_free_realignment) against a Europe country.
+    engine._award_vp(Side.US, 2)
+    if engine.is_terminal:
+        return
+    if engine.game_effects.get("nato"):
+        engine.push_free_realignment(Side.US, _in_region(engine, Region.EUROPE))
+
+
+@event(
+    "Nixon_Plays_The_China_Card",
+    eligible=lambda engine, side: engine.china_card_owner == "USSR",
+)
+def _nixon_plays_the_china_card(engine: "Engine", side: Side) -> None:
+    # VERIFY: reconstructed from memory, not independently reconfirmed against
+    # the physical card here. If the USSR holds the China Card, the US takes it
+    # face down (unusable this turn) unless the USSR discards a card from hand
+    # to keep it.
+    payable = [cid for cid in engine.hands["USSR"] if not engine.cards[cid].scoring]
+    if not payable:
+        _nixon_take_china(engine)
+        return
+    engine.push_event_choice(
+        "Nixon_Plays_The_China_Card", Side.USSR, tuple(payable) + ("give_up_china",)
+    )
+
+
+def _nixon_take_china(engine: "Engine") -> None:
+    engine.china_card_owner = "US"
+    engine.china_card_available = False  # face down: not usable this turn
+
+
+def _nixon_plays_the_china_card_choice(
+    engine: "Engine", side: Side, choice: str, context: dict
+) -> None:
+    if choice == "give_up_china":
+        _nixon_take_china(engine)
+    else:
+        engine._file_card(Side.USSR, choice, fired=False)
+
+
+@event("Our_Man_In_Tehran")
+def _our_man_in_tehran(engine: "Engine", side: Side) -> None:
+    # The US (regardless of who phases this) looks at the top 5 cards of the
+    # draw pile one at a time, removing or keeping each; kept cards return to
+    # the draw pile, which is then reshuffled. The cards examined are held in
+    # engine state deliberately excluded from observe() (mandate #4): the
+    # EVENT_CHOICE decision itself only ever offers "keep"/"remove", never the
+    # card identity, so the opponent's observation never sees which card is
+    # under consideration.
+    n = min(5, len(engine.draw_pile))
+    if n == 0:
+        return
+    engine._our_man_queue = [engine.draw_pile.pop() for _ in range(n)]
+    _push_our_man_step(engine)
+
+
+def _push_our_man_step(engine: "Engine") -> None:
+    if not engine._our_man_queue:
+        engine.draw_pile.extend(engine._our_man_kept)
+        engine._our_man_kept = []
+        engine._rng.shuffle(engine.draw_pile)
+        return
+    engine.push_event_choice("Our_Man_In_Tehran", Side.US, ("keep", "remove"))
+
+
+def _our_man_in_tehran_choice(engine: "Engine", side: Side, choice: str, context: dict) -> None:
+    card = engine._our_man_queue.pop(0)
+    if choice == "keep":
+        engine._our_man_kept.append(card)
+    else:
+        engine.removed_cards.append(card)
+    _push_our_man_step(engine)
+
+
+# Bear Trap and Quagmire are pure persistent-lock triggers; the whole mechanic
+# (mandatory discard + a freeing die each action round) lives in
+# Engine._trap_key_for / _push_trap_step, hooked into the turn loop. Bear Trap
+# traps the USSR, Quagmire traps the US — independent of who plays the card.
+
+
+@event("Bear_Trap")
+def _bear_trap(engine: "Engine", side: Side) -> None:
+    engine.game_effects["bear_trap"] = True
+
+
+@event("Quagmire")
+def _quagmire(engine: "Engine", side: Side) -> None:
+    engine.game_effects["quagmire"] = True
+
+
+# Defectors has no EVENTS entry: its entire effect (cancel the USSR's headline,
+# or +1 VP for the US if the USSR ever headlines it) only makes sense at
+# headline time and is a documented restriction of the physical card, so it is
+# implemented purely as a headline-order hook
+# (Engine._apply_defectors_headline). Playing it in an action round is
+# therefore correctly a no-op discard, exactly as for an unimplemented event.
+
+
 # -- shared helpers ---------------------------------------------------------
 
 
@@ -1376,4 +1499,6 @@ CHOICE_ROUTERS: dict[str, Callable[["Engine", Side, str], None]] = {
     "Latin_American_Debt_Crisis": _latin_american_debt_crisis_choice,
     "Latin_American_Debt_Crisis_double": _latin_debt_double_choice,
     "De_Stalinization_remove": _de_stalinization_remove_choice,
+    "Nixon_Plays_The_China_Card": _nixon_plays_the_china_card_choice,
+    "Our_Man_In_Tehran": _our_man_in_tehran_choice,
 }

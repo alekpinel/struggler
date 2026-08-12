@@ -1064,6 +1064,11 @@ def _cards_in_play(engine: Engine) -> Counter:
     # draining) lives here until it is filed to a pile.
     for _side, cid in engine._headline_pending:
         c.update([cid])
+    # Our Man in Tehran's peeked-but-undecided cards live here mid-resolution;
+    # they are deliberately excluded from observe() (mandate #4) but must still
+    # be accounted for exactly once.
+    c.update(engine._our_man_queue)
+    c.update(engine._our_man_kept)
     return c
 
 
@@ -1497,6 +1502,220 @@ def test_glasnost_scores_and_grants_ops_only_after_the_reformer():
     reformer._fire_event(Side.USSR, "Glasnost")
     assert reformer.pending_decision.kind is DecisionKind.OPS_TYPE
     assert reformer.pending_decision.context["ops"] == 4
+
+
+# -- the last four subsystems: a persistent reactive hook, a hidden peek, a --
+# -- headline-cancellation interaction, and a persistent operating lock -----
+
+
+def test_norad_fires_only_when_defcon_moves_to_two():
+    engine = _bare()
+    engine.defcon = 5
+    engine._fire_event(Side.US, "NORAD")
+    engine.board.influence["France"] = {"US": 2, "USSR": 0}
+    engine._change_defcon(-3, caused_by=Side.US)  # 5 -> 2
+    assert engine.defcon == 2
+    d = engine.pending_decision
+    assert d is not None and d.kind is DecisionKind.EVENT_INFLUENCE and d.actor is Side.US
+    offered = {a.payload["country"] for a in d.options}
+    assert "France" in offered  # only countries the US already has Influence in
+    engine.step(Action(DecisionKind.EVENT_INFLUENCE, {"country": "France"}))
+    assert engine.board.influence["France"]["US"] == 3
+
+
+def test_norad_does_not_refire_while_already_at_two():
+    engine = _bare()
+    engine.defcon = 2
+    engine.game_effects["norad"] = True
+    engine._change_defcon(0, caused_by=Side.US)  # stays at 2: no fresh "move"
+    assert engine.pending_decision is None
+
+
+def test_norad_inactive_without_the_event_having_fired():
+    engine = _bare()
+    engine.defcon = 5
+    engine._change_defcon(-3, caused_by=Side.US)  # 5 -> 2, but NORAD never fired
+    assert engine.pending_decision is None
+
+
+def test_special_relationship_requires_us_control_of_uk():
+    engine = _bare()
+    engine.board.influence["UK"] = {"US": 0, "USSR": 5}  # USSR controls
+    engine._fire_event(Side.US, "Special_Relationship")
+    assert engine.vp == 0 and engine.pending_decision is None
+
+
+def test_special_relationship_scores_and_grants_realignment_under_nato():
+    plain = _bare()
+    plain.board.influence["UK"] = {"US": 5, "USSR": 0}  # US Controls (stability 5)
+    plain._fire_event(Side.US, "Special_Relationship")
+    assert plain.vp == 2 and plain.pending_decision is None  # no NATO: no realignment
+
+    nato = _bare()
+    nato.board.influence["UK"] = {"US": 5, "USSR": 0}
+    nato.game_effects["nato"] = True
+    nato._fire_event(Side.US, "Special_Relationship")
+    assert nato.vp == 2
+    d = nato.pending_decision
+    assert d.kind is DecisionKind.REALIGNMENT_TARGET and d.actor is Side.US
+    assert all(
+        nato.board.countries[a.payload["country"]].region is Region.EUROPE
+        for a in d.options
+    )
+
+
+def test_nixon_takes_china_card_unless_ussr_pays():
+    taken = _bare()
+    taken.china_card_owner = "USSR"
+    taken.hands["USSR"] = []  # nothing to discard
+    taken._fire_event(Side.US, "Nixon_Plays_The_China_Card")
+    assert taken.china_card_owner == "US"
+    assert taken.china_card_available is False  # face down: unusable this turn
+
+    kept = _bare()
+    kept.china_card_owner = "USSR"
+    kept.hands["USSR"] = ["Nasser"]
+    kept._fire_event(Side.US, "Nixon_Plays_The_China_Card")
+    d = kept.pending_decision
+    assert {a.payload["choice"] for a in d.options} == {"Nasser", "give_up_china"}
+    kept.step(Action(DecisionKind.EVENT_CHOICE, {"choice": "Nasser"}))
+    assert kept.china_card_owner == "USSR"  # kept
+    assert "Nasser" in kept.discard_pile
+
+
+def test_nixon_ineligible_when_us_already_holds_china_card():
+    engine = _bare()
+    engine.china_card_owner = "US"
+    engine._fire_event(Side.US, "Nixon_Plays_The_China_Card")
+    assert engine.pending_decision is None and engine.china_card_owner == "US"
+
+
+def test_our_man_in_tehran_examines_up_to_five_cards_without_leaking_identity():
+    engine = _bare()
+    engine.draw_pile = ["Fidel", "Nasser", "Allende", "COMECON", "Duck_and_Cover", "Blockade"]
+    engine._fire_event(Side.US, "Our_Man_In_Tehran")
+    assert len(engine._our_man_queue) == 5  # only the top 5 are examined
+    d = engine.pending_decision
+    assert d.actor is Side.US
+    assert {a.payload["choice"] for a in d.options} == {"keep", "remove"}  # never the card id
+    for choice in ("keep", "remove", "keep", "keep", "remove"):
+        engine.step(Action(DecisionKind.EVENT_CHOICE, {"choice": choice}))
+    assert engine.pending_decision is None
+    assert len(engine.removed_cards) == 2
+    assert len(engine.draw_pile) == 4  # 1 untouched + 3 kept, reshuffled back in
+    assert engine._our_man_queue == [] and engine._our_man_kept == []
+
+
+def test_our_man_in_tehran_never_leaks_the_examined_card_via_observe():
+    engine = _bare()
+    engine.draw_pile = ["Fidel", "Nasser", "Allende"]
+    engine._fire_event(Side.US, "Our_Man_In_Tehran")
+    for player in (Side.US, Side.USSR):
+        opts = engine.observe(player).pending_decision.options
+        assert {a.payload["choice"] for a in opts} == {"keep", "remove"}
+
+
+def test_our_man_in_tehran_no_op_with_an_empty_draw_pile():
+    engine = _bare()
+    engine.draw_pile = []
+    engine._fire_event(Side.US, "Our_Man_In_Tehran")
+    assert engine.pending_decision is None
+
+
+def _headline_setup_defectors(engine: Engine, ussr_card: str, us_card: str) -> None:
+    engine.phase = "headline"
+    engine.hands = {"USSR": [ussr_card], "US": [us_card]}
+    engine._advance()
+
+
+def test_defectors_cancels_the_ussr_headline():
+    engine = _bare(seed=1)
+    engine.defcon = 5
+    _headline_setup_defectors(engine, "Fidel", "Defectors")
+    engine.step(Action(DecisionKind.HEADLINE_PLAY, {"card": "Fidel"}))
+    engine.step(Action(DecisionKind.HEADLINE_PLAY, {"card": "Defectors"}))
+    assert "Fidel" in engine.discard_pile
+    assert engine.board.control("Cuba") is None  # Fidel's event never fired
+    assert engine.phase == "action_rounds"
+
+
+def test_defectors_headlined_by_ussr_gives_the_us_one_vp():
+    engine = _bare(seed=1)
+    engine.defcon = 5
+    _headline_setup_defectors(engine, "Defectors", "Nasser")
+    engine.step(Action(DecisionKind.HEADLINE_PLAY, {"card": "Defectors"}))
+    engine.step(Action(DecisionKind.HEADLINE_PLAY, {"card": "Nasser"}))
+    assert engine.vp == 1
+    assert engine.phase == "action_rounds"
+
+
+def test_defectors_played_in_an_action_round_is_a_plain_discard():
+    engine = _bare()
+    engine.hands["US"] = ["Defectors"]
+    _play_card_for(engine, Side.US, "Defectors", "event")
+    assert "Defectors" in engine.discard_pile  # no headline: no cancellation effect
+
+
+def test_bear_trap_traps_the_ussr_not_the_us():
+    engine = _bare()
+    engine._fire_event(Side.US, "Bear_Trap")
+    assert engine._trap_key_for(Side.USSR) == "bear_trap"
+    assert engine._trap_key_for(Side.US) is None
+
+
+def test_quagmire_traps_the_us_not_the_ussr():
+    engine = _bare()
+    engine._fire_event(Side.USSR, "Quagmire")
+    assert engine._trap_key_for(Side.US) == "quagmire"
+    assert engine._trap_key_for(Side.USSR) is None
+
+
+def test_trapped_side_gets_a_forced_discard_and_die_each_action_round():
+    engine = _bare(seed=5)
+    engine.game_effects["bear_trap"] = True  # traps the USSR
+    engine.hands["USSR"] = ["Nasser", "Duck_and_Cover"]  # ops 1 and 3
+    engine._push_trap_step(Side.USSR, "bear_trap")
+    d = engine.pending_decision
+    assert d.actor is Side.USSR
+    assert {a.payload["card"] for a in d.options} == {"Duck_and_Cover"}  # ops >= 2 only
+    engine.step(Action(DecisionKind.QUAGMIRE_DISCARD, {"card": "Duck_and_Cover"}))
+    assert "Duck_and_Cover" in engine.discard_pile
+    roll = engine.pending_decision
+    assert roll.kind is DecisionKind.QUAGMIRE_ROLL and roll.actor is Side.CHANCE
+    engine.step(roll.options[0])
+    freed = roll.options[0].payload["value"] >= 5
+    assert (engine._trap_key_for(Side.USSR) is None) == freed
+
+
+def test_trapped_side_with_no_payable_card_wastes_the_round_silently():
+    engine = _bare()
+    engine.game_effects["quagmire"] = True  # traps the US
+    engine.hands["US"] = ["Nasser"]  # only a 1-Op card: nothing to discard
+    engine._push_trap_step(Side.US, "quagmire")
+    assert engine.pending_decision is None  # no decision: the round is simply wasted
+
+
+def test_trap_intercepts_the_normal_action_round_play():
+    engine = Engine.new_game(seed=3, events=True)
+    engine.phase = "action_rounds"
+    engine._decision_stack.clear()
+    engine._ars_played = 1  # next play index (1) belongs to the US
+    engine.game_effects["quagmire"] = True
+    engine.hands["US"] = ["Duck_and_Cover"]
+    engine._advance()
+    d = engine.pending_decision
+    assert d.kind is DecisionKind.QUAGMIRE_DISCARD and d.actor is Side.US
+
+
+def test_untrapped_side_still_gets_a_normal_action_round_play():
+    engine = Engine.new_game(seed=3, events=True)
+    engine.phase = "action_rounds"
+    engine._decision_stack.clear()
+    engine._ars_played = 1
+    engine.game_effects["bear_trap"] = True  # traps the USSR, not the US
+    engine._advance()
+    assert engine.pending_decision.kind is DecisionKind.ACTION_ROUND_PLAY
+    assert engine.pending_decision.actor is Side.US
 
 
 # -- golden replay -----------------------------------------------------------
