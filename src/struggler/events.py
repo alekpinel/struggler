@@ -266,7 +266,7 @@ def _warsaw_pact_formed(engine: "Engine", side: Side) -> None:
     engine.push_event_choice("Warsaw_Pact_Formed", Side.USSR, ("remove", "add"))
 
 
-def _warsaw_pact_choice(engine: "Engine", side: Side, choice: str) -> None:
+def _warsaw_pact_choice(engine: "Engine", side: Side, choice: str, context: dict) -> None:
     eastern = _in_subregion(engine, Subregion.EASTERN_EUROPE)
     if choice == "remove":
         engine.push_event_influence(
@@ -660,7 +660,7 @@ def _independent_reds(engine: "Engine", side: Side) -> None:
     )
 
 
-def _independent_reds_choice(engine: "Engine", side: Side, choice: str) -> None:
+def _independent_reds_choice(engine: "Engine", side: Side, choice: str, context: dict) -> None:
     ussr = engine.board.influence[choice]["USSR"]
     if engine.board.influence[choice]["US"] < ussr:
         engine.board.influence[choice]["US"] = ussr
@@ -724,7 +724,7 @@ def _chernobyl(engine: "Engine", side: Side) -> None:
     )
 
 
-def _chernobyl_choice(engine: "Engine", side: Side, choice: str) -> None:
+def _chernobyl_choice(engine: "Engine", side: Side, choice: str, context: dict) -> None:
     engine.turn_effects["chernobyl"] = choice
 
 
@@ -756,7 +756,7 @@ def _how_i_learned(engine: "Engine", side: Side) -> None:
     )
 
 
-def _how_i_learned_choice(engine: "Engine", side: Side, choice: str) -> None:
+def _how_i_learned_choice(engine: "Engine", side: Side, choice: str, context: dict) -> None:
     engine.set_defcon(int(choice), caused_by=side)
     if not engine.is_terminal:
         engine.military_ops[side.value] += 5
@@ -786,7 +786,7 @@ def _junta(engine: "Engine", side: Side) -> None:
     )
 
 
-def _junta_choice(engine: "Engine", side: Side, choice: str) -> None:
+def _junta_choice(engine: "Engine", side: Side, choice: str, context: dict) -> None:
     engine.resolve_free_op_choice(side, choice, 2, _central_and_south_america(engine))
 
 
@@ -804,7 +804,7 @@ def _salt_negotiations(engine: "Engine", side: Side) -> None:
     engine.push_take_from_discard(side, "Salt_Negotiations")
 
 
-def _salt_reclaim_choice(engine: "Engine", side: Side, choice: str) -> None:
+def _salt_reclaim_choice(engine: "Engine", side: Side, choice: str, context: dict) -> None:
     if choice != "none" and choice in engine.discard_pile:
         engine.discard_pile.remove(choice)
         engine.hands[side.value].append(choice)
@@ -821,7 +821,7 @@ def _olympic_games(engine: "Engine", side: Side) -> None:
     engine.push_event_choice("Olympic_Games", side.opponent, ("participate", "boycott"))
 
 
-def _olympic_choice(engine: "Engine", chooser: Side, choice: str) -> None:
+def _olympic_choice(engine: "Engine", chooser: Side, choice: str, context: dict) -> None:
     sponsor = chooser.opponent
     if choice == "participate":
         engine.push_dice_contest("Olympic_Games", sponsor, sponsor_mod=2, defender_mod=0, vp=2)
@@ -847,7 +847,7 @@ def _summit_result(engine: "Engine", sponsor: Side, winner: Side) -> None:
     engine.push_event_choice("Summit_defcon", winner, ("raise", "lower", "none"))
 
 
-def _summit_defcon_choice(engine: "Engine", side: Side, choice: str) -> None:
+def _summit_defcon_choice(engine: "Engine", side: Side, choice: str, context: dict) -> None:
     if choice == "raise":
         engine._change_defcon(+1, caused_by=side)
     elif choice == "lower":
@@ -861,7 +861,7 @@ def _wargames(engine: "Engine", side: Side) -> None:
     engine.push_event_choice("Wargames", side, ("end_game", "decline"))
 
 
-def _wargames_choice(engine: "Engine", side: Side, choice: str) -> None:
+def _wargames_choice(engine: "Engine", side: Side, choice: str, context: dict) -> None:
     if choice == "end_game":
         engine._award_vp(side.opponent, 6)
         if not engine.is_terminal:
@@ -872,6 +872,101 @@ def _wargames_choice(engine: "Engine", side: Side, choice: str) -> None:
 CONTEST_RESOLVERS: dict[str, Callable[["Engine", Side, Side], None]] = {
     "Summit": _summit_result,
 }
+
+
+# -- revealing / taking cards from the opponent's hand ----------------------
+#
+# These cards let the phasing player see (part of) the opponent's hand — a
+# reveal the card text sanctions, so surfacing the involved cards as decision
+# options is correct, not a leak: the only other observer is the hand's owner,
+# who already knows it.
+
+
+@event("Aldrich_Ames_Remix")
+def _aldrich_ames(engine: "Engine", side: Side) -> None:
+    # The USSR sees the US hand and chooses one card the US must discard. (The
+    # remix's ongoing "sees the hand for the turn" reveal is not modeled.)
+    us_hand = engine.hands["US"]
+    if not us_hand:
+        return
+    engine.push_event_choice("Aldrich_Ames_Remix", Side.USSR, tuple(us_hand))
+
+
+def _aldrich_ames_choice(engine: "Engine", side: Side, choice: str, context: dict) -> None:
+    engine._file_card(Side.US, choice, fired=False)  # the US discards the chosen card
+
+
+@event("Grain_Sales_to_Soviets")
+def _grain_sales(engine: "Engine", side: Side) -> None:
+    # Randomly reveal one USSR card to the US, who then takes it or returns it.
+    engine.push_random_discard(Side.USSR, "grain_sales")
+
+
+def _grain_sales_choice(engine: "Engine", side: Side, choice: str, context: dict) -> None:
+    card = context["card"]
+    if choice == "take":
+        # The US takes the card, uses its Ops, then discards it.
+        if card in engine.hands["USSR"]:
+            engine.hands["USSR"].remove(card)
+        engine.discard_pile.append(card)
+        engine.push_event_operations(Side.US, engine.cards[card].ops)
+    else:  # return: the card stays with the USSR; the US uses Grain Sales' 2 Ops
+        engine.push_event_operations(Side.US, 2)
+
+
+@event("Ask_Not_What_Your_Country_Can_Do_For_You")
+def _ask_not(engine: "Engine", side: Side) -> None:
+    # The player may discard any number of cards from hand and draw that many
+    # replacements.
+    _push_ask_not(engine, side, 0)
+
+
+def _push_ask_not(engine: "Engine", side: Side, discarded: int) -> None:
+    hand = engine.hands[side.value]
+    choices = tuple(cid for cid in hand if not engine.cards[cid].scoring) + ("stop",)
+    if len(choices) == 1:  # nothing left to discard -> draw and finish
+        engine.draw_cards_to_hand(side, discarded)
+        return
+    engine.push_event_choice(
+        "Ask_Not_What_Your_Country_Can_Do_For_You", side, choices,
+        extra={"discarded": discarded},
+    )
+
+
+def _ask_not_choice(engine: "Engine", side: Side, choice: str, context: dict) -> None:
+    if choice == "stop":
+        engine.draw_cards_to_hand(side, context["discarded"])
+    else:
+        engine._file_card(side, choice, fired=False)
+        _push_ask_not(engine, side, context["discarded"] + 1)
+
+
+def _scoring_card_countries(engine: "Engine", scoring_id: str) -> list[str]:
+    from struggler.engine import SCORING_CARD_REGION
+
+    if scoring_id == "Southeast_Asia_Scoring":
+        return _in_subregion(engine, Subregion.SOUTHEAST_ASIA)
+    region = SCORING_CARD_REGION.get(scoring_id)
+    if region is None:
+        return []
+    return _in_region(engine, region)
+
+
+@event("The_Cambridge_Five")
+def _cambridge_five(engine: "Engine", side: Side) -> None:
+    # The US reveals its scoring cards; the USSR adds 1 Influence to a country
+    # in one of those regions.
+    candidates: list[str] = []
+    for cid in engine.hands["US"]:
+        if engine.cards[cid].scoring:
+            candidates += _scoring_card_countries(engine, cid)
+    candidates = list(dict.fromkeys(candidates))  # dedupe, keep order
+    if not candidates:
+        return
+    engine.push_event_influence(
+        event="The_Cambridge_Five", op="place", choose_side=Side.USSR,
+        inf_side=Side.USSR, remaining=1, candidates=candidates,
+    )
 
 
 # -- shared helpers ---------------------------------------------------------
@@ -898,4 +993,7 @@ CHOICE_ROUTERS: dict[str, Callable[["Engine", Side, str], None]] = {
     "Olympic_Games": _olympic_choice,
     "Wargames": _wargames_choice,
     "Summit_defcon": _summit_defcon_choice,
+    "Aldrich_Ames_Remix": _aldrich_ames_choice,
+    "Grain_Sales_to_Soviets": _grain_sales_choice,
+    "Ask_Not_What_Your_Country_Can_Do_For_You": _ask_not_choice,
 }

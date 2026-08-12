@@ -251,7 +251,7 @@ historical "Ops-only" toggle.
   the stack stores only the event id and the chosen option — never a
   function). These steps live on the same decision stack, so they are
   hosted correctly inside a headline or an opponent's Ops play.
-- **Implemented so far** (73 card events registered; the trickier ones have
+- **Implemented so far** (77 card events registered; the trickier ones have
   a dedicated unit test, and the loop is covered by a property test and the
   `m3_events.json` golden). Grouped by the primitive they reuse:
   - *Immediate fixed board/VP/DEFCON/Space effects:* Duck and Cover, Fidel,
@@ -290,6 +290,14 @@ historical "Ops-only" toggle.
   - *Reclaim from the discard pile (`push_take_from_discard`):* SALT
     Negotiations (also DEFCON +2) — the player takes one non-scoring card
     from the public discard back to hand.
+  - *Revealing/taking cards from the opponent's hand (the reveal is
+    sanctioned by the card, so surfacing the involved cards as decision
+    options is correct, not a leak):* Aldrich Ames Remix (USSR discards a
+    chosen US card), Grain Sales to Soviets (one random USSR card revealed
+    via a CHANCE step, the US takes it for its Ops or returns it for 2),
+    Ask Not… (discard any own cards and redraw as many, via
+    `draw_cards_to_hand`), The Cambridge Five (place in a region whose
+    scoring card the US holds).
   - *Per-turn regional Ops bonus:* Vietnam Revolts — generalizes the China
     Card's all-in-region +1 into a reusable "bonus region" (`_ops_bonus_region`
     / `_in_bonus_region`); the China Card is "asia", Vietnam Revolts sets a
@@ -324,22 +332,22 @@ historical "Ops-only" toggle.
   gone outside Asia) and for coups (+1 Op and +1 military Op against an
   Asian target). The realignment case is not modeled (rare).
 - **Known limitations / remaining M3 work** (tracked here as the
-  contract): 73 of the deck's ~100 non-scoring events are implemented; the
+  contract): 77 of the deck's ~100 non-scoring events are implemented; the
   rest remain no-op discards in events mode because their text needs a
   subsystem the engine does not model yet. The forced-random-discard,
   per-turn coup/realign-modifier, reclaim-from-discard, region-Ops-bonus,
-  influence-then-free-operation, persistent-game-long-trigger and
-  dice-contest subsystems now exist. The subsystems still to build, and the
-  cards waiting on them, are:
-  - *Revealing/taking cards from the opponent's hand:* Grain Sales to
-    Soviets, Aldrich Ames Remix, Ask Not…, The Cambridge Five, Missile Envy.
+  influence-then-free-operation, persistent-game-long-trigger, dice-contest
+  and hand-reveal subsystems now exist. The remaining cards, by what they
+  still need, are:
+  - *Taking the opponent's highest-Op card and playing it, then swapping:*
+    Missile Envy.
   - *Taking a card from the discard pile and playing it immediately:* Star
     Wars (the reclaim-to-hand primitive exists; the "play now" part does
     not).
   - *A free coup with a conditional repeat:* Che.
-  - *Remaining dice/branch or deferred-conditional events:* Cuban Missile
-    Crisis (per-turn "coup = loss unless defused"), We Will Bury You
-    (conditional VP unless UN Intervention next round).
+  - *Deferred-conditional events:* Cuban Missile Crisis (per-turn "coup =
+    loss unless defused"), We Will Bury You (conditional VP unless UN
+    Intervention next round).
   - *Scoring-time modifiers / extra rounds:* Formosan Resolution, Shuttle
     Diplomacy, North Sea Oil.
   - Plus a handful of smaller conditional/optional cards. Also unmodeled:

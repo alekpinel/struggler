@@ -1026,23 +1026,29 @@ class Engine:
         self._maybe_push_event_influence(context)
 
     def push_event_choice(
-        self, event: str, choose_side: Side, choices: tuple[str, ...]
+        self,
+        event: str,
+        choose_side: Side,
+        choices: tuple[str, ...],
+        extra: dict | None = None,
     ) -> None:
-        """Offer a player a branch within an event (routed by events.py)."""
+        """Offer a player a branch within an event (routed by events.py). `extra`
+        merges extra JSON-native keys into the decision context, so a router can
+        carry running state (e.g. Ask Not's discard count, Grain Sales' card)."""
         options = tuple(
             Action(DecisionKind.EVENT_CHOICE, {"choice": c}) for c in choices
         )
-        self._push(
-            choose_side, DecisionKind.EVENT_CHOICE, options,
-            {"event": event, "choose_side": choose_side.value},
-        )
+        context = {"event": event, "choose_side": choose_side.value}
+        if extra:
+            context.update(extra)
+        self._push(choose_side, DecisionKind.EVENT_CHOICE, options, context)
 
     def _handle_event_choice(self, decision: Decision, action: Action) -> None:
         from struggler.events import CHOICE_ROUTERS
 
         event = decision.context["event"]
         side = Side(decision.context["choose_side"])
-        CHOICE_ROUTERS[event](self, side, action.payload["choice"])
+        CHOICE_ROUTERS[event](self, side, action.payload["choice"], decision.context)
 
     # -- M3: influence / control helpers used by events ---------------------
 
@@ -1110,9 +1116,25 @@ class Engine:
                 self._fire_event(owner, card)
             else:
                 self._file_card(owner, card, fired=False)
+        elif ctx["purpose"] == "grain_sales":
+            # The revealed card is not filed yet: the opponent (US) decides to
+            # take it (use its Ops, then discard) or return it (use Grain Sales'
+            # own 2 Ops). It stays in the USSR hand until then.
+            self.push_event_choice(
+                "Grain_Sales_to_Soviets", owner.opponent, ("take", "return"),
+                extra={"card": card},
+            )
         else:  # plain forced discard (Terrorism), possibly repeated
             self._file_card(owner, card, fired=False)
             self.push_random_discard(owner, ctx["purpose"], ctx["count"] - 1)
+
+    def draw_cards_to_hand(self, side: Side, n: int) -> None:
+        """Draw `n` cards from the deck into `side`'s hand (Ask Not's redraw)."""
+        for _ in range(n):
+            card = self._draw_card()
+            if card is None:
+                break
+            self.hands[side.value].append(card)
 
     # -- M3: a two-die "both roll, higher wins" contest ---------------------
     #

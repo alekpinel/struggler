@@ -839,6 +839,79 @@ def test_wargames_only_playable_at_defcon_two_and_can_end_the_game():
     assert engine.is_terminal  # the US gave the USSR 6 VP and the game was scored
 
 
+# -- revealing / taking cards from the opponent's hand -----------------------
+
+
+def test_aldrich_ames_lets_ussr_discard_a_chosen_us_card():
+    engine = _bare()
+    engine.hands["US"] = ["Duck_and_Cover", "NATO", "Containment"]
+    engine._fire_event(Side.USSR, "Aldrich_Ames_Remix")
+    decision = engine.pending_decision
+    assert decision.actor is Side.USSR
+    assert {a.payload["choice"] for a in decision.options} == set(engine.hands["US"])
+    engine.step(Action(DecisionKind.EVENT_CHOICE, {"choice": "NATO"}))
+    assert "NATO" not in engine.hands["US"]
+    assert "NATO" in engine.discard_pile
+
+
+def test_grain_sales_reveals_exactly_one_ussr_card():
+    engine = _bare(seed=4)
+    engine.hands["USSR"] = ["Fidel", "Nasser", "Allende", "COMECON"]
+    engine._fire_event(Side.US, "Grain_Sales_to_Soviets")
+    reveal = engine.pending_decision
+    assert reveal.kind is DecisionKind.RANDOM_DISCARD and reveal.actor is Side.CHANCE
+    assert len(reveal.options) == 1  # only the drawn card, not the whole hand
+    revealed = reveal.options[0].payload["card"]
+    engine.step(reveal.options[0])
+    choice = engine.pending_decision
+    assert choice.actor is Side.US
+    assert {a.payload["choice"] for a in choice.options} == {"take", "return"}
+    engine.step(Action(DecisionKind.EVENT_CHOICE, {"choice": "take"}))
+    assert revealed not in engine.hands["USSR"] and revealed in engine.discard_pile
+    assert engine.pending_decision.kind is DecisionKind.OPS_TYPE  # US uses its Ops
+
+
+def test_grain_sales_return_leaves_the_card_and_gives_two_ops():
+    engine = _bare(seed=4)
+    engine.hands["USSR"] = ["Fidel"]
+    engine._fire_event(Side.US, "Grain_Sales_to_Soviets")
+    engine.step(engine.pending_decision.options[0])  # reveal
+    engine.step(Action(DecisionKind.EVENT_CHOICE, {"choice": "return"}))
+    assert "Fidel" in engine.hands["USSR"]  # returned
+    assert engine.pending_decision.context["ops"] == 2  # Grain Sales' own Ops
+
+
+def test_ask_not_discards_chosen_cards_and_redraws_the_same_number():
+    engine = _bare(seed=5)
+    engine.draw_pile = ["Blockade", "Defectors", "Quagmire"]
+    engine.hands["US"] = ["Containment", "NATO"]
+    engine._fire_event(Side.US, "Ask_Not_What_Your_Country_Can_Do_For_You")
+    engine.step(Action(DecisionKind.EVENT_CHOICE, {"choice": "Containment"}))
+    engine.step(Action(DecisionKind.EVENT_CHOICE, {"choice": "stop"}))
+    assert len(engine.hands["US"]) == 2  # one discarded, one drawn
+    assert "Containment" in engine.discard_pile
+    assert "Containment" not in engine.hands["US"]
+
+
+def test_cambridge_five_places_in_a_revealed_scoring_region():
+    engine = _bare()
+    engine.hands["US"] = ["Asia_Scoring", "NATO"]  # US holds the Asia scoring card
+    engine._fire_event(Side.USSR, "The_Cambridge_Five")
+    decision = engine.pending_decision
+    assert decision.kind is DecisionKind.EVENT_INFLUENCE and decision.actor is Side.USSR
+    assert all(
+        engine.board.countries[a.payload["country"]].region.value == "ASIA"
+        for a in decision.options
+    )
+
+
+def test_cambridge_five_no_op_without_us_scoring_cards():
+    engine = _bare()
+    engine.hands["US"] = ["NATO", "Containment"]
+    engine._fire_event(Side.USSR, "The_Cambridge_Five")
+    assert engine.pending_decision is None
+
+
 # -- the "opponent event fires when played for Ops" rule --------------------
 
 
