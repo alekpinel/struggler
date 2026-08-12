@@ -1343,6 +1343,162 @@ def test_north_sea_oil_blocks_opec_and_grants_us_an_extra_action_round():
     assert engine._side_for_play_index(base) is Side.US  # the extra round is the US's
 
 
+# -- further batch (existing primitives + a relocate flow) -------------------
+
+
+def test_east_european_unrest_removes_one_early_two_late():
+    early = _bare()
+    early.turn = 3
+    for cid in ("Poland", "East_Germany", "Czechoslovakia"):
+        early.board.influence[cid] = {"US": 0, "USSR": 3}
+    early._fire_event(Side.US, "East_European_Unrest")
+    assert _drain_event_influence(early) == 3  # one step per country
+    assert early.board.influence["Poland"]["USSR"] == 2  # removed 1
+
+    late = _bare()
+    late.turn = 8
+    late.board.influence["Poland"] = {"US": 0, "USSR": 3}
+    late._fire_event(Side.US, "East_European_Unrest")
+    late.step(Action(DecisionKind.EVENT_INFLUENCE, {"country": "Poland"}))
+    assert late.board.influence["Poland"]["USSR"] == 1  # removed 2 in the Late War
+
+
+def test_south_african_unrest_adjacent_branch():
+    engine = _bare()
+    engine._fire_event(Side.USSR, "South_African_Unrest")
+    engine.step(Action(DecisionKind.EVENT_CHOICE, {"choice": "and_adjacent"}))
+    assert engine.board.influence["South_Africa"]["USSR"] == 1
+    d = engine.pending_decision
+    assert {a.payload["choice"] for a in d.options} == {"Angola", "Botswana"}
+    engine.step(Action(DecisionKind.EVENT_CHOICE, {"choice": "Angola"}))
+    assert engine.board.influence["Angola"]["USSR"] == 2
+
+
+def test_south_african_unrest_south_africa_only_branch():
+    engine = _bare()
+    engine._fire_event(Side.USSR, "South_African_Unrest")
+    engine.step(Action(DecisionKind.EVENT_CHOICE, {"choice": "south_africa_only"}))
+    assert engine.board.influence["South_Africa"]["USSR"] == 2
+    assert engine.pending_decision is None
+
+
+def test_blockade_removes_west_germany_without_a_payable_card():
+    engine = _bare()
+    engine.board.influence["West_Germany"] = {"US": 4, "USSR": 0}
+    engine.hands["US"] = ["Nasser"]  # only a 1-Op card: cannot pay
+    engine._fire_event(Side.USSR, "Blockade")
+    assert engine.board.influence["West_Germany"]["US"] == 0
+    assert engine.pending_decision is None
+
+
+def test_blockade_can_be_paid_with_a_three_ops_card():
+    engine = _bare()
+    engine.board.influence["West_Germany"] = {"US": 4, "USSR": 0}
+    engine.hands["US"] = ["Duck_and_Cover"]  # 3 Ops
+    engine._fire_event(Side.USSR, "Blockade")
+    assert engine.pending_decision.actor is Side.US
+    engine.step(Action(DecisionKind.EVENT_CHOICE, {"choice": "Duck_and_Cover"}))
+    assert engine.board.influence["West_Germany"]["US"] == 4  # kept
+    assert "Duck_and_Cover" in engine.discard_pile
+
+
+def test_arms_race_scores_three_when_leading_and_meeting_the_requirement():
+    engine = _bare()
+    engine.defcon = 3
+    engine.military_ops = {"US": 4, "USSR": 1}
+    engine._fire_event(Side.US, "Arms_Race")
+    assert engine.vp == 3  # US leads and 4 >= DEFCON 3
+    engine2 = _bare()
+    engine2.defcon = 5
+    engine2.military_ops = {"US": 2, "USSR": 1}
+    engine2._fire_event(Side.US, "Arms_Race")
+    assert engine2.vp == 1  # leads but 2 < DEFCON 5
+
+
+def test_de_stalinization_relocates_influence():
+    engine = _bare()
+    engine.board.influence["Angola"] = {"US": 0, "USSR": 2}
+    engine.board.influence["Cuba"] = {"US": 0, "USSR": 1}  # keeps a target so "done" is offered
+    engine._fire_event(Side.USSR, "De_Stalinization")
+    engine.step(Action(DecisionKind.EVENT_CHOICE, {"choice": "Angola"}))
+    engine.step(Action(DecisionKind.EVENT_CHOICE, {"choice": "Angola"}))
+    engine.step(Action(DecisionKind.EVENT_CHOICE, {"choice": "done"}))  # stop after 2
+    assert engine.board.influence["Angola"]["USSR"] == 0  # 2 removed
+    d = engine.pending_decision
+    assert d.kind is DecisionKind.EVENT_INFLUENCE  # placement phase
+    assert engine.board.control(d.options[0].payload["country"]) is not Side.US
+    assert _drain_event_influence(engine) == 2  # exactly the 2 removed are placed
+
+
+def test_latin_american_debt_crisis_doubles_two_south_america_countries():
+    engine = _bare()
+    engine.hands["US"] = ["Nasser"]  # cannot pay
+    engine.board.influence["Brazil"] = {"US": 0, "USSR": 2}
+    engine.board.influence["Argentina"] = {"US": 0, "USSR": 3}
+    engine._fire_event(Side.USSR, "Latin_American_Debt_Crisis")
+    engine.step(Action(DecisionKind.EVENT_CHOICE, {"choice": "Brazil"}))
+    assert engine.board.influence["Brazil"]["USSR"] == 4
+    engine.step(Action(DecisionKind.EVENT_CHOICE, {"choice": "Argentina"}))
+    assert engine.board.influence["Argentina"]["USSR"] == 6
+    assert engine.pending_decision is None
+
+
+def test_latin_american_debt_crisis_cancelled_by_us_payment():
+    engine = _bare()
+    engine.hands["US"] = ["Duck_and_Cover"]  # 3 Ops
+    engine.board.influence["Brazil"] = {"US": 0, "USSR": 2}
+    engine._fire_event(Side.USSR, "Latin_American_Debt_Crisis")
+    engine.step(Action(DecisionKind.EVENT_CHOICE, {"choice": "Duck_and_Cover"}))
+    assert engine.board.influence["Brazil"]["USSR"] == 2  # not doubled
+    assert engine.pending_decision is None
+
+
+def test_soviets_shoot_down_kal_007_conducts_ops_only_with_south_korea():
+    engine = _bare()
+    engine.defcon = 5
+    engine.board.influence["South_Korea"] = {"US": 4, "USSR": 0}  # US-controlled
+    engine.board.influence["Japan"] = {"US": 1, "USSR": 0}  # a reachable foothold
+    engine._fire_event(Side.US, "Soviets_Shoot_Down_KAL_007")
+    assert engine.defcon == 4 and engine.vp == 2
+    assert engine.pending_decision.kind is DecisionKind.OPS_TYPE
+    assert engine.pending_decision.context["ops"] == 4
+
+    engine2 = _bare()
+    engine2.defcon = 5
+    engine2.board.influence["South_Korea"] = {"US": 0, "USSR": 0}  # not US-controlled
+    engine2._fire_event(Side.US, "Soviets_Shoot_Down_KAL_007")
+    assert engine2.vp == 2 and engine2.pending_decision is None  # no Operations
+
+
+def test_ussuri_river_skirmish_takes_the_china_card_or_places_in_asia():
+    taking = _bare()
+    taking.china_card_owner = "USSR"
+    taking.china_card_available = False
+    taking._fire_event(Side.US, "Ussuri_River_Skirmish")
+    assert taking.china_card_owner == "US" and taking.china_card_available is True
+
+    placing = _bare()
+    placing.china_card_owner = "US"
+    placing._fire_event(Side.US, "Ussuri_River_Skirmish")
+    assert _drain_event_influence(placing) == 4  # 4 Influence into Asia (cap 2/country)
+
+
+def test_glasnost_scores_and_grants_ops_only_after_the_reformer():
+    plain = _bare()
+    plain.defcon = 3
+    plain._fire_event(Side.USSR, "Glasnost")
+    assert plain.vp == -2 and plain.defcon == 4
+    assert plain.pending_decision is None  # no free Operations without The Reformer
+
+    reformer = _bare()
+    reformer.defcon = 3
+    reformer.game_effects["reformer"] = True
+    reformer.board.influence["France"] = {"US": 0, "USSR": 1}
+    reformer._fire_event(Side.USSR, "Glasnost")
+    assert reformer.pending_decision.kind is DecisionKind.OPS_TYPE
+    assert reformer.pending_decision.context["ops"] == 4
+
+
 # -- golden replay -----------------------------------------------------------
 
 

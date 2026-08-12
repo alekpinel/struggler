@@ -978,8 +978,12 @@ class Engine:
         whole: bool = False,           # remove: clear ALL inf_side in the country
         requires_uncontrolled: bool = False,
         exclude_controlled_by: Side | None = None,
+        amount: int = 1,               # influence moved per selected country
     ) -> None:
-        """Begin a player-choice influence sequence, if it has any legal step."""
+        """Begin a player-choice influence sequence, if it has any legal step.
+
+        Each selected country moves `amount` Influence (default 1); East European
+        Unrest uses `amount=2` in the Late War, one selection per country."""
         context = {
             "event": event,
             "op": op,
@@ -993,6 +997,7 @@ class Engine:
             "exclude_controlled_by": (
                 exclude_controlled_by.value if exclude_controlled_by is not None else None
             ),
+            "amount": amount,
             "placed": {},
         }
         self._maybe_push_event_influence(context)
@@ -1038,13 +1043,14 @@ class Engine:
         context = dict(decision.context)
         cid = action.payload["country"]
         inf_side = context["inf_side"]
+        amount = context.get("amount", 1)
         if context["op"] == "place":
-            self.board.influence[cid][inf_side] += 1
+            self.board.influence[cid][inf_side] += amount
         elif context["whole"]:
             self.board.influence[cid][inf_side] = 0
         else:
             self.board.influence[cid][inf_side] = max(
-                0, self.board.influence[cid][inf_side] - 1
+                0, self.board.influence[cid][inf_side] - amount
             )
         placed = dict(context["placed"])
         placed[cid] = placed.get(cid, 0) + 1

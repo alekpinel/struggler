@@ -251,7 +251,7 @@ historical "Ops-only" toggle.
   the stack stores only the event id and the chosen option — never a
   function). These steps live on the same decision stack, so they are
   hosted correctly inside a headline or an opponent's Ops play.
-- **Implemented so far** (85 card events registered; the trickier ones have
+- **Implemented so far** (94 card events registered; the trickier ones have
   a dedicated unit test, and the loop is covered by a property test and the
   `m3_events.json` golden). Grouped by the primitive they reuse:
   - *Immediate fixed board/VP/DEFCON/Space effects:* Duck and Cover, Fidel,
@@ -350,24 +350,39 @@ historical "Ops-only" toggle.
     turn). `board.region_tier` gained optional `extra_battlegrounds`/`ignored`
     sets so these scoring adjustments are additive and leave every other caller
     unchanged.
+  - *A further batch on the existing primitives:* East European Unrest and South
+    African Unrest (player-choice influence — `push_event_influence` gained an
+    `amount` per selection for the Late-War 2-per-country removal), Blockade and
+    Latin American Debt Crisis (the "US discards a printed-3+-Ops card or suffer"
+    branch, the US choosing from its own hand as Ask Not already does),
+    Glasnost (VP/DEFCON, then 4 Ops if The Reformer is active), Soviets Shoot
+    Down KAL-007 (VP/DEFCON, then 4 Ops if the US controls South Korea), Ussuri
+    River Skirmish (take the China Card from the USSR, or +4 Influence in Asia),
+    Arms Race (score off the Military Operations track), De-Stalinization (a
+    relocate flow: remove up to 4 USSR Influence, then replace it in
+    non-US-controlled countries, max 2 each).
 - **China Card bonus.** Playing the China Card for Ops grants its +1
   ("all Ops used in Asia") for influence (an all-or-nothing invariant in
   the placement step: the 5th point is offered only while nothing has
   gone outside Asia) and for coups (+1 Op and +1 military Op against an
   Asian target). The realignment case is not modeled (rare).
 - **Known limitations / remaining M3 work** (tracked here as the
-  contract): 85 of the deck's ~100 non-scoring events are implemented; the
+  contract): 94 of the deck's ~100 non-scoring events are implemented; the
   rest remain no-op discards in events mode because their text needs a
   subsystem the engine does not model yet. The forced-random-discard,
   per-turn coup/realign-modifier, reclaim-from-discard, region-Ops-bonus,
   influence-then-free-operation, persistent-game-long-trigger, dice-contest,
-  hand-reveal, take-and-play, free-coup-repeat, deferred-per-turn-condition
-  and scoring-time-modifier subsystems now exist. The cards still unimplemented
-  need one of a few remaining subsystems — a persistent scoring/legality hook
-  (Formosan-style) for cards such as NORAD, Special Relationship and Nixon
-  Plays the China Card; a "reveal/peek at a hand for the turn" for Our Man in
-  Tehran; and assorted one-off conditionals (Bear Trap, Quagmire, Arms Race,
-  De-Stalinization, Glasnost, and the smaller Late-War cards).
+  hand-reveal, take-and-play, free-coup-repeat, deferred-per-turn-condition,
+  scoring-time-modifier and influence-relocate subsystems now exist. The seven
+  cards still unimplemented each need one of a few remaining subsystems:
+  - *A persistent scoring/legality hook reacting to game state* (Formosan-style):
+    NORAD (place Influence whenever DEFCON reaches 2), Special Relationship
+    (an ongoing UK-control bonus), Nixon Plays the China Card.
+  - *A "reveal/peek at a hand for the turn":* Our Man in Tehran.
+  - *A headline-cancellation interaction:* Defectors (cancel the opponent's
+    headline; the "USSR headlines it → US +1 VP" clause is also unmodeled).
+  - *A persistent per-player operating restriction* (a die + discard each action
+    round until freed): Bear Trap and Quagmire.
   - Documented simplifications on the newly added cards (rough edges,
     consistent with the rest of M3): Missile Envy does not force the opponent
     to play the received Missile Envy card on their next action round (it is
@@ -375,7 +390,9 @@ historical "Ops-only" toggle.
     immediately rather than at any later point in the turn; Shuttle Diplomacy is
     filed to the discard when played rather than kept "in front of you" (only
     the effect flag matters); Star Wars fires the taken card's event exactly like
-    a normal event play.
+    a normal event play. Glasnost's and Soviets Shoot Down KAL-007's follow-up
+    Operations are offered as full Operations (Influence/Coup/Realignment) rather
+    than the card's narrower Coup/Realignment or Influence/Realignment wording.
   - Still unmodeled generally: the Space Race headline-reveal perk and the
     region bonus for realignment. Some implemented cards drop a minor optional
     clause (noted in `events.py` docstrings, e.g. Ortega's free coup, Tear Down

@@ -1137,6 +1137,207 @@ def _north_sea_oil(engine: "Engine", side: Side) -> None:
     engine.turn_effects["north_sea_oil_extra"] = True
 
 
+# ---------------------------------------------------------------------------
+# A further batch reusing the existing primitives (player-choice influence,
+# branches, conducted Operations) plus one small "relocate" flow. Numeric
+# effects are from the physical card text.
+# ---------------------------------------------------------------------------
+
+
+@event("East_European_Unrest")
+def _east_european_unrest(engine: "Engine", side: Side) -> None:
+    # Remove USSR Influence from three Eastern Europe countries: 1 each in the
+    # Early/Mid War, 2 each in the Late War (turn 8+).
+    amount = 2 if engine.turn >= 8 else 1
+    engine.push_event_influence(
+        event="East_European_Unrest", op="remove", choose_side=Side.US,
+        inf_side=Side.USSR, remaining=3,
+        candidates=_in_subregion(engine, Subregion.EASTERN_EUROPE), cap=1, amount=amount,
+    )
+
+
+@event("South_African_Unrest")
+def _south_african_unrest(engine: "Engine", side: Side) -> None:
+    # The USSR either adds 2 Influence to South Africa, or 1 to South Africa and
+    # 2 to a country adjacent to it.
+    engine.push_event_choice(
+        "South_African_Unrest", Side.USSR, ("south_africa_only", "and_adjacent")
+    )
+
+
+def _south_african_unrest_choice(engine: "Engine", side: Side, choice: str, context: dict) -> None:
+    if choice == "south_africa_only":
+        engine.add_influence("South_Africa", Side.USSR, 2)
+    else:  # and_adjacent
+        engine.add_influence("South_Africa", Side.USSR, 1)
+        adjacent = sorted(engine.board.neighbors("South_Africa"))
+        engine.push_event_choice("South_African_Unrest_adj", Side.USSR, tuple(adjacent))
+
+
+def _south_african_unrest_adj_choice(engine: "Engine", side: Side, choice: str, context: dict) -> None:
+    engine.add_influence(choice, Side.USSR, 2)
+
+
+def _payable_cards(engine: "Engine", side: Side) -> list[str]:
+    """`side`'s hand cards with a printed Ops value of 3 or more (the "discard a
+    3+ card to cancel" clause on Blockade and Latin American Debt Crisis)."""
+    return [
+        cid
+        for cid in engine.hands[side.value]
+        if not engine.cards[cid].scoring and engine.cards[cid].ops >= 3
+    ]
+
+
+@event("Blockade")
+def _blockade(engine: "Engine", side: Side) -> None:
+    # Unless the US discards a printed-3+-Ops card, remove all US Influence from
+    # West Germany. (The US picks among its own cards — the same own-hand choice
+    # Ask Not already surfaces.)
+    payable = _payable_cards(engine, Side.US)
+    if not payable:
+        engine.remove_all_influence("West_Germany", Side.US)
+        return
+    engine.push_event_choice("Blockade", Side.US, tuple(payable) + ("refuse",))
+
+
+def _blockade_choice(engine: "Engine", side: Side, choice: str, context: dict) -> None:
+    if choice == "refuse":
+        engine.remove_all_influence("West_Germany", Side.US)
+    else:
+        engine._file_card(Side.US, choice, fired=False)
+
+
+@event("Glasnost")
+def _glasnost(engine: "Engine", side: Side) -> None:
+    # USSR +2 VP and DEFCON improves one level; if The Reformer is in effect the
+    # USSR then conducts 4 Ops of Operations. (The card restricts those to
+    # Coup/Realignment; here they are full Operations — a documented rough edge.)
+    engine._award_vp(Side.USSR, 2)
+    if engine.is_terminal:
+        return
+    engine._change_defcon(+1, caused_by=Side.USSR)
+    if not engine.is_terminal and engine.game_effects.get("reformer"):
+        engine.push_event_operations(Side.USSR, 4)
+
+
+@event("Latin_American_Debt_Crisis")
+def _latin_american_debt_crisis(engine: "Engine", side: Side) -> None:
+    # Unless the US discards a printed-3+-Ops card, the USSR doubles its
+    # Influence in two South America countries.
+    payable = _payable_cards(engine, Side.US)
+    if payable:
+        engine.push_event_choice(
+            "Latin_American_Debt_Crisis", Side.US, tuple(payable) + ("refuse",)
+        )
+    else:
+        _latin_debt_double(engine, used=[])
+
+
+def _latin_american_debt_crisis_choice(engine: "Engine", side: Side, choice: str, context: dict) -> None:
+    if choice == "refuse":
+        _latin_debt_double(engine, used=[])
+    else:
+        engine._file_card(Side.US, choice, fired=False)
+
+
+def _latin_debt_double(engine: "Engine", used: list[str]) -> None:
+    if len(used) >= 2:
+        return
+    candidates = [
+        cid
+        for cid, info in engine.board.countries.items()
+        if info.region is Region.SOUTH_AMERICA
+        and engine.board.influence[cid]["USSR"] > 0
+        and cid not in used
+    ]
+    if not candidates:
+        return
+    engine.push_event_choice(
+        "Latin_American_Debt_Crisis_double", Side.USSR, tuple(candidates),
+        extra={"used": used},
+    )
+
+
+def _latin_debt_double_choice(engine: "Engine", side: Side, choice: str, context: dict) -> None:
+    engine.add_influence(choice, Side.USSR, engine.board.influence[choice]["USSR"])  # double
+    _latin_debt_double(engine, used=context["used"] + [choice])
+
+
+@event("Soviets_Shoot_Down_KAL_007")
+def _kal_007(engine: "Engine", side: Side) -> None:
+    # Degrade DEFCON one level; the US gains 2 VP; if the US controls South Korea
+    # it then conducts 4 Ops of Operations. (Restricted to Influence/Realignment
+    # on the card; full Operations here — a documented rough edge.)
+    engine._change_defcon(-1, caused_by=Side.US)
+    if engine.is_terminal:
+        return
+    engine._award_vp(Side.US, 2)
+    if not engine.is_terminal and engine.board.control("South_Korea") is Side.US:
+        engine.push_event_operations(Side.US, 4)
+
+
+@event("Ussuri_River_Skirmish")
+def _ussuri_river_skirmish(engine: "Engine", side: Side) -> None:
+    # If the USSR holds the China Card, the US takes it face-up; otherwise the US
+    # adds 4 Influence to Asia, no more than 2 per country.
+    if engine.china_card_owner == "USSR":
+        engine.china_card_owner = "US"
+        engine.china_card_available = True  # taken face up
+    else:
+        engine.push_event_influence(
+            event="Ussuri_River_Skirmish", op="place", choose_side=Side.US,
+            inf_side=Side.US, remaining=4, candidates=_in_region(engine, Region.ASIA), cap=2,
+        )
+
+
+@event("Arms_Race")
+def _arms_race(engine: "Engine", side: Side) -> None:
+    # Compare the Military Operations track: if the phasing player leads, they
+    # gain 3 VP for also meeting the required amount (DEFCON), else 1 VP.
+    mine = engine.military_ops[side.value]
+    theirs = engine.military_ops[side.opponent.value]
+    if mine > theirs:
+        engine._award_vp(side, 3 if mine >= engine.defcon else 1)
+
+
+@event("De_Stalinization")
+def _de_stalinization(engine: "Engine", side: Side) -> None:
+    # The USSR relocates up to 4 Influence: remove from anywhere it has some,
+    # then place the same number in non-US-controlled countries (max 2 each).
+    _destal_remove(engine, moved=0)
+
+
+def _destal_remove(engine: "Engine", moved: int) -> None:
+    candidates = [
+        cid for cid in engine.board.countries if engine.board.influence[cid]["USSR"] > 0
+    ]
+    if moved >= 4 or not candidates:
+        _destal_place(engine, moved)
+        return
+    engine.push_event_choice(
+        "De_Stalinization_remove", Side.USSR, tuple(candidates) + ("done",),
+        extra={"moved": moved},
+    )
+
+
+def _de_stalinization_remove_choice(engine: "Engine", side: Side, choice: str, context: dict) -> None:
+    if choice == "done":
+        _destal_place(engine, context["moved"])
+        return
+    engine.remove_influence(choice, Side.USSR, 1)
+    _destal_remove(engine, context["moved"] + 1)
+
+
+def _destal_place(engine: "Engine", moved: int) -> None:
+    if moved <= 0:
+        return
+    engine.push_event_influence(
+        event="De_Stalinization", op="place", choose_side=Side.USSR,
+        inf_side=Side.USSR, remaining=moved, candidates=list(engine.board.countries),
+        cap=2, exclude_controlled_by=Side.US,
+    )
+
+
 # -- shared helpers ---------------------------------------------------------
 
 
@@ -1169,4 +1370,10 @@ CHOICE_ROUTERS: dict[str, Callable[["Engine", Side, str], None]] = {
     "Star_Wars": _star_wars_choice,
     "Che": _che_choice,
     "Cuban_Missile_Crisis": _cuban_missile_crisis_choice,
+    "South_African_Unrest": _south_african_unrest_choice,
+    "South_African_Unrest_adj": _south_african_unrest_adj_choice,
+    "Blockade": _blockade_choice,
+    "Latin_American_Debt_Crisis": _latin_american_debt_crisis_choice,
+    "Latin_American_Debt_Crisis_double": _latin_debt_double_choice,
+    "De_Stalinization_remove": _de_stalinization_remove_choice,
 }
