@@ -46,18 +46,18 @@ def test_coup_region_restrictions_by_defcon_threshold():
     # Europe needs DEFCON 5, Asia needs DEFCON 4, Middle East needs DEFCON 3.
     engine = Engine(seed=1)
     engine.defcon = 4
-    offered = {a.payload["country"] for a in engine._coup_target_options()}
+    offered = {a.payload["country"] for a in engine._coup_target_options(Side.US)}
     assert "France" not in offered  # Europe: requires DEFCON 5
     assert "Japan" in offered  # Asia: requires DEFCON 4, satisfied
     assert "Egypt" in offered  # Middle East: requires DEFCON 3, satisfied
 
     engine.defcon = 3
-    offered = {a.payload["country"] for a in engine._coup_target_options()}
+    offered = {a.payload["country"] for a in engine._coup_target_options(Side.US)}
     assert "Japan" not in offered  # Asia now below its threshold
     assert "Egypt" in offered  # Middle East still satisfied
 
     engine.defcon = 2
-    offered = {a.payload["country"] for a in engine._coup_target_options()}
+    offered = {a.payload["country"] for a in engine._coup_target_options(Side.US)}
     assert "Egypt" not in offered  # Middle East now below its threshold
     assert "Guatemala" in offered  # Central America stays unrestricted throughout
 

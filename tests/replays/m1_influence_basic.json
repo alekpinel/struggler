@@ -1115,7 +1115,8 @@
         "headline_resolving": false,
         "headline_pending": [],
         "events_enabled": false,
-        "turn_effects": {}
+        "turn_effects": {},
+        "game_effects": {}
       }
     },
     {
@@ -2136,7 +2137,8 @@
         "headline_resolving": false,
         "headline_pending": [],
         "events_enabled": false,
-        "turn_effects": {}
+        "turn_effects": {},
+        "game_effects": {}
       }
     }
   ]

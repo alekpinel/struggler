@@ -96,11 +96,11 @@ def _nasser(engine: "Engine", side: Side) -> None:
 
 @event("De_Gaulle_Leads_France")
 def _de_gaulle(engine: "Engine", side: Side) -> None:
-    # Remove 2 US Influence in France, add 1 USSR Influence there.
-    # (The printed "cancels NATO for France" clause is inert until NATO exists;
-    # tracked as remaining M3 work in CLAUDE.md.)
+    # Remove 2 US Influence in France, add 1 USSR Influence there, and cancel
+    # NATO's protection for France (persistent, see _usable_coup_realign_target).
     engine.remove_influence("France", Side.US, 2)
     engine.add_influence("France", Side.USSR, 1)
+    engine.game_effects["degaulle_france"] = True
 
 
 @event("Captured_Nazi_Scientist")
@@ -212,7 +212,8 @@ def _comecon(engine: "Engine", side: Side) -> None:
 @event("Marshall_Plan")
 def _marshall_plan(engine: "Engine", side: Side) -> None:
     # Add 1 US Influence to each of 7 non-USSR-controlled Western Europe
-    # countries.
+    # countries. Also a precondition for NATO.
+    engine.game_effects["marshall_or_warsaw"] = True
     engine.push_event_influence(
         event="Marshall_Plan", op="place", choose_side=Side.US, inf_side=Side.US,
         remaining=7, candidates=_in_subregion(engine, Subregion.WESTERN_EUROPE),
@@ -256,7 +257,9 @@ def _truman_doctrine(engine: "Engine", side: Side) -> None:
 @event("Warsaw_Pact_Formed")
 def _warsaw_pact_formed(engine: "Engine", side: Side) -> None:
     # Either remove all US Influence from 4 Eastern Europe countries, or add 5
-    # USSR Influence to Eastern Europe (no more than 2 per country).
+    # USSR Influence to Eastern Europe (no more than 2 per country). Also a
+    # precondition for NATO.
+    engine.game_effects["marshall_or_warsaw"] = True
     engine.push_event_choice("Warsaw_Pact_Formed", Side.USSR, ("remove", "add"))
 
 
@@ -272,6 +275,45 @@ def _warsaw_pact_choice(engine: "Engine", side: Side, choice: str) -> None:
             event="Warsaw_Pact_Formed", op="place", choose_side=Side.USSR,
             inf_side=Side.USSR, remaining=5, candidates=eastern, cap=2,
         )
+
+
+# ---------------------------------------------------------------------------
+# Tier 3 — persistent game-long effects (change future legality)
+#
+# These set flags in engine.game_effects (never cleared at end of turn); the
+# engine consults them in _usable_coup_realign_target when enumerating USSR
+# coup/realignment targets.
+# ---------------------------------------------------------------------------
+
+
+def _marshall_or_warsaw_played(engine: "Engine", side: Side) -> bool:
+    return bool(engine.game_effects.get("marshall_or_warsaw"))
+
+
+@event("NATO", eligible=_marshall_or_warsaw_played)
+def _nato(engine: "Engine", side: Side) -> None:
+    # The USSR may no longer Coup or make Realignment rolls against any
+    # US-controlled country in Europe. Playable only after Marshall Plan or
+    # Warsaw Pact Formed (enforced by the eligible predicate above).
+    engine.game_effects["nato"] = True
+
+
+@event("US_Japan_Mutual_Defense_Pact")
+def _us_japan_pact(engine: "Engine", side: Side) -> None:
+    # US gains enough Influence to Control Japan; the USSR may never Coup or
+    # make Realignment rolls against Japan for the rest of the game.
+    engine.gain_control("Japan", Side.US)
+    engine.game_effects["us_japan_pact"] = True
+
+
+@event("Willy_Brandt")
+def _willy_brandt(engine: "Engine", side: Side) -> None:
+    # USSR gains 1 VP and 1 Influence in West Germany, and NATO no longer
+    # protects West Germany (persistent).
+    engine._award_vp(Side.USSR, 1)
+    if not engine.is_terminal:
+        engine.add_influence("West_Germany", Side.USSR, 1)
+        engine.game_effects["willy_brandt"] = True
 
 
 # Routers for EVENT_CHOICE branches, looked up by the engine at handle time

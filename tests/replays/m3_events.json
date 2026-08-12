@@ -1,36 +1,18 @@
 {
-  "seed": 424242,
+  "seed": 20260812,
   "new_game": true,
   "events": true,
   "actions": [
     {
       "kind": "place_influence",
       "payload": {
-        "country": "Hungary"
+        "country": "Czechoslovakia"
       }
     },
     {
       "kind": "place_influence",
       "payload": {
-        "country": "Bulgaria"
-      }
-    },
-    {
-      "kind": "place_influence",
-      "payload": {
-        "country": "Yugoslavia"
-      }
-    },
-    {
-      "kind": "place_influence",
-      "payload": {
-        "country": "Bulgaria"
-      }
-    },
-    {
-      "kind": "place_influence",
-      "payload": {
-        "country": "Bulgaria"
+        "country": "Poland"
       }
     },
     {
@@ -42,13 +24,37 @@
     {
       "kind": "place_influence",
       "payload": {
-        "country": "Spain_Portugal"
+        "country": "Romania"
+      }
+    },
+    {
+      "kind": "place_influence",
+      "payload": {
+        "country": "East_Germany"
+      }
+    },
+    {
+      "kind": "place_influence",
+      "payload": {
+        "country": "East_Germany"
       }
     },
     {
       "kind": "place_influence",
       "payload": {
         "country": "Italy"
+      }
+    },
+    {
+      "kind": "place_influence",
+      "payload": {
+        "country": "UK"
+      }
+    },
+    {
+      "kind": "place_influence",
+      "payload": {
+        "country": "Benelux"
       }
     },
     {
@@ -60,13 +66,7 @@
     {
       "kind": "place_influence",
       "payload": {
-        "country": "Sweden"
-      }
-    },
-    {
-      "kind": "place_influence",
-      "payload": {
-        "country": "Norway"
+        "country": "Canada"
       }
     },
     {
@@ -78,19 +78,49 @@
     {
       "kind": "place_influence",
       "payload": {
-        "country": "Spain_Portugal"
+        "country": "Sweden"
       }
     },
     {
       "kind": "headline_play",
       "payload": {
-        "card": "Nuclear_Test_Ban"
+        "card": "Duck_and_Cover"
       }
     },
     {
       "kind": "headline_play",
+      "payload": {
+        "card": "Suez_Crisis"
+      }
+    },
+    {
+      "kind": "event_influence",
+      "payload": {
+        "country": "UK"
+      }
+    },
+    {
+      "kind": "event_influence",
+      "payload": {
+        "country": "UK"
+      }
+    },
+    {
+      "kind": "event_influence",
+      "payload": {
+        "country": "Israel"
+      }
+    },
+    {
+      "kind": "action_round_play",
       "payload": {
         "card": "Warsaw_Pact_Formed"
+      }
+    },
+    {
+      "kind": "play_mode",
+      "payload": {
+        "mode": "event"
       }
     },
     {
@@ -102,109 +132,7 @@
     {
       "kind": "action_round_play",
       "payload": {
-        "card": "Europe_Scoring"
-      }
-    },
-    {
-      "kind": "play_mode",
-      "payload": {
-        "mode": "event"
-      }
-    },
-    {
-      "kind": "action_round_play",
-      "payload": {
-        "card": "East_European_Unrest"
-      }
-    },
-    {
-      "kind": "play_mode",
-      "payload": {
-        "mode": "ops"
-      }
-    },
-    {
-      "kind": "ops_type",
-      "payload": {
-        "type": "influence"
-      }
-    },
-    {
-      "kind": "place_influence",
-      "payload": {
-        "country": "South_Africa"
-      }
-    },
-    {
-      "kind": "place_influence",
-      "payload": {
-        "country": "Colombia"
-      }
-    },
-    {
-      "kind": "place_influence",
-      "payload": {
-        "country": "Norway"
-      }
-    },
-    {
-      "kind": "action_round_play",
-      "payload": {
-        "card": "Arab_Israeli_War"
-      }
-    },
-    {
-      "kind": "play_mode",
-      "payload": {
-        "mode": "event"
-      }
-    },
-    {
-      "kind": "war_roll",
-      "payload": {
-        "value": 5
-      }
-    },
-    {
-      "kind": "action_round_play",
-      "payload": {
-        "card": "COMECON"
-      }
-    },
-    {
-      "kind": "play_mode",
-      "payload": {
-        "mode": "event"
-      }
-    },
-    {
-      "kind": "event_influence",
-      "payload": {
-        "country": "Hungary"
-      }
-    },
-    {
-      "kind": "event_influence",
-      "payload": {
-        "country": "Bulgaria"
-      }
-    },
-    {
-      "kind": "event_influence",
-      "payload": {
-        "country": "Romania"
-      }
-    },
-    {
-      "kind": "event_influence",
-      "payload": {
-        "country": "Poland"
-      }
-    },
-    {
-      "kind": "action_round_play",
-      "payload": {
-        "card": "US_Japan_Mutual_Defense_Pact"
+        "card": "UN_Intervention"
       }
     },
     {
@@ -222,79 +150,25 @@
     {
       "kind": "realignment_target",
       "payload": {
-        "country": "Italy"
+        "country": "Cameroon"
       }
     },
     {
       "kind": "realignment_actor_roll",
       "payload": {
-        "value": 4
-      }
-    },
-    {
-      "kind": "realignment_opponent_roll",
-      "payload": {
-        "value": 4
-      }
-    },
-    {
-      "kind": "realignment_target",
-      "payload": {
-        "country": "Spain_Portugal"
-      }
-    },
-    {
-      "kind": "realignment_actor_roll",
-      "payload": {
-        "value": 2
-      }
-    },
-    {
-      "kind": "realignment_opponent_roll",
-      "payload": {
-        "value": 4
-      }
-    },
-    {
-      "kind": "realignment_target",
-      "payload": {
-        "country": "Denmark"
-      }
-    },
-    {
-      "kind": "realignment_actor_roll",
-      "payload": {
-        "value": 6
+        "value": 3
       }
     },
     {
       "kind": "realignment_opponent_roll",
       "payload": {
         "value": 6
-      }
-    },
-    {
-      "kind": "realignment_target",
-      "payload": {
-        "country": "Lebanon"
-      }
-    },
-    {
-      "kind": "realignment_actor_roll",
-      "payload": {
-        "value": 1
-      }
-    },
-    {
-      "kind": "realignment_opponent_roll",
-      "payload": {
-        "value": 5
       }
     },
     {
       "kind": "action_round_play",
       "payload": {
-        "card": "Romanian_Abdication"
+        "card": "NATO"
       }
     },
     {
@@ -306,7 +180,175 @@
     {
       "kind": "action_round_play",
       "payload": {
-        "card": "The_China_Card"
+        "card": "Marshall_Plan"
+      }
+    },
+    {
+      "kind": "play_mode",
+      "payload": {
+        "mode": "event"
+      }
+    },
+    {
+      "kind": "event_influence",
+      "payload": {
+        "country": "UK"
+      }
+    },
+    {
+      "kind": "event_influence",
+      "payload": {
+        "country": "Denmark"
+      }
+    },
+    {
+      "kind": "event_influence",
+      "payload": {
+        "country": "West_Germany"
+      }
+    },
+    {
+      "kind": "event_influence",
+      "payload": {
+        "country": "Canada"
+      }
+    },
+    {
+      "kind": "event_influence",
+      "payload": {
+        "country": "Greece"
+      }
+    },
+    {
+      "kind": "event_influence",
+      "payload": {
+        "country": "Norway"
+      }
+    },
+    {
+      "kind": "event_influence",
+      "payload": {
+        "country": "Benelux"
+      }
+    },
+    {
+      "kind": "action_round_play",
+      "payload": {
+        "card": "De_Stalinization"
+      }
+    },
+    {
+      "kind": "play_mode",
+      "payload": {
+        "mode": "space_race"
+      }
+    },
+    {
+      "kind": "space_race_roll",
+      "payload": {
+        "value": 4
+      }
+    },
+    {
+      "kind": "action_round_play",
+      "payload": {
+        "card": "Korean_War"
+      }
+    },
+    {
+      "kind": "play_mode",
+      "payload": {
+        "mode": "event"
+      }
+    },
+    {
+      "kind": "war_roll",
+      "payload": {
+        "value": 4
+      }
+    },
+    {
+      "kind": "action_round_play",
+      "payload": {
+        "card": "De_Gaulle_Leads_France"
+      }
+    },
+    {
+      "kind": "play_mode",
+      "payload": {
+        "mode": "event"
+      }
+    },
+    {
+      "kind": "action_round_play",
+      "payload": {
+        "card": "Decolonization"
+      }
+    },
+    {
+      "kind": "play_mode",
+      "payload": {
+        "mode": "event"
+      }
+    },
+    {
+      "kind": "event_influence",
+      "payload": {
+        "country": "Ivory_Coast"
+      }
+    },
+    {
+      "kind": "event_influence",
+      "payload": {
+        "country": "Burma"
+      }
+    },
+    {
+      "kind": "event_influence",
+      "payload": {
+        "country": "West_African_States"
+      }
+    },
+    {
+      "kind": "event_influence",
+      "payload": {
+        "country": "Vietnam"
+      }
+    },
+    {
+      "kind": "action_round_play",
+      "payload": {
+        "card": "Indo_Pakistani_War"
+      }
+    },
+    {
+      "kind": "play_mode",
+      "payload": {
+        "mode": "ops"
+      }
+    },
+    {
+      "kind": "ops_type",
+      "payload": {
+        "type": "influence"
+      }
+    },
+    {
+      "kind": "place_influence",
+      "payload": {
+        "country": "Ivory_Coast"
+      }
+    },
+    {
+      "kind": "place_influence",
+      "payload": {
+        "country": "Nigeria"
+      }
+    },
+    {
+      "kind": "action_round_play",
+      "payload": {
+        "card": "Socialist_Governments"
       }
     },
     {
@@ -324,79 +366,109 @@
     {
       "kind": "coup_target",
       "payload": {
-        "country": "Laos_Cambodia"
+        "country": "India"
       }
     },
     {
       "kind": "coup_roll",
       "payload": {
-        "value": 6
+        "value": 5
       }
     },
     {
       "kind": "action_round_play",
       "payload": {
-        "card": "Formosan_Resolution"
+        "card": "The_China_Card"
       }
     },
     {
       "kind": "play_mode",
       "payload": {
-        "mode": "space_race"
+        "mode": "ops"
       }
     },
     {
-      "kind": "space_race_roll",
+      "kind": "ops_type",
+      "payload": {
+        "type": "realignment"
+      }
+    },
+    {
+      "kind": "realignment_target",
+      "payload": {
+        "country": "Austria"
+      }
+    },
+    {
+      "kind": "realignment_actor_roll",
       "payload": {
         "value": 2
       }
     },
     {
-      "kind": "action_round_play",
-      "payload": {
-        "card": "Fidel"
-      }
-    },
-    {
-      "kind": "play_mode",
-      "payload": {
-        "mode": "event"
-      }
-    },
-    {
-      "kind": "action_round_play",
-      "payload": {
-        "card": "Containment"
-      }
-    },
-    {
-      "kind": "play_mode",
-      "payload": {
-        "mode": "event"
-      }
-    },
-    {
-      "kind": "action_round_play",
-      "payload": {
-        "card": "Independent_Reds"
-      }
-    },
-    {
-      "kind": "play_mode",
-      "payload": {
-        "mode": "space_race"
-      }
-    },
-    {
-      "kind": "space_race_roll",
+      "kind": "realignment_opponent_roll",
       "payload": {
         "value": 6
       }
     },
     {
+      "kind": "realignment_target",
+      "payload": {
+        "country": "Brazil"
+      }
+    },
+    {
+      "kind": "realignment_actor_roll",
+      "payload": {
+        "value": 3
+      }
+    },
+    {
+      "kind": "realignment_opponent_roll",
+      "payload": {
+        "value": 3
+      }
+    },
+    {
+      "kind": "realignment_target",
+      "payload": {
+        "country": "Saudi_Arabia"
+      }
+    },
+    {
+      "kind": "realignment_actor_roll",
+      "payload": {
+        "value": 2
+      }
+    },
+    {
+      "kind": "realignment_opponent_roll",
+      "payload": {
+        "value": 3
+      }
+    },
+    {
+      "kind": "realignment_target",
+      "payload": {
+        "country": "El_Salvador"
+      }
+    },
+    {
+      "kind": "realignment_actor_roll",
+      "payload": {
+        "value": 1
+      }
+    },
+    {
+      "kind": "realignment_opponent_roll",
+      "payload": {
+        "value": 5
+      }
+    },
+    {
       "kind": "action_round_play",
       "payload": {
-        "card": "De_Stalinization"
+        "card": "Europe_Scoring"
       }
     },
     {
@@ -408,49 +480,199 @@
     {
       "kind": "headline_play",
       "payload": {
-        "card": "Decolonization"
+        "card": "Arab_Israeli_War"
       }
     },
     {
       "kind": "headline_play",
       "payload": {
-        "card": "Truman_Doctrine"
+        "card": "Containment"
       }
     },
     {
-      "kind": "event_influence",
+      "kind": "war_roll",
       "payload": {
-        "country": "Algeria"
-      }
-    },
-    {
-      "kind": "event_influence",
-      "payload": {
-        "country": "Malaysia"
-      }
-    },
-    {
-      "kind": "event_influence",
-      "payload": {
-        "country": "West_African_States"
-      }
-    },
-    {
-      "kind": "event_influence",
-      "payload": {
-        "country": "Ethiopia"
-      }
-    },
-    {
-      "kind": "event_influence",
-      "payload": {
-        "country": "Yugoslavia"
+        "value": 1
       }
     },
     {
       "kind": "action_round_play",
       "payload": {
-        "card": "De_Gaulle_Leads_France"
+        "card": "Asia_Scoring"
+      }
+    },
+    {
+      "kind": "play_mode",
+      "payload": {
+        "mode": "event"
+      }
+    },
+    {
+      "kind": "action_round_play",
+      "payload": {
+        "card": "Romanian_Abdication"
+      }
+    },
+    {
+      "kind": "play_mode",
+      "payload": {
+        "mode": "event"
+      }
+    },
+    {
+      "kind": "action_round_play",
+      "payload": {
+        "card": "Truman_Doctrine"
+      }
+    },
+    {
+      "kind": "play_mode",
+      "payload": {
+        "mode": "event"
+      }
+    },
+    {
+      "kind": "event_influence",
+      "payload": {
+        "country": "Finland"
+      }
+    },
+    {
+      "kind": "action_round_play",
+      "payload": {
+        "card": "The_China_Card"
+      }
+    },
+    {
+      "kind": "play_mode",
+      "payload": {
+        "mode": "ops"
+      }
+    },
+    {
+      "kind": "ops_type",
+      "payload": {
+        "type": "realignment"
+      }
+    },
+    {
+      "kind": "realignment_target",
+      "payload": {
+        "country": "Afghanistan"
+      }
+    },
+    {
+      "kind": "realignment_actor_roll",
+      "payload": {
+        "value": 6
+      }
+    },
+    {
+      "kind": "realignment_opponent_roll",
+      "payload": {
+        "value": 6
+      }
+    },
+    {
+      "kind": "realignment_target",
+      "payload": {
+        "country": "Turkey"
+      }
+    },
+    {
+      "kind": "realignment_actor_roll",
+      "payload": {
+        "value": 5
+      }
+    },
+    {
+      "kind": "realignment_opponent_roll",
+      "payload": {
+        "value": 1
+      }
+    },
+    {
+      "kind": "realignment_target",
+      "payload": {
+        "country": "Haiti"
+      }
+    },
+    {
+      "kind": "realignment_actor_roll",
+      "payload": {
+        "value": 6
+      }
+    },
+    {
+      "kind": "realignment_opponent_roll",
+      "payload": {
+        "value": 2
+      }
+    },
+    {
+      "kind": "realignment_target",
+      "payload": {
+        "country": "North_Korea"
+      }
+    },
+    {
+      "kind": "realignment_actor_roll",
+      "payload": {
+        "value": 3
+      }
+    },
+    {
+      "kind": "realignment_opponent_roll",
+      "payload": {
+        "value": 4
+      }
+    },
+    {
+      "kind": "realignment_target",
+      "payload": {
+        "country": "El_Salvador"
+      }
+    },
+    {
+      "kind": "realignment_actor_roll",
+      "payload": {
+        "value": 5
+      }
+    },
+    {
+      "kind": "realignment_opponent_roll",
+      "payload": {
+        "value": 1
+      }
+    },
+    {
+      "kind": "action_round_play",
+      "payload": {
+        "card": "Middle_East_Scoring"
+      }
+    },
+    {
+      "kind": "play_mode",
+      "payload": {
+        "mode": "event"
+      }
+    },
+    {
+      "kind": "action_round_play",
+      "payload": {
+        "card": "Defectors"
+      }
+    },
+    {
+      "kind": "play_mode",
+      "payload": {
+        "mode": "event"
+      }
+    },
+    {
+      "kind": "action_round_play",
+      "payload": {
+        "card": "Nasser"
       }
     },
     {
@@ -474,19 +696,7 @@
     {
       "kind": "action_round_play",
       "payload": {
-        "card": "Captured_Nazi_Scientist"
-      }
-    },
-    {
-      "kind": "play_mode",
-      "payload": {
-        "mode": "event"
-      }
-    },
-    {
-      "kind": "action_round_play",
-      "payload": {
-        "card": "The_China_Card"
+        "card": "Olympic_Games"
       }
     },
     {
@@ -504,127 +714,25 @@
     {
       "kind": "realignment_target",
       "payload": {
-        "country": "Pakistan"
+        "country": "South_Africa"
       }
     },
     {
       "kind": "realignment_actor_roll",
-      "payload": {
-        "value": 6
-      }
-    },
-    {
-      "kind": "realignment_opponent_roll",
-      "payload": {
-        "value": 6
-      }
-    },
-    {
-      "kind": "realignment_target",
-      "payload": {
-        "country": "Burma"
-      }
-    },
-    {
-      "kind": "realignment_actor_roll",
-      "payload": {
-        "value": 2
-      }
-    },
-    {
-      "kind": "realignment_opponent_roll",
-      "payload": {
-        "value": 5
-      }
-    },
-    {
-      "kind": "realignment_target",
-      "payload": {
-        "country": "Gulf_States"
-      }
-    },
-    {
-      "kind": "realignment_actor_roll",
-      "payload": {
-        "value": 5
-      }
-    },
-    {
-      "kind": "realignment_opponent_roll",
-      "payload": {
-        "value": 2
-      }
-    },
-    {
-      "kind": "realignment_target",
-      "payload": {
-        "country": "Mexico"
-      }
-    },
-    {
-      "kind": "realignment_actor_roll",
-      "payload": {
-        "value": 4
-      }
-    },
-    {
-      "kind": "realignment_opponent_roll",
       "payload": {
         "value": 3
       }
     },
     {
-      "kind": "action_round_play",
+      "kind": "realignment_opponent_roll",
       "payload": {
-        "card": "Olympic_Games"
-      }
-    },
-    {
-      "kind": "play_mode",
-      "payload": {
-        "mode": "ops"
-      }
-    },
-    {
-      "kind": "ops_type",
-      "payload": {
-        "type": "influence"
-      }
-    },
-    {
-      "kind": "place_influence",
-      "payload": {
-        "country": "Morocco"
+        "value": 4
       }
     },
     {
       "kind": "action_round_play",
       "payload": {
-        "card": "Suez_Crisis"
-      }
-    },
-    {
-      "kind": "play_mode",
-      "payload": {
-        "mode": "event"
-      }
-    },
-    {
-      "kind": "event_influence",
-      "payload": {
-        "country": "UK"
-      }
-    },
-    {
-      "kind": "event_influence",
-      "payload": {
-        "country": "UK"
-      }
-    },
-    {
-      "kind": "action_round_play",
-      "payload": {
-        "card": "Middle_East_Scoring"
+        "card": "Fidel"
       }
     },
     {
@@ -636,55 +744,7 @@
     {
       "kind": "action_round_play",
       "payload": {
-        "card": "Korean_War"
-      }
-    },
-    {
-      "kind": "play_mode",
-      "payload": {
-        "mode": "event"
-      }
-    },
-    {
-      "kind": "war_roll",
-      "payload": {
-        "value": 1
-      }
-    },
-    {
-      "kind": "action_round_play",
-      "payload": {
-        "card": "Five_Year_Plan"
-      }
-    },
-    {
-      "kind": "play_mode",
-      "payload": {
-        "mode": "space_race"
-      }
-    },
-    {
-      "kind": "space_race_roll",
-      "payload": {
-        "value": 1
-      }
-    },
-    {
-      "kind": "action_round_play",
-      "payload": {
-        "card": "Asia_Scoring"
-      }
-    },
-    {
-      "kind": "play_mode",
-      "payload": {
-        "mode": "event"
-      }
-    },
-    {
-      "kind": "action_round_play",
-      "payload": {
-        "card": "Indo_Pakistani_War"
+        "card": "Blockade"
       }
     },
     {
@@ -702,43 +762,19 @@
     {
       "kind": "coup_target",
       "payload": {
-        "country": "Morocco"
+        "country": "Dominican_Republic"
       }
     },
     {
       "kind": "coup_roll",
       "payload": {
-        "value": 3
+        "value": 6
       }
     },
     {
       "kind": "action_round_play",
       "payload": {
-        "card": "NATO"
-      }
-    },
-    {
-      "kind": "play_mode",
-      "payload": {
-        "mode": "event"
-      }
-    },
-    {
-      "kind": "headline_play",
-      "payload": {
-        "card": "Formosan_Resolution"
-      }
-    },
-    {
-      "kind": "headline_play",
-      "payload": {
-        "card": "Duck_and_Cover"
-      }
-    },
-    {
-      "kind": "action_round_play",
-      "payload": {
-        "card": "Socialist_Governments"
+        "card": "Five_Year_Plan"
       }
     },
     {
@@ -750,740 +786,764 @@
     {
       "kind": "space_race_roll",
       "payload": {
-        "value": 6
+        "value": 3
+      }
+    },
+    {
+      "kind": "headline_play",
+      "payload": {
+        "card": "COMECON"
+      }
+    },
+    {
+      "kind": "headline_play",
+      "payload": {
+        "card": "Nuclear_Test_Ban"
+      }
+    },
+    {
+      "kind": "event_influence",
+      "payload": {
+        "country": "East_Germany"
+      }
+    },
+    {
+      "kind": "event_influence",
+      "payload": {
+        "country": "Romania"
+      }
+    },
+    {
+      "kind": "event_influence",
+      "payload": {
+        "country": "Bulgaria"
+      }
+    },
+    {
+      "kind": "event_influence",
+      "payload": {
+        "country": "Hungary"
       }
     },
     {
       "kind": "action_round_play",
       "payload": {
-        "card": "US_Japan_Mutual_Defense_Pact"
+        "card": "Red_Scare_Purge"
       }
     },
     {
       "kind": "play_mode",
       "payload": {
-        "mode": "ops"
+        "mode": "event"
       }
     },
     {
-      "kind": "ops_type",
+      "kind": "action_round_play",
       "payload": {
-        "type": "realignment"
+        "card": "Olympic_Games"
       }
     },
     {
-      "kind": "realignment_target",
+      "kind": "play_mode",
       "payload": {
-        "country": "Australia"
+        "mode": "event"
       }
     },
     {
-      "kind": "realignment_actor_roll",
+      "kind": "action_round_play",
       "payload": {
-        "value": 3
+        "card": "Five_Year_Plan"
       }
     },
     {
-      "kind": "realignment_opponent_roll",
+      "kind": "play_mode",
       "payload": {
-        "value": 2
+        "mode": "event"
       }
     },
     {
-      "kind": "realignment_target",
+      "kind": "action_round_play",
       "payload": {
-        "country": "Vietnam"
+        "card": "Decolonization"
       }
     },
     {
-      "kind": "realignment_actor_roll",
+      "kind": "play_mode",
       "payload": {
-        "value": 1
+        "mode": "event"
       }
     },
     {
-      "kind": "realignment_opponent_roll",
+      "kind": "event_influence",
       "payload": {
-        "value": 1
+        "country": "Kenya"
       }
     },
     {
-      "kind": "realignment_target",
+      "kind": "event_influence",
       "payload": {
-        "country": "Austria"
+        "country": "Tunisia"
       }
     },
     {
-      "kind": "realignment_actor_roll",
+      "kind": "event_influence",
       "payload": {
-        "value": 6
+        "country": "West_African_States"
       }
     },
     {
-      "kind": "realignment_opponent_roll",
+      "kind": "event_influence",
       "payload": {
-        "value": 1
+        "country": "South_Africa"
       }
     },
     {
-      "kind": "realignment_target",
+      "kind": "action_round_play",
       "payload": {
-        "country": "Chinese_Civil_War"
-      }
-    },
-    {
-      "kind": "realignment_actor_roll",
-      "payload": {
-        "value": 3
-      }
-    },
-    {
-      "kind": "realignment_opponent_roll",
-      "payload": {
-        "value": 5
+        "card": "Socialist_Governments"
       }
     }
   ],
   "checkpoints": [
     {
-      "after_step": 46,
+      "after_step": 50,
       "state": {
-        "seed": 424242,
+        "seed": 20260812,
         "rng_state": [
           3,
           [
-            3099266790,
-            1788891006,
-            1646705744,
-            2546760939,
-            4262540776,
-            3597540611,
-            1322361816,
-            3496457690,
-            95897396,
-            373882528,
-            1956091748,
-            1246089596,
-            535249002,
-            681203552,
-            3672088527,
-            2961040488,
-            3451359913,
-            1688984749,
-            3923580118,
-            4067598904,
-            3494843254,
-            3219107647,
-            3888272436,
-            2310124020,
-            2668139268,
-            1546966211,
-            165088812,
-            3089810465,
-            3065596981,
-            3073816737,
-            2262022402,
-            3017307410,
-            1952142145,
-            617982089,
-            2447392922,
-            2919058812,
-            1571248235,
-            729903850,
-            1350072618,
-            103983490,
-            3600824071,
-            2821687032,
-            3854431086,
-            1087520668,
-            208073226,
-            1009886580,
-            2688990567,
-            1970128495,
-            2468900747,
-            1088418832,
-            1760918041,
-            2738866686,
-            3173283105,
-            479227047,
-            1836622866,
-            2073872516,
-            3390070480,
-            3048977230,
-            3734576180,
-            467692556,
-            3086191965,
-            1635697408,
-            2307841665,
-            1239743462,
-            2174086717,
-            1684632221,
-            4063398019,
-            2789379215,
-            4231152319,
-            3474501454,
-            3367369739,
-            1778101679,
-            3472876901,
-            2791806751,
-            3612404126,
-            830725904,
-            3261829305,
-            938705737,
-            965918454,
-            1234160689,
-            1415471398,
-            4080516114,
-            3731470303,
-            2045250768,
-            2332600046,
-            4278952814,
-            1494398299,
-            3917640358,
-            3297214480,
-            1688495625,
-            2666498890,
-            1642089573,
-            833789908,
-            2770736551,
-            1639444431,
-            2319482336,
-            1907984808,
-            99556830,
-            2807374579,
-            3339869491,
-            4256952297,
-            2519741252,
-            780974134,
-            3784343047,
-            3972898221,
-            2943608857,
-            932685250,
-            2337102222,
-            3246390415,
-            1865173090,
-            1192939656,
-            4213139714,
-            2124845018,
-            2711831654,
-            2473224662,
-            651343507,
-            2221572502,
-            1196545033,
-            3795287913,
-            4256001663,
-            3618230106,
-            637439999,
-            2981205740,
-            3128995760,
-            3623084589,
-            475575781,
-            4011804617,
-            1180330602,
-            806356293,
-            2860267709,
-            319102270,
-            1438842753,
-            3236646847,
-            205445554,
-            3293554408,
-            366880346,
-            2101104053,
-            1021481146,
-            4005212563,
-            2296568492,
-            1375078691,
-            514427831,
-            1598073625,
-            675326525,
-            14456242,
-            3295144555,
-            1323751674,
-            923730119,
-            2955764754,
-            2035199908,
-            140708170,
-            3385735952,
-            3920189647,
-            3851689291,
-            2138738191,
-            2756350832,
-            2632955907,
-            2547061111,
-            56618364,
-            3078385588,
-            1366265017,
-            249487593,
-            1840333924,
-            2183035389,
-            471237110,
-            1178805080,
-            2082338712,
-            1897686468,
-            3769479300,
-            3022442157,
-            1001469237,
-            1121572126,
-            3476409969,
-            183681076,
-            863020608,
-            3713278159,
-            665269022,
-            4257243004,
-            3617437650,
-            538443776,
-            4125789877,
-            3013298833,
-            1711616679,
-            3244607622,
-            3894134430,
-            4069234105,
-            2843542619,
-            3241642950,
-            1111674468,
-            619885284,
-            2847933509,
-            3092237858,
-            1911039234,
-            3498775630,
-            4101255098,
-            1915122376,
-            1319155623,
-            1771100352,
-            2855399100,
-            588472588,
-            222158494,
-            3564292351,
-            1732452427,
-            2293943649,
-            2065873482,
-            4052219506,
-            3706355042,
-            3613919458,
-            3079951391,
-            549879547,
-            1489685840,
-            1351722032,
-            1676384062,
-            93639751,
-            2769572018,
-            1470517970,
-            4178143182,
-            1510545609,
-            1615782797,
-            1236012669,
-            2562145508,
-            30899751,
-            386575528,
-            1442796234,
-            2469579621,
-            1960002234,
-            2893954122,
-            55275893,
-            1223930508,
-            4283277861,
-            1534592612,
-            2974325311,
-            1648340002,
-            3796465762,
-            4085653894,
-            2534693292,
-            716023775,
-            3196017926,
-            1180985190,
-            726936996,
-            3503763445,
-            37140766,
-            1960692928,
-            1112781634,
-            3977798609,
-            76316700,
-            2206467041,
-            1592908704,
-            1928508346,
-            1612264894,
-            39020969,
-            2253014841,
-            2922844593,
-            2272260784,
-            2794570925,
-            3644658264,
-            1536139213,
-            3959130088,
-            3213111590,
-            3575829477,
-            3796704172,
-            367451056,
-            101184066,
-            3750768931,
-            1703847674,
-            1428927795,
-            4216920574,
-            4049581208,
-            3881076965,
-            2124990920,
-            3328210611,
-            2026755791,
-            705684037,
-            1021342274,
-            2458039716,
-            758411375,
-            4162027755,
-            4155675835,
-            1927508169,
-            3232025967,
-            2446687713,
-            335684732,
-            1709681453,
-            1561646388,
-            946290940,
-            3020180906,
-            2188850067,
-            772817078,
-            1662170069,
-            2765401242,
-            801007087,
-            1936507473,
-            3540360863,
-            1961164166,
-            1473141932,
-            140650543,
-            643841029,
-            1680141910,
-            4288840933,
-            3566954034,
-            3653886528,
-            3607840266,
-            1742479139,
-            3732850081,
-            152383900,
-            13954678,
-            2338656082,
-            3577309180,
-            174453766,
-            3298428672,
-            186993547,
-            3950727813,
-            2929650548,
-            567903419,
-            2390349533,
-            3836759730,
-            1485501292,
-            2026653237,
-            3610184053,
-            3508739137,
-            1671446722,
-            1238640165,
-            2004468612,
-            1081099289,
-            1920194242,
-            1027713079,
-            2821450753,
-            2309230610,
-            1489913513,
-            2129113768,
-            3046084546,
-            900035300,
-            3628512056,
-            2170275869,
-            1202726165,
-            3402451693,
-            2278509348,
-            180162613,
-            390230435,
-            66387009,
-            3780138849,
-            3260374350,
-            1805846903,
-            946456348,
-            45710531,
-            1392590441,
-            1175228786,
-            387038664,
-            4085569063,
-            360118345,
-            1047674710,
-            960886831,
-            4755679,
-            2091789700,
-            2823313181,
-            1794473693,
-            2161890332,
-            1902846597,
-            2471959554,
-            1619627439,
-            770248357,
-            265035158,
-            2535785370,
-            2640432830,
-            2047939854,
-            4114952140,
-            3326327837,
-            2872999147,
-            276913565,
-            1898916057,
-            3917510840,
-            610547643,
-            2758605453,
-            3312710797,
-            2194098403,
-            516438922,
-            4015022761,
-            1123067969,
-            1131929281,
-            3407588489,
-            2471300119,
-            4239363873,
-            430898103,
-            2499170996,
-            3006112862,
-            3270087558,
-            215955818,
-            1328317452,
-            1716624464,
-            3287119028,
-            474065398,
-            4142195815,
-            2370316867,
-            3196155554,
-            964123603,
-            679314065,
-            1397970033,
-            2868687724,
-            592102863,
-            902609120,
-            1634238885,
-            2719110572,
-            2167078197,
-            391748303,
-            3553500068,
-            289991464,
-            3325779037,
-            3265194730,
-            992458555,
-            1344661811,
-            1062466001,
-            912509035,
-            318160536,
-            3064381108,
-            3703714743,
-            3977380568,
-            3339834546,
-            1146548854,
-            2661842923,
-            632433520,
-            4051839452,
-            895338069,
-            2697896950,
-            4094065046,
-            3874151671,
-            2048308896,
-            3246115873,
-            496110503,
-            2303200818,
-            3497839695,
-            1016631552,
-            1347730863,
-            2502964017,
-            3979692159,
-            3445760647,
-            156645619,
-            2388130787,
-            3016991758,
-            2386141987,
-            2927427876,
-            2650147608,
-            1338481100,
-            910266870,
-            1887294454,
-            3635656585,
-            582397815,
-            1090661622,
-            3278633868,
-            31257488,
-            1956145963,
-            3369730301,
-            612109090,
-            4287070000,
-            896805556,
-            789187555,
-            2472752966,
-            3828891829,
-            3373540019,
-            3794784370,
-            2687539887,
-            1995200389,
-            2003848685,
-            2120945392,
-            2627466347,
-            2834797774,
-            3959866588,
-            1863448597,
-            536596787,
-            1598367077,
-            2849921397,
-            1868400302,
-            1099791829,
-            2421930079,
-            1886774360,
-            2769604741,
-            3050817299,
-            519397388,
-            3943996719,
-            2228423024,
-            2072442667,
-            780763286,
-            3852349497,
-            1364085115,
-            2953837337,
-            1889899544,
-            3355987351,
-            2691995767,
-            1514367912,
-            4210643968,
-            3840623350,
-            3607169632,
-            1431718708,
-            2861686401,
-            2559732339,
-            1065733719,
-            1386116233,
-            552374951,
-            2279374723,
-            4290927724,
-            3219263603,
-            350650998,
-            3663400828,
-            269297430,
-            2898453938,
-            2706598608,
-            4050052853,
-            2271808321,
-            262101131,
-            1309972589,
-            1826525471,
-            94278085,
-            1307635860,
-            1225611748,
-            3708154061,
-            1952187862,
-            3940370756,
-            897590552,
-            2268276177,
-            2565570733,
-            2105778604,
-            2401112664,
-            1984867337,
-            2476353989,
-            756098985,
-            39620707,
-            1912253319,
-            268963944,
-            4105714619,
-            697811534,
-            3990648598,
-            266827059,
-            2937918255,
-            2410872948,
-            3203469271,
-            482099382,
-            1618134340,
-            1820137967,
-            3610869364,
-            635845190,
-            1772222383,
-            4059858123,
-            528436808,
-            267076822,
-            121089451,
-            2829072677,
-            1522875549,
-            1481674909,
-            3755408159,
-            3193881797,
-            2348109745,
-            3475363435,
-            1336103994,
-            3554028495,
-            3716623608,
-            3194083939,
-            1827122892,
-            2535410131,
-            382583236,
-            1727575985,
-            4189159258,
-            4290280141,
-            3216332489,
-            1250451805,
-            3272293218,
-            1000572195,
-            2359926407,
-            3995261004,
-            3311425020,
-            2639642119,
-            1920780856,
-            185000586,
-            3661486350,
-            2218183588,
-            1640226631,
-            2868494227,
-            1701507509,
-            3466763981,
-            2315866440,
-            1584323768,
-            2631351788,
-            2759679947,
-            1200419821,
-            40234075,
-            2192097578,
-            3316202816,
-            2899401852,
-            1282475574,
-            1968623548,
-            2295254749,
-            3296186195,
-            1621240967,
-            3386600418,
-            4202291590,
-            1059588522,
-            702118609,
-            685623210,
-            100471519,
-            3058962488,
-            2828465400,
-            3893889114,
-            102735844,
-            147330580,
-            2152816047,
-            3032367906,
-            247032698,
-            3557464226,
-            3650426951,
-            180585882,
-            4146073497,
-            857226555,
-            2649876488,
-            1035896559,
-            1044254921,
-            3856339908,
-            1103793617,
-            2069913720,
-            616432646,
-            3924336253,
-            4286640622,
-            3291895555,
-            2113464222,
-            3951837962,
-            942001279,
-            252629762,
-            60
+            4255349791,
+            3640896097,
+            1205581986,
+            3783357632,
+            1426191,
+            1786005758,
+            881003499,
+            1644271765,
+            1152596013,
+            129283755,
+            2552929154,
+            1625638791,
+            3617045036,
+            3467375861,
+            1418800424,
+            2189687589,
+            1877871983,
+            1446522771,
+            2268598557,
+            2697924480,
+            2047378093,
+            2190231403,
+            2068325105,
+            3751156778,
+            590986241,
+            3153269930,
+            1492751065,
+            2398870644,
+            3510932251,
+            776307683,
+            1204409600,
+            3220906593,
+            4026975840,
+            600647958,
+            767640848,
+            3484810312,
+            3557719240,
+            767818601,
+            3073961078,
+            3506714116,
+            3861934222,
+            4252269738,
+            4221075690,
+            3472898819,
+            1020494803,
+            3392175854,
+            246720277,
+            461533597,
+            3675199760,
+            1832866817,
+            424607631,
+            3369490114,
+            2792522277,
+            1390591063,
+            4189388130,
+            1960506718,
+            3374675290,
+            1035663001,
+            3716010753,
+            1990980735,
+            1562120407,
+            3513091309,
+            2994538144,
+            1319118628,
+            1649137768,
+            2770018605,
+            1746968749,
+            384397161,
+            4204611305,
+            2633810745,
+            1311687003,
+            491764604,
+            2067565358,
+            311881703,
+            2998594363,
+            1357990462,
+            2072800899,
+            2464165259,
+            3970591615,
+            2319229213,
+            4049227418,
+            143538983,
+            1203106178,
+            474817532,
+            1672476384,
+            1257328146,
+            1701510501,
+            2941016728,
+            2911776508,
+            766516706,
+            3224971856,
+            30778205,
+            3458603626,
+            4069672377,
+            3399248839,
+            228316781,
+            4225936689,
+            2498793074,
+            2901468222,
+            527588744,
+            2705390477,
+            432705542,
+            3819484847,
+            2590575055,
+            4215491201,
+            2786140972,
+            2625248493,
+            2849101836,
+            1867864282,
+            3206367034,
+            865642377,
+            574806233,
+            2160272586,
+            2809660397,
+            2959058664,
+            2225667081,
+            3645336090,
+            2597268644,
+            1734730391,
+            816166047,
+            2838329588,
+            1509101194,
+            2159428868,
+            2976351078,
+            1149167182,
+            1789548297,
+            3226839113,
+            956240339,
+            3494979021,
+            2028695194,
+            3736967792,
+            589233426,
+            1947429988,
+            39376671,
+            1296170827,
+            4264017485,
+            4176782507,
+            2821492065,
+            93413515,
+            2631013046,
+            2213477999,
+            184557287,
+            111623011,
+            1558235412,
+            3457020818,
+            2753438778,
+            909993130,
+            1597709386,
+            3593325271,
+            717594090,
+            3794272323,
+            742712307,
+            247067269,
+            1606016701,
+            3982277429,
+            3688146603,
+            3122464756,
+            762780691,
+            3754907025,
+            3516844119,
+            1272861958,
+            1230166817,
+            3425366536,
+            3862884222,
+            662601894,
+            2236311659,
+            3163011507,
+            830703480,
+            1472943969,
+            2511523047,
+            210836458,
+            4189279467,
+            297484494,
+            2503305677,
+            432754882,
+            2031489225,
+            2122000643,
+            3125436713,
+            2631210199,
+            1322474428,
+            3022400640,
+            4092936494,
+            519732420,
+            2458588856,
+            1931515253,
+            2470290270,
+            2214306323,
+            2031946021,
+            3353024325,
+            3168814321,
+            3151233858,
+            3211513053,
+            2817600191,
+            3892923151,
+            3250467256,
+            1228175822,
+            1298629191,
+            2546159094,
+            1909939538,
+            1216232536,
+            2862288328,
+            3104720944,
+            2921047167,
+            321489054,
+            1692098489,
+            3619489977,
+            1855760863,
+            2266311215,
+            1558116719,
+            560674994,
+            3009478140,
+            2648547113,
+            3690429214,
+            1820580624,
+            2805949809,
+            1552329130,
+            1161281482,
+            2988241742,
+            3117005367,
+            2297147428,
+            1860142954,
+            1145967844,
+            3581773428,
+            164311889,
+            1319311821,
+            3376422354,
+            1089638518,
+            4061517258,
+            3361982667,
+            552710775,
+            1568766912,
+            3782795967,
+            23384518,
+            3868062961,
+            773338490,
+            3209308862,
+            3377333647,
+            4080432404,
+            2605367185,
+            2649795295,
+            1031394326,
+            1099678254,
+            3719427521,
+            109746770,
+            619813700,
+            1303832794,
+            303746682,
+            773479733,
+            2638300822,
+            2396953225,
+            3795787733,
+            974926054,
+            263826843,
+            2063145165,
+            3751310268,
+            929239805,
+            904428113,
+            2857539122,
+            2289241718,
+            684632909,
+            3892559378,
+            798015107,
+            4244273455,
+            910853896,
+            1103392160,
+            3296118145,
+            882415297,
+            1935346608,
+            3007686212,
+            2394063665,
+            1973665732,
+            1261071632,
+            3171500068,
+            3285887589,
+            2617757290,
+            2079271306,
+            3207863084,
+            228649429,
+            656248066,
+            377291764,
+            937710927,
+            2583155485,
+            106053054,
+            824868021,
+            1045990817,
+            2969220815,
+            1598071914,
+            898089969,
+            3827019418,
+            1554939218,
+            3529581325,
+            295073886,
+            2127433784,
+            2560068055,
+            2441976603,
+            3874462076,
+            1945434589,
+            311312590,
+            3766479937,
+            2515194803,
+            587669798,
+            3805289827,
+            1418272577,
+            125566965,
+            1365675311,
+            1119785463,
+            3611748663,
+            3804894076,
+            4021522012,
+            1551701045,
+            2565843565,
+            1718840201,
+            3231009858,
+            116518487,
+            762264430,
+            1778327854,
+            1829573003,
+            3579353441,
+            2749559058,
+            3013469214,
+            2124892405,
+            3118365961,
+            3062976665,
+            793132321,
+            4059539211,
+            4206068050,
+            2330287904,
+            313926433,
+            1971215972,
+            1383704406,
+            1504847132,
+            886599381,
+            1346743731,
+            2668978516,
+            2791339742,
+            717619914,
+            3957576136,
+            297809388,
+            1081571957,
+            3714202612,
+            1126576695,
+            1581967240,
+            604325067,
+            2325053870,
+            2909975894,
+            3720207143,
+            3092009190,
+            1814222318,
+            3235349732,
+            403568741,
+            4005833154,
+            2824972798,
+            4201551826,
+            430511784,
+            2532302622,
+            1608602611,
+            1448592139,
+            4265439842,
+            2589968623,
+            2467057631,
+            2689805727,
+            2588623393,
+            1370099303,
+            3878975084,
+            2661810594,
+            3030833944,
+            3163570605,
+            2773492119,
+            2001831383,
+            1343631702,
+            1163302181,
+            3833747170,
+            3275319745,
+            80489101,
+            3621499251,
+            4209052880,
+            4083139273,
+            45670978,
+            4066409892,
+            1426603458,
+            2119588125,
+            3863396719,
+            1025048408,
+            3713211949,
+            3421428665,
+            3488965108,
+            1981953071,
+            1346698681,
+            830229524,
+            2058170496,
+            761820919,
+            3347967144,
+            3739819610,
+            3794180915,
+            4139403247,
+            93048383,
+            1585879530,
+            3550853531,
+            2399194050,
+            3445688162,
+            3325800941,
+            1729943196,
+            3271533771,
+            3966091510,
+            2049620755,
+            2953411134,
+            3004649824,
+            568716332,
+            3331078693,
+            1579446429,
+            1616513692,
+            4031164433,
+            2755043173,
+            3955058856,
+            273884512,
+            1997001774,
+            4135457934,
+            3001196441,
+            2730272303,
+            4097206569,
+            717909976,
+            2137865488,
+            2033941049,
+            1149151313,
+            4192955789,
+            889132950,
+            2793332397,
+            3215713206,
+            310994347,
+            1039859964,
+            46764004,
+            936735813,
+            399152988,
+            3388112075,
+            4085918632,
+            514070006,
+            3834830832,
+            2001656548,
+            841633962,
+            1057555877,
+            3473703345,
+            1850166375,
+            4197626911,
+            2903364496,
+            3074961787,
+            1409200488,
+            720503767,
+            1372311696,
+            2351985120,
+            2539438805,
+            1374866634,
+            782105007,
+            2754677527,
+            592732434,
+            247802333,
+            4294828339,
+            4179413215,
+            3448500607,
+            3048553112,
+            1025648991,
+            887048789,
+            2780902184,
+            681358347,
+            2192338407,
+            2885395537,
+            2902525643,
+            366839804,
+            4071347574,
+            1390594660,
+            662681044,
+            1720349199,
+            114493794,
+            2147846145,
+            3658826793,
+            1781614697,
+            2076352842,
+            3801053282,
+            1726780044,
+            591599604,
+            2512823829,
+            1552647508,
+            1734121714,
+            612867490,
+            2645361201,
+            2354407843,
+            3113487737,
+            3707197453,
+            1871645045,
+            1017445783,
+            2978975332,
+            1040688347,
+            2411082465,
+            3086897418,
+            2585039584,
+            2430751996,
+            3897424635,
+            3811668025,
+            3976350380,
+            785326062,
+            654395107,
+            2702900500,
+            3947899434,
+            1015659299,
+            2472196308,
+            2957362518,
+            102357992,
+            928349963,
+            144775352,
+            3213736601,
+            346632914,
+            1121669283,
+            17045040,
+            579062996,
+            4087371854,
+            3337321851,
+            2014185929,
+            2243181847,
+            2731654083,
+            2790496392,
+            2069196417,
+            2577000578,
+            4198249389,
+            1722701860,
+            3539102925,
+            2289504390,
+            3850642107,
+            1043243579,
+            2421511937,
+            3064612669,
+            3303823442,
+            3187831570,
+            3663879353,
+            747024417,
+            3391832007,
+            3014774146,
+            3497926590,
+            4057733487,
+            3144922765,
+            908967791,
+            4183829352,
+            894049298,
+            2551902232,
+            3740557171,
+            1119188122,
+            3117643890,
+            1840835341,
+            2049635316,
+            946024049,
+            3347919047,
+            1877118677,
+            1123909503,
+            3190115089,
+            2753088525,
+            2512647028,
+            3014041404,
+            907139259,
+            742919306,
+            1985346140,
+            1643420428,
+            3529336536,
+            3968130966,
+            173205074,
+            18777745,
+            409071294,
+            1159803427,
+            632848457,
+            4167358353,
+            1836315658,
+            1846711319,
+            894968086,
+            419870019,
+            2019936100,
+            474621306,
+            3165603705,
+            2960888602,
+            3321741,
+            3250929718,
+            3587181615,
+            1502673850,
+            4123947572,
+            2577779985,
+            2819650217,
+            2551735066,
+            698236785,
+            3706072276,
+            4235210574,
+            1965813546,
+            2814876227,
+            4259274119,
+            3371302949,
+            3284729571,
+            2810080523,
+            3126948658,
+            1466691049,
+            1011935536,
+            1565627898,
+            3786479510,
+            2320022023,
+            3239346362,
+            487571039,
+            1986810310,
+            3942390751,
+            3211567738,
+            1492352809,
+            2279886718,
+            1317171361,
+            2040218735,
+            361304563,
+            4034466098,
+            1866435685,
+            1949841154,
+            183083145,
+            2062886144,
+            2904276677,
+            3810424157,
+            578270573,
+            2024230536,
+            4065130715,
+            3401524164,
+            834775572,
+            3660009962,
+            3250785179,
+            908570166,
+            3110049594,
+            52
           ],
           null
         ],
         "board": {
           "influence": {
             "Canada": {
-              "US": 2,
+              "US": 4,
               "USSR": 0
             },
             "UK": {
@@ -1491,7 +1551,7 @@
               "USSR": 0
             },
             "Norway": {
-              "US": 2,
+              "US": 1,
               "USSR": 0
             },
             "Sweden": {
@@ -1499,27 +1559,27 @@
               "USSR": 0
             },
             "Denmark": {
-              "US": 0,
+              "US": 1,
               "USSR": 0
             },
             "Benelux": {
-              "US": 0,
+              "US": 2,
               "USSR": 0
             },
             "France": {
               "US": 0,
-              "USSR": 0
+              "USSR": 1
             },
             "Spain_Portugal": {
               "US": 0,
               "USSR": 0
             },
             "Italy": {
-              "US": 0,
+              "US": 2,
               "USSR": 0
             },
             "Greece": {
-              "US": 1,
+              "US": 2,
               "USSR": 0
             },
             "Turkey": {
@@ -1535,12 +1595,12 @@
               "USSR": 1
             },
             "West_Germany": {
-              "US": 0,
+              "US": 1,
               "USSR": 0
             },
             "East_Germany": {
               "US": 0,
-              "USSR": 3
+              "USSR": 5
             },
             "Poland": {
               "US": 0,
@@ -1548,15 +1608,15 @@
             },
             "Czechoslovakia": {
               "US": 0,
-              "USSR": 0
+              "USSR": 1
             },
             "Hungary": {
               "US": 0,
-              "USSR": 3
+              "USSR": 1
             },
             "Yugoslavia": {
               "US": 0,
-              "USSR": 1
+              "USSR": 0
             },
             "Romania": {
               "US": 0,
@@ -1564,7 +1624,7 @@
             },
             "Bulgaria": {
               "US": 0,
-              "USSR": 4
+              "USSR": 0
             },
             "Libya": {
               "US": 0,
@@ -1576,7 +1636,7 @@
             },
             "Israel": {
               "US": 0,
-              "USSR": 1
+              "USSR": 0
             },
             "Lebanon": {
               "US": 0,
@@ -1631,8 +1691,8 @@
               "USSR": 0
             },
             "South_Korea": {
-              "US": 1,
-              "USSR": 0
+              "US": 0,
+              "USSR": 1
             },
             "North_Korea": {
               "US": 0,
@@ -1644,7 +1704,7 @@
             },
             "Burma": {
               "US": 0,
-              "USSR": 0
+              "USSR": 1
             },
             "Laos_Cambodia": {
               "US": 0,
@@ -1688,7 +1748,7 @@
             },
             "Ivory_Coast": {
               "US": 0,
-              "USSR": 0
+              "USSR": 1
             },
             "Saharan_States": {
               "US": 0,
@@ -1711,7 +1771,7 @@
               "USSR": 0
             },
             "South_Africa": {
-              "US": 2,
+              "US": 1,
               "USSR": 0
             },
             "Botswana": {
@@ -1783,2171 +1843,7 @@
               "USSR": 0
             },
             "Colombia": {
-              "US": 1,
-              "USSR": 0
-            },
-            "Ecuador": {
               "US": 0,
-              "USSR": 0
-            },
-            "Peru": {
-              "US": 0,
-              "USSR": 0
-            },
-            "Chile": {
-              "US": 0,
-              "USSR": 0
-            },
-            "Argentina": {
-              "US": 0,
-              "USSR": 0
-            },
-            "Uruguay": {
-              "US": 0,
-              "USSR": 0
-            },
-            "Paraguay": {
-              "US": 0,
-              "USSR": 0
-            },
-            "Bolivia": {
-              "US": 0,
-              "USSR": 0
-            },
-            "Brazil": {
-              "US": 0,
-              "USSR": 0
-            },
-            "Venezuela": {
-              "US": 0,
-              "USSR": 0
-            }
-          }
-        },
-        "defcon": 5,
-        "vp": -5,
-        "turn": 1,
-        "action_round": 3,
-        "next_decision_id": 47,
-        "decision_stack": [
-          {
-            "id": 47,
-            "actor": "CHANCE",
-            "kind": "realignment_actor_roll",
-            "options": [
-              {
-                "kind": "realignment_actor_roll",
-                "payload": {
-                  "value": 1
-                }
-              }
-            ],
-            "context": {
-              "side": "USSR",
-              "country": "Lebanon",
-              "card_ops": 4,
-              "attempts_remaining": 1
-            }
-          }
-        ],
-        "winner": null,
-        "game_over_reason": null,
-        "phase": "action_rounds",
-        "include_optional": false,
-        "draw_pile": [
-          "Marshall_Plan",
-          "Blockade",
-          "Defectors",
-          "UN_Intervention",
-          "CIA_Created",
-          "Socialist_Governments",
-          "Red_Scare_Purge",
-          "NATO",
-          "Vietnam_Revolts",
-          "Nasser",
-          "Captured_Nazi_Scientist",
-          "Duck_and_Cover",
-          "Middle_East_Scoring",
-          "Asia_Scoring",
-          "Olympic_Games",
-          "Korean_War",
-          "De_Gaulle_Leads_France",
-          "Suez_Crisis",
-          "Decolonization"
-        ],
-        "discard_pile": [
-          "Nuclear_Test_Ban",
-          "Europe_Scoring",
-          "East_European_Unrest",
-          "Arab_Israeli_War",
-          "US_Japan_Mutual_Defense_Pact"
-        ],
-        "removed_cards": [
-          "Warsaw_Pact_Formed",
-          "COMECON"
-        ],
-        "hands": {
-          "US": [
-            "Truman_Doctrine",
-            "Romanian_Abdication",
-            "De_Stalinization",
-            "Containment",
-            "Formosan_Resolution"
-          ],
-          "USSR": [
-            "Independent_Reds",
-            "Fidel",
-            "Five_Year_Plan",
-            "Indo_Pakistani_War"
-          ]
-        },
-        "china_card_owner": "USSR",
-        "china_card_available": true,
-        "space_race": {
-          "US": 0,
-          "USSR": 0
-        },
-        "space_race_attempts": {
-          "US": 0,
-          "USSR": 0
-        },
-        "military_ops": {
-          "US": 0,
-          "USSR": 2
-        },
-        "ars_played": 5,
-        "headline": {
-          "US": null,
-          "USSR": null
-        },
-        "headline_resolving": false,
-        "headline_pending": [],
-        "events_enabled": true,
-        "turn_effects": {}
-      }
-    },
-    {
-      "after_step": 93,
-      "state": {
-        "seed": 424242,
-        "rng_state": [
-          3,
-          [
-            3099266790,
-            1788891006,
-            1646705744,
-            2546760939,
-            4262540776,
-            3597540611,
-            1322361816,
-            3496457690,
-            95897396,
-            373882528,
-            1956091748,
-            1246089596,
-            535249002,
-            681203552,
-            3672088527,
-            2961040488,
-            3451359913,
-            1688984749,
-            3923580118,
-            4067598904,
-            3494843254,
-            3219107647,
-            3888272436,
-            2310124020,
-            2668139268,
-            1546966211,
-            165088812,
-            3089810465,
-            3065596981,
-            3073816737,
-            2262022402,
-            3017307410,
-            1952142145,
-            617982089,
-            2447392922,
-            2919058812,
-            1571248235,
-            729903850,
-            1350072618,
-            103983490,
-            3600824071,
-            2821687032,
-            3854431086,
-            1087520668,
-            208073226,
-            1009886580,
-            2688990567,
-            1970128495,
-            2468900747,
-            1088418832,
-            1760918041,
-            2738866686,
-            3173283105,
-            479227047,
-            1836622866,
-            2073872516,
-            3390070480,
-            3048977230,
-            3734576180,
-            467692556,
-            3086191965,
-            1635697408,
-            2307841665,
-            1239743462,
-            2174086717,
-            1684632221,
-            4063398019,
-            2789379215,
-            4231152319,
-            3474501454,
-            3367369739,
-            1778101679,
-            3472876901,
-            2791806751,
-            3612404126,
-            830725904,
-            3261829305,
-            938705737,
-            965918454,
-            1234160689,
-            1415471398,
-            4080516114,
-            3731470303,
-            2045250768,
-            2332600046,
-            4278952814,
-            1494398299,
-            3917640358,
-            3297214480,
-            1688495625,
-            2666498890,
-            1642089573,
-            833789908,
-            2770736551,
-            1639444431,
-            2319482336,
-            1907984808,
-            99556830,
-            2807374579,
-            3339869491,
-            4256952297,
-            2519741252,
-            780974134,
-            3784343047,
-            3972898221,
-            2943608857,
-            932685250,
-            2337102222,
-            3246390415,
-            1865173090,
-            1192939656,
-            4213139714,
-            2124845018,
-            2711831654,
-            2473224662,
-            651343507,
-            2221572502,
-            1196545033,
-            3795287913,
-            4256001663,
-            3618230106,
-            637439999,
-            2981205740,
-            3128995760,
-            3623084589,
-            475575781,
-            4011804617,
-            1180330602,
-            806356293,
-            2860267709,
-            319102270,
-            1438842753,
-            3236646847,
-            205445554,
-            3293554408,
-            366880346,
-            2101104053,
-            1021481146,
-            4005212563,
-            2296568492,
-            1375078691,
-            514427831,
-            1598073625,
-            675326525,
-            14456242,
-            3295144555,
-            1323751674,
-            923730119,
-            2955764754,
-            2035199908,
-            140708170,
-            3385735952,
-            3920189647,
-            3851689291,
-            2138738191,
-            2756350832,
-            2632955907,
-            2547061111,
-            56618364,
-            3078385588,
-            1366265017,
-            249487593,
-            1840333924,
-            2183035389,
-            471237110,
-            1178805080,
-            2082338712,
-            1897686468,
-            3769479300,
-            3022442157,
-            1001469237,
-            1121572126,
-            3476409969,
-            183681076,
-            863020608,
-            3713278159,
-            665269022,
-            4257243004,
-            3617437650,
-            538443776,
-            4125789877,
-            3013298833,
-            1711616679,
-            3244607622,
-            3894134430,
-            4069234105,
-            2843542619,
-            3241642950,
-            1111674468,
-            619885284,
-            2847933509,
-            3092237858,
-            1911039234,
-            3498775630,
-            4101255098,
-            1915122376,
-            1319155623,
-            1771100352,
-            2855399100,
-            588472588,
-            222158494,
-            3564292351,
-            1732452427,
-            2293943649,
-            2065873482,
-            4052219506,
-            3706355042,
-            3613919458,
-            3079951391,
-            549879547,
-            1489685840,
-            1351722032,
-            1676384062,
-            93639751,
-            2769572018,
-            1470517970,
-            4178143182,
-            1510545609,
-            1615782797,
-            1236012669,
-            2562145508,
-            30899751,
-            386575528,
-            1442796234,
-            2469579621,
-            1960002234,
-            2893954122,
-            55275893,
-            1223930508,
-            4283277861,
-            1534592612,
-            2974325311,
-            1648340002,
-            3796465762,
-            4085653894,
-            2534693292,
-            716023775,
-            3196017926,
-            1180985190,
-            726936996,
-            3503763445,
-            37140766,
-            1960692928,
-            1112781634,
-            3977798609,
-            76316700,
-            2206467041,
-            1592908704,
-            1928508346,
-            1612264894,
-            39020969,
-            2253014841,
-            2922844593,
-            2272260784,
-            2794570925,
-            3644658264,
-            1536139213,
-            3959130088,
-            3213111590,
-            3575829477,
-            3796704172,
-            367451056,
-            101184066,
-            3750768931,
-            1703847674,
-            1428927795,
-            4216920574,
-            4049581208,
-            3881076965,
-            2124990920,
-            3328210611,
-            2026755791,
-            705684037,
-            1021342274,
-            2458039716,
-            758411375,
-            4162027755,
-            4155675835,
-            1927508169,
-            3232025967,
-            2446687713,
-            335684732,
-            1709681453,
-            1561646388,
-            946290940,
-            3020180906,
-            2188850067,
-            772817078,
-            1662170069,
-            2765401242,
-            801007087,
-            1936507473,
-            3540360863,
-            1961164166,
-            1473141932,
-            140650543,
-            643841029,
-            1680141910,
-            4288840933,
-            3566954034,
-            3653886528,
-            3607840266,
-            1742479139,
-            3732850081,
-            152383900,
-            13954678,
-            2338656082,
-            3577309180,
-            174453766,
-            3298428672,
-            186993547,
-            3950727813,
-            2929650548,
-            567903419,
-            2390349533,
-            3836759730,
-            1485501292,
-            2026653237,
-            3610184053,
-            3508739137,
-            1671446722,
-            1238640165,
-            2004468612,
-            1081099289,
-            1920194242,
-            1027713079,
-            2821450753,
-            2309230610,
-            1489913513,
-            2129113768,
-            3046084546,
-            900035300,
-            3628512056,
-            2170275869,
-            1202726165,
-            3402451693,
-            2278509348,
-            180162613,
-            390230435,
-            66387009,
-            3780138849,
-            3260374350,
-            1805846903,
-            946456348,
-            45710531,
-            1392590441,
-            1175228786,
-            387038664,
-            4085569063,
-            360118345,
-            1047674710,
-            960886831,
-            4755679,
-            2091789700,
-            2823313181,
-            1794473693,
-            2161890332,
-            1902846597,
-            2471959554,
-            1619627439,
-            770248357,
-            265035158,
-            2535785370,
-            2640432830,
-            2047939854,
-            4114952140,
-            3326327837,
-            2872999147,
-            276913565,
-            1898916057,
-            3917510840,
-            610547643,
-            2758605453,
-            3312710797,
-            2194098403,
-            516438922,
-            4015022761,
-            1123067969,
-            1131929281,
-            3407588489,
-            2471300119,
-            4239363873,
-            430898103,
-            2499170996,
-            3006112862,
-            3270087558,
-            215955818,
-            1328317452,
-            1716624464,
-            3287119028,
-            474065398,
-            4142195815,
-            2370316867,
-            3196155554,
-            964123603,
-            679314065,
-            1397970033,
-            2868687724,
-            592102863,
-            902609120,
-            1634238885,
-            2719110572,
-            2167078197,
-            391748303,
-            3553500068,
-            289991464,
-            3325779037,
-            3265194730,
-            992458555,
-            1344661811,
-            1062466001,
-            912509035,
-            318160536,
-            3064381108,
-            3703714743,
-            3977380568,
-            3339834546,
-            1146548854,
-            2661842923,
-            632433520,
-            4051839452,
-            895338069,
-            2697896950,
-            4094065046,
-            3874151671,
-            2048308896,
-            3246115873,
-            496110503,
-            2303200818,
-            3497839695,
-            1016631552,
-            1347730863,
-            2502964017,
-            3979692159,
-            3445760647,
-            156645619,
-            2388130787,
-            3016991758,
-            2386141987,
-            2927427876,
-            2650147608,
-            1338481100,
-            910266870,
-            1887294454,
-            3635656585,
-            582397815,
-            1090661622,
-            3278633868,
-            31257488,
-            1956145963,
-            3369730301,
-            612109090,
-            4287070000,
-            896805556,
-            789187555,
-            2472752966,
-            3828891829,
-            3373540019,
-            3794784370,
-            2687539887,
-            1995200389,
-            2003848685,
-            2120945392,
-            2627466347,
-            2834797774,
-            3959866588,
-            1863448597,
-            536596787,
-            1598367077,
-            2849921397,
-            1868400302,
-            1099791829,
-            2421930079,
-            1886774360,
-            2769604741,
-            3050817299,
-            519397388,
-            3943996719,
-            2228423024,
-            2072442667,
-            780763286,
-            3852349497,
-            1364085115,
-            2953837337,
-            1889899544,
-            3355987351,
-            2691995767,
-            1514367912,
-            4210643968,
-            3840623350,
-            3607169632,
-            1431718708,
-            2861686401,
-            2559732339,
-            1065733719,
-            1386116233,
-            552374951,
-            2279374723,
-            4290927724,
-            3219263603,
-            350650998,
-            3663400828,
-            269297430,
-            2898453938,
-            2706598608,
-            4050052853,
-            2271808321,
-            262101131,
-            1309972589,
-            1826525471,
-            94278085,
-            1307635860,
-            1225611748,
-            3708154061,
-            1952187862,
-            3940370756,
-            897590552,
-            2268276177,
-            2565570733,
-            2105778604,
-            2401112664,
-            1984867337,
-            2476353989,
-            756098985,
-            39620707,
-            1912253319,
-            268963944,
-            4105714619,
-            697811534,
-            3990648598,
-            266827059,
-            2937918255,
-            2410872948,
-            3203469271,
-            482099382,
-            1618134340,
-            1820137967,
-            3610869364,
-            635845190,
-            1772222383,
-            4059858123,
-            528436808,
-            267076822,
-            121089451,
-            2829072677,
-            1522875549,
-            1481674909,
-            3755408159,
-            3193881797,
-            2348109745,
-            3475363435,
-            1336103994,
-            3554028495,
-            3716623608,
-            3194083939,
-            1827122892,
-            2535410131,
-            382583236,
-            1727575985,
-            4189159258,
-            4290280141,
-            3216332489,
-            1250451805,
-            3272293218,
-            1000572195,
-            2359926407,
-            3995261004,
-            3311425020,
-            2639642119,
-            1920780856,
-            185000586,
-            3661486350,
-            2218183588,
-            1640226631,
-            2868494227,
-            1701507509,
-            3466763981,
-            2315866440,
-            1584323768,
-            2631351788,
-            2759679947,
-            1200419821,
-            40234075,
-            2192097578,
-            3316202816,
-            2899401852,
-            1282475574,
-            1968623548,
-            2295254749,
-            3296186195,
-            1621240967,
-            3386600418,
-            4202291590,
-            1059588522,
-            702118609,
-            685623210,
-            100471519,
-            3058962488,
-            2828465400,
-            3893889114,
-            102735844,
-            147330580,
-            2152816047,
-            3032367906,
-            247032698,
-            3557464226,
-            3650426951,
-            180585882,
-            4146073497,
-            857226555,
-            2649876488,
-            1035896559,
-            1044254921,
-            3856339908,
-            1103793617,
-            2069913720,
-            616432646,
-            3924336253,
-            4286640622,
-            3291895555,
-            2113464222,
-            3951837962,
-            942001279,
-            252629762,
-            75
-          ],
-          null
-        ],
-        "board": {
-          "influence": {
-            "Canada": {
-              "US": 2,
-              "USSR": 0
-            },
-            "UK": {
-              "US": 5,
-              "USSR": 0
-            },
-            "Norway": {
-              "US": 2,
-              "USSR": 0
-            },
-            "Sweden": {
-              "US": 1,
-              "USSR": 0
-            },
-            "Denmark": {
-              "US": 0,
-              "USSR": 0
-            },
-            "Benelux": {
-              "US": 0,
-              "USSR": 0
-            },
-            "France": {
-              "US": 0,
-              "USSR": 1
-            },
-            "Spain_Portugal": {
-              "US": 0,
-              "USSR": 0
-            },
-            "Italy": {
-              "US": 0,
-              "USSR": 0
-            },
-            "Greece": {
-              "US": 1,
-              "USSR": 0
-            },
-            "Turkey": {
-              "US": 0,
-              "USSR": 0
-            },
-            "Austria": {
-              "US": 0,
-              "USSR": 0
-            },
-            "Finland": {
-              "US": 0,
-              "USSR": 1
-            },
-            "West_Germany": {
-              "US": 0,
-              "USSR": 0
-            },
-            "East_Germany": {
-              "US": 0,
-              "USSR": 3
-            },
-            "Poland": {
-              "US": 0,
-              "USSR": 1
-            },
-            "Czechoslovakia": {
-              "US": 0,
-              "USSR": 0
-            },
-            "Hungary": {
-              "US": 0,
-              "USSR": 3
-            },
-            "Yugoslavia": {
-              "US": 0,
-              "USSR": 0
-            },
-            "Romania": {
-              "US": 0,
-              "USSR": 3
-            },
-            "Bulgaria": {
-              "US": 0,
-              "USSR": 4
-            },
-            "Libya": {
-              "US": 0,
-              "USSR": 0
-            },
-            "Egypt": {
-              "US": 0,
-              "USSR": 0
-            },
-            "Israel": {
-              "US": 0,
-              "USSR": 1
-            },
-            "Lebanon": {
-              "US": 0,
-              "USSR": 0
-            },
-            "Syria": {
-              "US": 0,
-              "USSR": 1
-            },
-            "Iraq": {
-              "US": 0,
-              "USSR": 1
-            },
-            "Iran": {
-              "US": 1,
-              "USSR": 0
-            },
-            "Jordan": {
-              "US": 0,
-              "USSR": 0
-            },
-            "Gulf_States": {
-              "US": 0,
-              "USSR": 0
-            },
-            "Saudi_Arabia": {
-              "US": 0,
-              "USSR": 0
-            },
-            "Afghanistan": {
-              "US": 0,
-              "USSR": 0
-            },
-            "Pakistan": {
-              "US": 0,
-              "USSR": 0
-            },
-            "India": {
-              "US": 0,
-              "USSR": 0
-            },
-            "Australia": {
-              "US": 4,
-              "USSR": 0
-            },
-            "Japan": {
-              "US": 1,
-              "USSR": 0
-            },
-            "Taiwan": {
-              "US": 0,
-              "USSR": 0
-            },
-            "South_Korea": {
-              "US": 1,
-              "USSR": 0
-            },
-            "North_Korea": {
-              "US": 0,
-              "USSR": 3
-            },
-            "Chinese_Civil_War": {
-              "US": 0,
-              "USSR": 0
-            },
-            "Burma": {
-              "US": 0,
-              "USSR": 0
-            },
-            "Laos_Cambodia": {
-              "US": 0,
-              "USSR": 8
-            },
-            "Thailand": {
-              "US": 0,
-              "USSR": 0
-            },
-            "Vietnam": {
-              "US": 0,
-              "USSR": 0
-            },
-            "Malaysia": {
-              "US": 0,
-              "USSR": 1
-            },
-            "Indonesia": {
-              "US": 0,
-              "USSR": 0
-            },
-            "Philippines": {
-              "US": 1,
-              "USSR": 0
-            },
-            "Algeria": {
-              "US": 0,
-              "USSR": 1
-            },
-            "Morocco": {
-              "US": 0,
-              "USSR": 0
-            },
-            "Tunisia": {
-              "US": 0,
-              "USSR": 0
-            },
-            "West_African_States": {
-              "US": 0,
-              "USSR": 1
-            },
-            "Ivory_Coast": {
-              "US": 0,
-              "USSR": 0
-            },
-            "Saharan_States": {
-              "US": 0,
-              "USSR": 0
-            },
-            "Nigeria": {
-              "US": 0,
-              "USSR": 0
-            },
-            "Cameroon": {
-              "US": 0,
-              "USSR": 0
-            },
-            "Zaire": {
-              "US": 0,
-              "USSR": 0
-            },
-            "Angola": {
-              "US": 0,
-              "USSR": 0
-            },
-            "South_Africa": {
-              "US": 2,
-              "USSR": 0
-            },
-            "Botswana": {
-              "US": 0,
-              "USSR": 0
-            },
-            "Zimbabwe": {
-              "US": 0,
-              "USSR": 0
-            },
-            "SE_African_States": {
-              "US": 0,
-              "USSR": 0
-            },
-            "Kenya": {
-              "US": 0,
-              "USSR": 0
-            },
-            "Somalia": {
-              "US": 0,
-              "USSR": 0
-            },
-            "Ethiopia": {
-              "US": 0,
-              "USSR": 1
-            },
-            "Sudan": {
-              "US": 0,
-              "USSR": 0
-            },
-            "Mexico": {
-              "US": 0,
-              "USSR": 0
-            },
-            "Guatemala": {
-              "US": 0,
-              "USSR": 0
-            },
-            "El_Salvador": {
-              "US": 0,
-              "USSR": 0
-            },
-            "Honduras": {
-              "US": 0,
-              "USSR": 0
-            },
-            "Costa_Rica": {
-              "US": 0,
-              "USSR": 0
-            },
-            "Panama": {
-              "US": 1,
-              "USSR": 0
-            },
-            "Nicaragua": {
-              "US": 0,
-              "USSR": 0
-            },
-            "Cuba": {
-              "US": 0,
-              "USSR": 3
-            },
-            "Haiti": {
-              "US": 0,
-              "USSR": 0
-            },
-            "Dominican_Republic": {
-              "US": 0,
-              "USSR": 0
-            },
-            "Colombia": {
-              "US": 1,
-              "USSR": 0
-            },
-            "Ecuador": {
-              "US": 0,
-              "USSR": 0
-            },
-            "Peru": {
-              "US": 0,
-              "USSR": 0
-            },
-            "Chile": {
-              "US": 0,
-              "USSR": 0
-            },
-            "Argentina": {
-              "US": 0,
-              "USSR": 0
-            },
-            "Uruguay": {
-              "US": 0,
-              "USSR": 0
-            },
-            "Paraguay": {
-              "US": 0,
-              "USSR": 0
-            },
-            "Bolivia": {
-              "US": 0,
-              "USSR": 0
-            },
-            "Brazil": {
-              "US": 0,
-              "USSR": 0
-            },
-            "Venezuela": {
-              "US": 0,
-              "USSR": 0
-            }
-          }
-        },
-        "defcon": 5,
-        "vp": -8,
-        "turn": 2,
-        "action_round": 2,
-        "next_decision_id": 94,
-        "decision_stack": [
-          {
-            "id": 94,
-            "actor": "CHANCE",
-            "kind": "realignment_actor_roll",
-            "options": [
-              {
-                "kind": "realignment_actor_roll",
-                "payload": {
-                  "value": 4
-                }
-              }
-            ],
-            "context": {
-              "side": "US",
-              "country": "Mexico",
-              "card_ops": 4,
-              "attempts_remaining": 1
-            }
-          }
-        ],
-        "winner": null,
-        "game_over_reason": null,
-        "phase": "action_rounds",
-        "include_optional": false,
-        "draw_pile": [
-          "Marshall_Plan",
-          "Blockade",
-          "Defectors",
-          "UN_Intervention",
-          "CIA_Created",
-          "Socialist_Governments"
-        ],
-        "discard_pile": [
-          "Nuclear_Test_Ban",
-          "Europe_Scoring",
-          "East_European_Unrest",
-          "Arab_Israeli_War",
-          "US_Japan_Mutual_Defense_Pact",
-          "Formosan_Resolution",
-          "Independent_Reds",
-          "De_Stalinization",
-          "Decolonization",
-          "Red_Scare_Purge"
-        ],
-        "removed_cards": [
-          "Warsaw_Pact_Formed",
-          "COMECON",
-          "Romanian_Abdication",
-          "Fidel",
-          "Containment",
-          "Truman_Doctrine",
-          "De_Gaulle_Leads_France",
-          "Captured_Nazi_Scientist"
-        ],
-        "hands": {
-          "US": [
-            "Suez_Crisis",
-            "Korean_War",
-            "Asia_Scoring",
-            "Duck_and_Cover",
-            "Nasser",
-            "NATO"
-          ],
-          "USSR": [
-            "Five_Year_Plan",
-            "Indo_Pakistani_War",
-            "Olympic_Games",
-            "Middle_East_Scoring",
-            "Vietnam_Revolts"
-          ]
-        },
-        "china_card_owner": "USSR",
-        "china_card_available": false,
-        "space_race": {
-          "US": 1,
-          "USSR": 1
-        },
-        "space_race_attempts": {
-          "US": 0,
-          "USSR": 0
-        },
-        "military_ops": {
-          "US": 0,
-          "USSR": 0
-        },
-        "ars_played": 4,
-        "headline": {
-          "US": null,
-          "USSR": null
-        },
-        "headline_resolving": false,
-        "headline_pending": [],
-        "events_enabled": true,
-        "turn_effects": {
-          "red_scare": "USSR"
-        }
-      }
-    },
-    {
-      "after_step": 140,
-      "state": {
-        "seed": 424242,
-        "rng_state": [
-          3,
-          [
-            3099266790,
-            1788891006,
-            1646705744,
-            2546760939,
-            4262540776,
-            3597540611,
-            1322361816,
-            3496457690,
-            95897396,
-            373882528,
-            1956091748,
-            1246089596,
-            535249002,
-            681203552,
-            3672088527,
-            2961040488,
-            3451359913,
-            1688984749,
-            3923580118,
-            4067598904,
-            3494843254,
-            3219107647,
-            3888272436,
-            2310124020,
-            2668139268,
-            1546966211,
-            165088812,
-            3089810465,
-            3065596981,
-            3073816737,
-            2262022402,
-            3017307410,
-            1952142145,
-            617982089,
-            2447392922,
-            2919058812,
-            1571248235,
-            729903850,
-            1350072618,
-            103983490,
-            3600824071,
-            2821687032,
-            3854431086,
-            1087520668,
-            208073226,
-            1009886580,
-            2688990567,
-            1970128495,
-            2468900747,
-            1088418832,
-            1760918041,
-            2738866686,
-            3173283105,
-            479227047,
-            1836622866,
-            2073872516,
-            3390070480,
-            3048977230,
-            3734576180,
-            467692556,
-            3086191965,
-            1635697408,
-            2307841665,
-            1239743462,
-            2174086717,
-            1684632221,
-            4063398019,
-            2789379215,
-            4231152319,
-            3474501454,
-            3367369739,
-            1778101679,
-            3472876901,
-            2791806751,
-            3612404126,
-            830725904,
-            3261829305,
-            938705737,
-            965918454,
-            1234160689,
-            1415471398,
-            4080516114,
-            3731470303,
-            2045250768,
-            2332600046,
-            4278952814,
-            1494398299,
-            3917640358,
-            3297214480,
-            1688495625,
-            2666498890,
-            1642089573,
-            833789908,
-            2770736551,
-            1639444431,
-            2319482336,
-            1907984808,
-            99556830,
-            2807374579,
-            3339869491,
-            4256952297,
-            2519741252,
-            780974134,
-            3784343047,
-            3972898221,
-            2943608857,
-            932685250,
-            2337102222,
-            3246390415,
-            1865173090,
-            1192939656,
-            4213139714,
-            2124845018,
-            2711831654,
-            2473224662,
-            651343507,
-            2221572502,
-            1196545033,
-            3795287913,
-            4256001663,
-            3618230106,
-            637439999,
-            2981205740,
-            3128995760,
-            3623084589,
-            475575781,
-            4011804617,
-            1180330602,
-            806356293,
-            2860267709,
-            319102270,
-            1438842753,
-            3236646847,
-            205445554,
-            3293554408,
-            366880346,
-            2101104053,
-            1021481146,
-            4005212563,
-            2296568492,
-            1375078691,
-            514427831,
-            1598073625,
-            675326525,
-            14456242,
-            3295144555,
-            1323751674,
-            923730119,
-            2955764754,
-            2035199908,
-            140708170,
-            3385735952,
-            3920189647,
-            3851689291,
-            2138738191,
-            2756350832,
-            2632955907,
-            2547061111,
-            56618364,
-            3078385588,
-            1366265017,
-            249487593,
-            1840333924,
-            2183035389,
-            471237110,
-            1178805080,
-            2082338712,
-            1897686468,
-            3769479300,
-            3022442157,
-            1001469237,
-            1121572126,
-            3476409969,
-            183681076,
-            863020608,
-            3713278159,
-            665269022,
-            4257243004,
-            3617437650,
-            538443776,
-            4125789877,
-            3013298833,
-            1711616679,
-            3244607622,
-            3894134430,
-            4069234105,
-            2843542619,
-            3241642950,
-            1111674468,
-            619885284,
-            2847933509,
-            3092237858,
-            1911039234,
-            3498775630,
-            4101255098,
-            1915122376,
-            1319155623,
-            1771100352,
-            2855399100,
-            588472588,
-            222158494,
-            3564292351,
-            1732452427,
-            2293943649,
-            2065873482,
-            4052219506,
-            3706355042,
-            3613919458,
-            3079951391,
-            549879547,
-            1489685840,
-            1351722032,
-            1676384062,
-            93639751,
-            2769572018,
-            1470517970,
-            4178143182,
-            1510545609,
-            1615782797,
-            1236012669,
-            2562145508,
-            30899751,
-            386575528,
-            1442796234,
-            2469579621,
-            1960002234,
-            2893954122,
-            55275893,
-            1223930508,
-            4283277861,
-            1534592612,
-            2974325311,
-            1648340002,
-            3796465762,
-            4085653894,
-            2534693292,
-            716023775,
-            3196017926,
-            1180985190,
-            726936996,
-            3503763445,
-            37140766,
-            1960692928,
-            1112781634,
-            3977798609,
-            76316700,
-            2206467041,
-            1592908704,
-            1928508346,
-            1612264894,
-            39020969,
-            2253014841,
-            2922844593,
-            2272260784,
-            2794570925,
-            3644658264,
-            1536139213,
-            3959130088,
-            3213111590,
-            3575829477,
-            3796704172,
-            367451056,
-            101184066,
-            3750768931,
-            1703847674,
-            1428927795,
-            4216920574,
-            4049581208,
-            3881076965,
-            2124990920,
-            3328210611,
-            2026755791,
-            705684037,
-            1021342274,
-            2458039716,
-            758411375,
-            4162027755,
-            4155675835,
-            1927508169,
-            3232025967,
-            2446687713,
-            335684732,
-            1709681453,
-            1561646388,
-            946290940,
-            3020180906,
-            2188850067,
-            772817078,
-            1662170069,
-            2765401242,
-            801007087,
-            1936507473,
-            3540360863,
-            1961164166,
-            1473141932,
-            140650543,
-            643841029,
-            1680141910,
-            4288840933,
-            3566954034,
-            3653886528,
-            3607840266,
-            1742479139,
-            3732850081,
-            152383900,
-            13954678,
-            2338656082,
-            3577309180,
-            174453766,
-            3298428672,
-            186993547,
-            3950727813,
-            2929650548,
-            567903419,
-            2390349533,
-            3836759730,
-            1485501292,
-            2026653237,
-            3610184053,
-            3508739137,
-            1671446722,
-            1238640165,
-            2004468612,
-            1081099289,
-            1920194242,
-            1027713079,
-            2821450753,
-            2309230610,
-            1489913513,
-            2129113768,
-            3046084546,
-            900035300,
-            3628512056,
-            2170275869,
-            1202726165,
-            3402451693,
-            2278509348,
-            180162613,
-            390230435,
-            66387009,
-            3780138849,
-            3260374350,
-            1805846903,
-            946456348,
-            45710531,
-            1392590441,
-            1175228786,
-            387038664,
-            4085569063,
-            360118345,
-            1047674710,
-            960886831,
-            4755679,
-            2091789700,
-            2823313181,
-            1794473693,
-            2161890332,
-            1902846597,
-            2471959554,
-            1619627439,
-            770248357,
-            265035158,
-            2535785370,
-            2640432830,
-            2047939854,
-            4114952140,
-            3326327837,
-            2872999147,
-            276913565,
-            1898916057,
-            3917510840,
-            610547643,
-            2758605453,
-            3312710797,
-            2194098403,
-            516438922,
-            4015022761,
-            1123067969,
-            1131929281,
-            3407588489,
-            2471300119,
-            4239363873,
-            430898103,
-            2499170996,
-            3006112862,
-            3270087558,
-            215955818,
-            1328317452,
-            1716624464,
-            3287119028,
-            474065398,
-            4142195815,
-            2370316867,
-            3196155554,
-            964123603,
-            679314065,
-            1397970033,
-            2868687724,
-            592102863,
-            902609120,
-            1634238885,
-            2719110572,
-            2167078197,
-            391748303,
-            3553500068,
-            289991464,
-            3325779037,
-            3265194730,
-            992458555,
-            1344661811,
-            1062466001,
-            912509035,
-            318160536,
-            3064381108,
-            3703714743,
-            3977380568,
-            3339834546,
-            1146548854,
-            2661842923,
-            632433520,
-            4051839452,
-            895338069,
-            2697896950,
-            4094065046,
-            3874151671,
-            2048308896,
-            3246115873,
-            496110503,
-            2303200818,
-            3497839695,
-            1016631552,
-            1347730863,
-            2502964017,
-            3979692159,
-            3445760647,
-            156645619,
-            2388130787,
-            3016991758,
-            2386141987,
-            2927427876,
-            2650147608,
-            1338481100,
-            910266870,
-            1887294454,
-            3635656585,
-            582397815,
-            1090661622,
-            3278633868,
-            31257488,
-            1956145963,
-            3369730301,
-            612109090,
-            4287070000,
-            896805556,
-            789187555,
-            2472752966,
-            3828891829,
-            3373540019,
-            3794784370,
-            2687539887,
-            1995200389,
-            2003848685,
-            2120945392,
-            2627466347,
-            2834797774,
-            3959866588,
-            1863448597,
-            536596787,
-            1598367077,
-            2849921397,
-            1868400302,
-            1099791829,
-            2421930079,
-            1886774360,
-            2769604741,
-            3050817299,
-            519397388,
-            3943996719,
-            2228423024,
-            2072442667,
-            780763286,
-            3852349497,
-            1364085115,
-            2953837337,
-            1889899544,
-            3355987351,
-            2691995767,
-            1514367912,
-            4210643968,
-            3840623350,
-            3607169632,
-            1431718708,
-            2861686401,
-            2559732339,
-            1065733719,
-            1386116233,
-            552374951,
-            2279374723,
-            4290927724,
-            3219263603,
-            350650998,
-            3663400828,
-            269297430,
-            2898453938,
-            2706598608,
-            4050052853,
-            2271808321,
-            262101131,
-            1309972589,
-            1826525471,
-            94278085,
-            1307635860,
-            1225611748,
-            3708154061,
-            1952187862,
-            3940370756,
-            897590552,
-            2268276177,
-            2565570733,
-            2105778604,
-            2401112664,
-            1984867337,
-            2476353989,
-            756098985,
-            39620707,
-            1912253319,
-            268963944,
-            4105714619,
-            697811534,
-            3990648598,
-            266827059,
-            2937918255,
-            2410872948,
-            3203469271,
-            482099382,
-            1618134340,
-            1820137967,
-            3610869364,
-            635845190,
-            1772222383,
-            4059858123,
-            528436808,
-            267076822,
-            121089451,
-            2829072677,
-            1522875549,
-            1481674909,
-            3755408159,
-            3193881797,
-            2348109745,
-            3475363435,
-            1336103994,
-            3554028495,
-            3716623608,
-            3194083939,
-            1827122892,
-            2535410131,
-            382583236,
-            1727575985,
-            4189159258,
-            4290280141,
-            3216332489,
-            1250451805,
-            3272293218,
-            1000572195,
-            2359926407,
-            3995261004,
-            3311425020,
-            2639642119,
-            1920780856,
-            185000586,
-            3661486350,
-            2218183588,
-            1640226631,
-            2868494227,
-            1701507509,
-            3466763981,
-            2315866440,
-            1584323768,
-            2631351788,
-            2759679947,
-            1200419821,
-            40234075,
-            2192097578,
-            3316202816,
-            2899401852,
-            1282475574,
-            1968623548,
-            2295254749,
-            3296186195,
-            1621240967,
-            3386600418,
-            4202291590,
-            1059588522,
-            702118609,
-            685623210,
-            100471519,
-            3058962488,
-            2828465400,
-            3893889114,
-            102735844,
-            147330580,
-            2152816047,
-            3032367906,
-            247032698,
-            3557464226,
-            3650426951,
-            180585882,
-            4146073497,
-            857226555,
-            2649876488,
-            1035896559,
-            1044254921,
-            3856339908,
-            1103793617,
-            2069913720,
-            616432646,
-            3924336253,
-            4286640622,
-            3291895555,
-            2113464222,
-            3951837962,
-            942001279,
-            252629762,
-            114
-          ],
-          null
-        ],
-        "board": {
-          "influence": {
-            "Canada": {
-              "US": 2,
-              "USSR": 0
-            },
-            "UK": {
-              "US": 3,
-              "USSR": 0
-            },
-            "Norway": {
-              "US": 2,
-              "USSR": 0
-            },
-            "Sweden": {
-              "US": 1,
-              "USSR": 0
-            },
-            "Denmark": {
-              "US": 0,
-              "USSR": 0
-            },
-            "Benelux": {
-              "US": 0,
-              "USSR": 0
-            },
-            "France": {
-              "US": 0,
-              "USSR": 1
-            },
-            "Spain_Portugal": {
-              "US": 0,
-              "USSR": 0
-            },
-            "Italy": {
-              "US": 0,
-              "USSR": 0
-            },
-            "Greece": {
-              "US": 1,
-              "USSR": 0
-            },
-            "Turkey": {
-              "US": 0,
-              "USSR": 0
-            },
-            "Austria": {
-              "US": 0,
-              "USSR": 0
-            },
-            "Finland": {
-              "US": 0,
-              "USSR": 1
-            },
-            "West_Germany": {
-              "US": 0,
-              "USSR": 0
-            },
-            "East_Germany": {
-              "US": 0,
-              "USSR": 3
-            },
-            "Poland": {
-              "US": 0,
-              "USSR": 1
-            },
-            "Czechoslovakia": {
-              "US": 0,
-              "USSR": 0
-            },
-            "Hungary": {
-              "US": 0,
-              "USSR": 3
-            },
-            "Yugoslavia": {
-              "US": 0,
-              "USSR": 0
-            },
-            "Romania": {
-              "US": 0,
-              "USSR": 3
-            },
-            "Bulgaria": {
-              "US": 0,
-              "USSR": 4
-            },
-            "Libya": {
-              "US": 0,
-              "USSR": 0
-            },
-            "Egypt": {
-              "US": 0,
-              "USSR": 0
-            },
-            "Israel": {
-              "US": 0,
-              "USSR": 1
-            },
-            "Lebanon": {
-              "US": 0,
-              "USSR": 0
-            },
-            "Syria": {
-              "US": 0,
-              "USSR": 1
-            },
-            "Iraq": {
-              "US": 0,
-              "USSR": 1
-            },
-            "Iran": {
-              "US": 1,
-              "USSR": 0
-            },
-            "Jordan": {
-              "US": 0,
-              "USSR": 0
-            },
-            "Gulf_States": {
-              "US": 0,
-              "USSR": 0
-            },
-            "Saudi_Arabia": {
-              "US": 0,
-              "USSR": 0
-            },
-            "Afghanistan": {
-              "US": 0,
-              "USSR": 0
-            },
-            "Pakistan": {
-              "US": 0,
-              "USSR": 0
-            },
-            "India": {
-              "US": 0,
-              "USSR": 0
-            },
-            "Australia": {
-              "US": 4,
-              "USSR": 0
-            },
-            "Japan": {
-              "US": 1,
-              "USSR": 0
-            },
-            "Taiwan": {
-              "US": 0,
-              "USSR": 0
-            },
-            "South_Korea": {
-              "US": 1,
-              "USSR": 0
-            },
-            "North_Korea": {
-              "US": 0,
-              "USSR": 3
-            },
-            "Chinese_Civil_War": {
-              "US": 0,
-              "USSR": 0
-            },
-            "Burma": {
-              "US": 0,
-              "USSR": 0
-            },
-            "Laos_Cambodia": {
-              "US": 0,
-              "USSR": 8
-            },
-            "Thailand": {
-              "US": 0,
-              "USSR": 0
-            },
-            "Vietnam": {
-              "US": 0,
-              "USSR": 0
-            },
-            "Malaysia": {
-              "US": 0,
-              "USSR": 1
-            },
-            "Indonesia": {
-              "US": 0,
-              "USSR": 0
-            },
-            "Philippines": {
-              "US": 1,
-              "USSR": 0
-            },
-            "Algeria": {
-              "US": 0,
-              "USSR": 1
-            },
-            "Morocco": {
-              "US": 0,
-              "USSR": 1
-            },
-            "Tunisia": {
-              "US": 0,
-              "USSR": 0
-            },
-            "West_African_States": {
-              "US": 0,
-              "USSR": 1
-            },
-            "Ivory_Coast": {
-              "US": 0,
-              "USSR": 0
-            },
-            "Saharan_States": {
-              "US": 0,
-              "USSR": 0
-            },
-            "Nigeria": {
-              "US": 0,
-              "USSR": 0
-            },
-            "Cameroon": {
-              "US": 0,
-              "USSR": 0
-            },
-            "Zaire": {
-              "US": 0,
-              "USSR": 0
-            },
-            "Angola": {
-              "US": 0,
-              "USSR": 0
-            },
-            "South_Africa": {
-              "US": 2,
-              "USSR": 0
-            },
-            "Botswana": {
-              "US": 0,
-              "USSR": 0
-            },
-            "Zimbabwe": {
-              "US": 0,
-              "USSR": 0
-            },
-            "SE_African_States": {
-              "US": 0,
-              "USSR": 0
-            },
-            "Kenya": {
-              "US": 0,
-              "USSR": 0
-            },
-            "Somalia": {
-              "US": 0,
-              "USSR": 0
-            },
-            "Ethiopia": {
-              "US": 0,
-              "USSR": 1
-            },
-            "Sudan": {
-              "US": 0,
-              "USSR": 0
-            },
-            "Mexico": {
-              "US": 0,
-              "USSR": 0
-            },
-            "Guatemala": {
-              "US": 0,
-              "USSR": 0
-            },
-            "El_Salvador": {
-              "US": 0,
-              "USSR": 0
-            },
-            "Honduras": {
-              "US": 0,
-              "USSR": 0
-            },
-            "Costa_Rica": {
-              "US": 0,
-              "USSR": 0
-            },
-            "Panama": {
-              "US": 1,
-              "USSR": 0
-            },
-            "Nicaragua": {
-              "US": 0,
-              "USSR": 0
-            },
-            "Cuba": {
-              "US": 0,
-              "USSR": 3
-            },
-            "Haiti": {
-              "US": 0,
-              "USSR": 0
-            },
-            "Dominican_Republic": {
-              "US": 0,
-              "USSR": 0
-            },
-            "Colombia": {
-              "US": 1,
               "USSR": 0
             },
             "Ecuador": {
@@ -3989,60 +1885,197 @@
           }
         },
         "defcon": 4,
-        "vp": -14,
-        "turn": 3,
-        "action_round": 2,
-        "next_decision_id": 141,
+        "vp": -1,
+        "turn": 1,
+        "action_round": 4,
+        "next_decision_id": 51,
         "decision_stack": [
           {
-            "id": 141,
+            "id": 51,
             "actor": "USSR",
-            "kind": "action_round_play",
+            "kind": "event_influence",
             "options": [
               {
-                "kind": "action_round_play",
+                "kind": "event_influence",
                 "payload": {
-                  "card": "Vietnam_Revolts"
+                  "country": "Algeria"
                 }
               },
               {
-                "kind": "action_round_play",
+                "kind": "event_influence",
                 "payload": {
-                  "card": "UN_Intervention"
+                  "country": "Morocco"
                 }
               },
               {
-                "kind": "action_round_play",
+                "kind": "event_influence",
                 "payload": {
-                  "card": "Blockade"
+                  "country": "Tunisia"
                 }
               },
               {
-                "kind": "action_round_play",
+                "kind": "event_influence",
                 "payload": {
-                  "card": "East_European_Unrest"
+                  "country": "West_African_States"
                 }
               },
               {
-                "kind": "action_round_play",
+                "kind": "event_influence",
                 "payload": {
-                  "card": "Five_Year_Plan"
+                  "country": "Saharan_States"
                 }
               },
               {
-                "kind": "action_round_play",
+                "kind": "event_influence",
                 "payload": {
-                  "card": "Independent_Reds"
+                  "country": "Nigeria"
                 }
               },
               {
-                "kind": "action_round_play",
+                "kind": "event_influence",
                 "payload": {
-                  "card": "The_China_Card"
+                  "country": "Cameroon"
+                }
+              },
+              {
+                "kind": "event_influence",
+                "payload": {
+                  "country": "Zaire"
+                }
+              },
+              {
+                "kind": "event_influence",
+                "payload": {
+                  "country": "Angola"
+                }
+              },
+              {
+                "kind": "event_influence",
+                "payload": {
+                  "country": "South_Africa"
+                }
+              },
+              {
+                "kind": "event_influence",
+                "payload": {
+                  "country": "Botswana"
+                }
+              },
+              {
+                "kind": "event_influence",
+                "payload": {
+                  "country": "Zimbabwe"
+                }
+              },
+              {
+                "kind": "event_influence",
+                "payload": {
+                  "country": "SE_African_States"
+                }
+              },
+              {
+                "kind": "event_influence",
+                "payload": {
+                  "country": "Kenya"
+                }
+              },
+              {
+                "kind": "event_influence",
+                "payload": {
+                  "country": "Somalia"
+                }
+              },
+              {
+                "kind": "event_influence",
+                "payload": {
+                  "country": "Ethiopia"
+                }
+              },
+              {
+                "kind": "event_influence",
+                "payload": {
+                  "country": "Sudan"
+                }
+              },
+              {
+                "kind": "event_influence",
+                "payload": {
+                  "country": "Laos_Cambodia"
+                }
+              },
+              {
+                "kind": "event_influence",
+                "payload": {
+                  "country": "Thailand"
+                }
+              },
+              {
+                "kind": "event_influence",
+                "payload": {
+                  "country": "Vietnam"
+                }
+              },
+              {
+                "kind": "event_influence",
+                "payload": {
+                  "country": "Malaysia"
+                }
+              },
+              {
+                "kind": "event_influence",
+                "payload": {
+                  "country": "Indonesia"
+                }
+              },
+              {
+                "kind": "event_influence",
+                "payload": {
+                  "country": "Philippines"
                 }
               }
             ],
-            "context": {}
+            "context": {
+              "event": "Decolonization",
+              "op": "place",
+              "choose_side": "USSR",
+              "inf_side": "USSR",
+              "remaining": 2,
+              "candidates": [
+                "Algeria",
+                "Morocco",
+                "Tunisia",
+                "West_African_States",
+                "Ivory_Coast",
+                "Saharan_States",
+                "Nigeria",
+                "Cameroon",
+                "Zaire",
+                "Angola",
+                "South_Africa",
+                "Botswana",
+                "Zimbabwe",
+                "SE_African_States",
+                "Kenya",
+                "Somalia",
+                "Ethiopia",
+                "Sudan",
+                "Burma",
+                "Laos_Cambodia",
+                "Thailand",
+                "Vietnam",
+                "Malaysia",
+                "Indonesia",
+                "Philippines"
+              ],
+              "cap": 1,
+              "whole": false,
+              "requires_uncontrolled": false,
+              "exclude_controlled_by": null,
+              "placed": {
+                "Ivory_Coast": 1,
+                "Burma": 1
+              }
+            }
           }
         ],
         "winner": null,
@@ -4050,57 +2083,57 @@
         "phase": "action_rounds",
         "include_optional": false,
         "draw_pile": [
-          "Decolonization",
-          "Middle_East_Scoring",
-          "Asia_Scoring",
-          "NATO",
+          "East_European_Unrest",
+          "CIA_Created",
+          "US_Japan_Mutual_Defense_Pact",
+          "Independent_Reds",
+          "Captured_Nazi_Scientist",
+          "COMECON",
+          "Defectors",
+          "Romanian_Abdication",
+          "Blockade",
           "Red_Scare_Purge",
-          "Indo_Pakistani_War",
+          "Middle_East_Scoring",
           "Nuclear_Test_Ban",
-          "De_Stalinization",
+          "Nasser",
+          "Formosan_Resolution",
+          "Asia_Scoring",
+          "Fidel",
+          "Truman_Doctrine",
+          "Containment",
           "Arab_Israeli_War"
         ],
         "discard_pile": [
           "Duck_and_Cover",
-          "Formosan_Resolution",
-          "Socialist_Governments",
-          "US_Japan_Mutual_Defense_Pact"
+          "UN_Intervention",
+          "De_Stalinization",
+          "Decolonization"
         ],
         "removed_cards": [
-          "Warsaw_Pact_Formed",
-          "COMECON",
-          "Romanian_Abdication",
-          "Fidel",
-          "Containment",
-          "Truman_Doctrine",
-          "De_Gaulle_Leads_France",
-          "Captured_Nazi_Scientist",
           "Suez_Crisis",
-          "Korean_War"
+          "Warsaw_Pact_Formed",
+          "NATO",
+          "Marshall_Plan",
+          "Korean_War",
+          "De_Gaulle_Leads_France"
         ],
         "hands": {
           "US": [
-            "Nasser",
-            "CIA_Created",
-            "Defectors",
-            "Marshall_Plan",
-            "Olympic_Games",
-            "Europe_Scoring"
+            "Five_Year_Plan",
+            "Europe_Scoring",
+            "Socialist_Governments"
           ],
           "USSR": [
+            "Olympic_Games",
             "Vietnam_Revolts",
-            "UN_Intervention",
-            "Blockade",
-            "East_European_Unrest",
-            "Five_Year_Plan",
-            "Independent_Reds"
+            "Indo_Pakistani_War"
           ]
         },
         "china_card_owner": "USSR",
         "china_card_available": true,
         "space_race": {
-          "US": 1,
-          "USSR": 2
+          "US": 0,
+          "USSR": 0
         },
         "space_race_attempts": {
           "US": 0,
@@ -4108,9 +2141,9 @@
         },
         "military_ops": {
           "US": 0,
-          "USSR": 0
+          "USSR": 2
         },
-        "ars_played": 3,
+        "ars_played": 8,
         "headline": {
           "US": null,
           "USSR": null
@@ -4118,7 +2151,2198 @@
         "headline_resolving": false,
         "headline_pending": [],
         "events_enabled": true,
-        "turn_effects": {}
+        "turn_effects": {},
+        "game_effects": {
+          "marshall_or_warsaw": true,
+          "nato": true,
+          "degaulle_france": true
+        }
+      }
+    },
+    {
+      "after_step": 100,
+      "state": {
+        "seed": 20260812,
+        "rng_state": [
+          3,
+          [
+            4255349791,
+            3640896097,
+            1205581986,
+            3783357632,
+            1426191,
+            1786005758,
+            881003499,
+            1644271765,
+            1152596013,
+            129283755,
+            2552929154,
+            1625638791,
+            3617045036,
+            3467375861,
+            1418800424,
+            2189687589,
+            1877871983,
+            1446522771,
+            2268598557,
+            2697924480,
+            2047378093,
+            2190231403,
+            2068325105,
+            3751156778,
+            590986241,
+            3153269930,
+            1492751065,
+            2398870644,
+            3510932251,
+            776307683,
+            1204409600,
+            3220906593,
+            4026975840,
+            600647958,
+            767640848,
+            3484810312,
+            3557719240,
+            767818601,
+            3073961078,
+            3506714116,
+            3861934222,
+            4252269738,
+            4221075690,
+            3472898819,
+            1020494803,
+            3392175854,
+            246720277,
+            461533597,
+            3675199760,
+            1832866817,
+            424607631,
+            3369490114,
+            2792522277,
+            1390591063,
+            4189388130,
+            1960506718,
+            3374675290,
+            1035663001,
+            3716010753,
+            1990980735,
+            1562120407,
+            3513091309,
+            2994538144,
+            1319118628,
+            1649137768,
+            2770018605,
+            1746968749,
+            384397161,
+            4204611305,
+            2633810745,
+            1311687003,
+            491764604,
+            2067565358,
+            311881703,
+            2998594363,
+            1357990462,
+            2072800899,
+            2464165259,
+            3970591615,
+            2319229213,
+            4049227418,
+            143538983,
+            1203106178,
+            474817532,
+            1672476384,
+            1257328146,
+            1701510501,
+            2941016728,
+            2911776508,
+            766516706,
+            3224971856,
+            30778205,
+            3458603626,
+            4069672377,
+            3399248839,
+            228316781,
+            4225936689,
+            2498793074,
+            2901468222,
+            527588744,
+            2705390477,
+            432705542,
+            3819484847,
+            2590575055,
+            4215491201,
+            2786140972,
+            2625248493,
+            2849101836,
+            1867864282,
+            3206367034,
+            865642377,
+            574806233,
+            2160272586,
+            2809660397,
+            2959058664,
+            2225667081,
+            3645336090,
+            2597268644,
+            1734730391,
+            816166047,
+            2838329588,
+            1509101194,
+            2159428868,
+            2976351078,
+            1149167182,
+            1789548297,
+            3226839113,
+            956240339,
+            3494979021,
+            2028695194,
+            3736967792,
+            589233426,
+            1947429988,
+            39376671,
+            1296170827,
+            4264017485,
+            4176782507,
+            2821492065,
+            93413515,
+            2631013046,
+            2213477999,
+            184557287,
+            111623011,
+            1558235412,
+            3457020818,
+            2753438778,
+            909993130,
+            1597709386,
+            3593325271,
+            717594090,
+            3794272323,
+            742712307,
+            247067269,
+            1606016701,
+            3982277429,
+            3688146603,
+            3122464756,
+            762780691,
+            3754907025,
+            3516844119,
+            1272861958,
+            1230166817,
+            3425366536,
+            3862884222,
+            662601894,
+            2236311659,
+            3163011507,
+            830703480,
+            1472943969,
+            2511523047,
+            210836458,
+            4189279467,
+            297484494,
+            2503305677,
+            432754882,
+            2031489225,
+            2122000643,
+            3125436713,
+            2631210199,
+            1322474428,
+            3022400640,
+            4092936494,
+            519732420,
+            2458588856,
+            1931515253,
+            2470290270,
+            2214306323,
+            2031946021,
+            3353024325,
+            3168814321,
+            3151233858,
+            3211513053,
+            2817600191,
+            3892923151,
+            3250467256,
+            1228175822,
+            1298629191,
+            2546159094,
+            1909939538,
+            1216232536,
+            2862288328,
+            3104720944,
+            2921047167,
+            321489054,
+            1692098489,
+            3619489977,
+            1855760863,
+            2266311215,
+            1558116719,
+            560674994,
+            3009478140,
+            2648547113,
+            3690429214,
+            1820580624,
+            2805949809,
+            1552329130,
+            1161281482,
+            2988241742,
+            3117005367,
+            2297147428,
+            1860142954,
+            1145967844,
+            3581773428,
+            164311889,
+            1319311821,
+            3376422354,
+            1089638518,
+            4061517258,
+            3361982667,
+            552710775,
+            1568766912,
+            3782795967,
+            23384518,
+            3868062961,
+            773338490,
+            3209308862,
+            3377333647,
+            4080432404,
+            2605367185,
+            2649795295,
+            1031394326,
+            1099678254,
+            3719427521,
+            109746770,
+            619813700,
+            1303832794,
+            303746682,
+            773479733,
+            2638300822,
+            2396953225,
+            3795787733,
+            974926054,
+            263826843,
+            2063145165,
+            3751310268,
+            929239805,
+            904428113,
+            2857539122,
+            2289241718,
+            684632909,
+            3892559378,
+            798015107,
+            4244273455,
+            910853896,
+            1103392160,
+            3296118145,
+            882415297,
+            1935346608,
+            3007686212,
+            2394063665,
+            1973665732,
+            1261071632,
+            3171500068,
+            3285887589,
+            2617757290,
+            2079271306,
+            3207863084,
+            228649429,
+            656248066,
+            377291764,
+            937710927,
+            2583155485,
+            106053054,
+            824868021,
+            1045990817,
+            2969220815,
+            1598071914,
+            898089969,
+            3827019418,
+            1554939218,
+            3529581325,
+            295073886,
+            2127433784,
+            2560068055,
+            2441976603,
+            3874462076,
+            1945434589,
+            311312590,
+            3766479937,
+            2515194803,
+            587669798,
+            3805289827,
+            1418272577,
+            125566965,
+            1365675311,
+            1119785463,
+            3611748663,
+            3804894076,
+            4021522012,
+            1551701045,
+            2565843565,
+            1718840201,
+            3231009858,
+            116518487,
+            762264430,
+            1778327854,
+            1829573003,
+            3579353441,
+            2749559058,
+            3013469214,
+            2124892405,
+            3118365961,
+            3062976665,
+            793132321,
+            4059539211,
+            4206068050,
+            2330287904,
+            313926433,
+            1971215972,
+            1383704406,
+            1504847132,
+            886599381,
+            1346743731,
+            2668978516,
+            2791339742,
+            717619914,
+            3957576136,
+            297809388,
+            1081571957,
+            3714202612,
+            1126576695,
+            1581967240,
+            604325067,
+            2325053870,
+            2909975894,
+            3720207143,
+            3092009190,
+            1814222318,
+            3235349732,
+            403568741,
+            4005833154,
+            2824972798,
+            4201551826,
+            430511784,
+            2532302622,
+            1608602611,
+            1448592139,
+            4265439842,
+            2589968623,
+            2467057631,
+            2689805727,
+            2588623393,
+            1370099303,
+            3878975084,
+            2661810594,
+            3030833944,
+            3163570605,
+            2773492119,
+            2001831383,
+            1343631702,
+            1163302181,
+            3833747170,
+            3275319745,
+            80489101,
+            3621499251,
+            4209052880,
+            4083139273,
+            45670978,
+            4066409892,
+            1426603458,
+            2119588125,
+            3863396719,
+            1025048408,
+            3713211949,
+            3421428665,
+            3488965108,
+            1981953071,
+            1346698681,
+            830229524,
+            2058170496,
+            761820919,
+            3347967144,
+            3739819610,
+            3794180915,
+            4139403247,
+            93048383,
+            1585879530,
+            3550853531,
+            2399194050,
+            3445688162,
+            3325800941,
+            1729943196,
+            3271533771,
+            3966091510,
+            2049620755,
+            2953411134,
+            3004649824,
+            568716332,
+            3331078693,
+            1579446429,
+            1616513692,
+            4031164433,
+            2755043173,
+            3955058856,
+            273884512,
+            1997001774,
+            4135457934,
+            3001196441,
+            2730272303,
+            4097206569,
+            717909976,
+            2137865488,
+            2033941049,
+            1149151313,
+            4192955789,
+            889132950,
+            2793332397,
+            3215713206,
+            310994347,
+            1039859964,
+            46764004,
+            936735813,
+            399152988,
+            3388112075,
+            4085918632,
+            514070006,
+            3834830832,
+            2001656548,
+            841633962,
+            1057555877,
+            3473703345,
+            1850166375,
+            4197626911,
+            2903364496,
+            3074961787,
+            1409200488,
+            720503767,
+            1372311696,
+            2351985120,
+            2539438805,
+            1374866634,
+            782105007,
+            2754677527,
+            592732434,
+            247802333,
+            4294828339,
+            4179413215,
+            3448500607,
+            3048553112,
+            1025648991,
+            887048789,
+            2780902184,
+            681358347,
+            2192338407,
+            2885395537,
+            2902525643,
+            366839804,
+            4071347574,
+            1390594660,
+            662681044,
+            1720349199,
+            114493794,
+            2147846145,
+            3658826793,
+            1781614697,
+            2076352842,
+            3801053282,
+            1726780044,
+            591599604,
+            2512823829,
+            1552647508,
+            1734121714,
+            612867490,
+            2645361201,
+            2354407843,
+            3113487737,
+            3707197453,
+            1871645045,
+            1017445783,
+            2978975332,
+            1040688347,
+            2411082465,
+            3086897418,
+            2585039584,
+            2430751996,
+            3897424635,
+            3811668025,
+            3976350380,
+            785326062,
+            654395107,
+            2702900500,
+            3947899434,
+            1015659299,
+            2472196308,
+            2957362518,
+            102357992,
+            928349963,
+            144775352,
+            3213736601,
+            346632914,
+            1121669283,
+            17045040,
+            579062996,
+            4087371854,
+            3337321851,
+            2014185929,
+            2243181847,
+            2731654083,
+            2790496392,
+            2069196417,
+            2577000578,
+            4198249389,
+            1722701860,
+            3539102925,
+            2289504390,
+            3850642107,
+            1043243579,
+            2421511937,
+            3064612669,
+            3303823442,
+            3187831570,
+            3663879353,
+            747024417,
+            3391832007,
+            3014774146,
+            3497926590,
+            4057733487,
+            3144922765,
+            908967791,
+            4183829352,
+            894049298,
+            2551902232,
+            3740557171,
+            1119188122,
+            3117643890,
+            1840835341,
+            2049635316,
+            946024049,
+            3347919047,
+            1877118677,
+            1123909503,
+            3190115089,
+            2753088525,
+            2512647028,
+            3014041404,
+            907139259,
+            742919306,
+            1985346140,
+            1643420428,
+            3529336536,
+            3968130966,
+            173205074,
+            18777745,
+            409071294,
+            1159803427,
+            632848457,
+            4167358353,
+            1836315658,
+            1846711319,
+            894968086,
+            419870019,
+            2019936100,
+            474621306,
+            3165603705,
+            2960888602,
+            3321741,
+            3250929718,
+            3587181615,
+            1502673850,
+            4123947572,
+            2577779985,
+            2819650217,
+            2551735066,
+            698236785,
+            3706072276,
+            4235210574,
+            1965813546,
+            2814876227,
+            4259274119,
+            3371302949,
+            3284729571,
+            2810080523,
+            3126948658,
+            1466691049,
+            1011935536,
+            1565627898,
+            3786479510,
+            2320022023,
+            3239346362,
+            487571039,
+            1986810310,
+            3942390751,
+            3211567738,
+            1492352809,
+            2279886718,
+            1317171361,
+            2040218735,
+            361304563,
+            4034466098,
+            1866435685,
+            1949841154,
+            183083145,
+            2062886144,
+            2904276677,
+            3810424157,
+            578270573,
+            2024230536,
+            4065130715,
+            3401524164,
+            834775572,
+            3660009962,
+            3250785179,
+            908570166,
+            3110049594,
+            73
+          ],
+          null
+        ],
+        "board": {
+          "influence": {
+            "Canada": {
+              "US": 4,
+              "USSR": 0
+            },
+            "UK": {
+              "US": 5,
+              "USSR": 0
+            },
+            "Norway": {
+              "US": 1,
+              "USSR": 0
+            },
+            "Sweden": {
+              "US": 1,
+              "USSR": 0
+            },
+            "Denmark": {
+              "US": 1,
+              "USSR": 0
+            },
+            "Benelux": {
+              "US": 2,
+              "USSR": 0
+            },
+            "France": {
+              "US": 0,
+              "USSR": 1
+            },
+            "Spain_Portugal": {
+              "US": 0,
+              "USSR": 0
+            },
+            "Italy": {
+              "US": 2,
+              "USSR": 0
+            },
+            "Greece": {
+              "US": 2,
+              "USSR": 0
+            },
+            "Turkey": {
+              "US": 0,
+              "USSR": 0
+            },
+            "Austria": {
+              "US": 0,
+              "USSR": 0
+            },
+            "Finland": {
+              "US": 0,
+              "USSR": 0
+            },
+            "West_Germany": {
+              "US": 1,
+              "USSR": 0
+            },
+            "East_Germany": {
+              "US": 0,
+              "USSR": 5
+            },
+            "Poland": {
+              "US": 0,
+              "USSR": 1
+            },
+            "Czechoslovakia": {
+              "US": 0,
+              "USSR": 1
+            },
+            "Hungary": {
+              "US": 0,
+              "USSR": 1
+            },
+            "Yugoslavia": {
+              "US": 0,
+              "USSR": 0
+            },
+            "Romania": {
+              "US": 0,
+              "USSR": 3
+            },
+            "Bulgaria": {
+              "US": 0,
+              "USSR": 0
+            },
+            "Libya": {
+              "US": 0,
+              "USSR": 0
+            },
+            "Egypt": {
+              "US": 0,
+              "USSR": 0
+            },
+            "Israel": {
+              "US": 0,
+              "USSR": 0
+            },
+            "Lebanon": {
+              "US": 0,
+              "USSR": 0
+            },
+            "Syria": {
+              "US": 0,
+              "USSR": 1
+            },
+            "Iraq": {
+              "US": 0,
+              "USSR": 1
+            },
+            "Iran": {
+              "US": 1,
+              "USSR": 0
+            },
+            "Jordan": {
+              "US": 0,
+              "USSR": 0
+            },
+            "Gulf_States": {
+              "US": 0,
+              "USSR": 0
+            },
+            "Saudi_Arabia": {
+              "US": 0,
+              "USSR": 0
+            },
+            "Afghanistan": {
+              "US": 0,
+              "USSR": 0
+            },
+            "Pakistan": {
+              "US": 0,
+              "USSR": 0
+            },
+            "India": {
+              "US": 2,
+              "USSR": 0
+            },
+            "Australia": {
+              "US": 4,
+              "USSR": 0
+            },
+            "Japan": {
+              "US": 1,
+              "USSR": 0
+            },
+            "Taiwan": {
+              "US": 0,
+              "USSR": 0
+            },
+            "South_Korea": {
+              "US": 0,
+              "USSR": 1
+            },
+            "North_Korea": {
+              "US": 0,
+              "USSR": 3
+            },
+            "Chinese_Civil_War": {
+              "US": 0,
+              "USSR": 0
+            },
+            "Burma": {
+              "US": 0,
+              "USSR": 1
+            },
+            "Laos_Cambodia": {
+              "US": 0,
+              "USSR": 0
+            },
+            "Thailand": {
+              "US": 0,
+              "USSR": 0
+            },
+            "Vietnam": {
+              "US": 0,
+              "USSR": 1
+            },
+            "Malaysia": {
+              "US": 0,
+              "USSR": 0
+            },
+            "Indonesia": {
+              "US": 0,
+              "USSR": 0
+            },
+            "Philippines": {
+              "US": 1,
+              "USSR": 0
+            },
+            "Algeria": {
+              "US": 0,
+              "USSR": 0
+            },
+            "Morocco": {
+              "US": 0,
+              "USSR": 0
+            },
+            "Tunisia": {
+              "US": 0,
+              "USSR": 0
+            },
+            "West_African_States": {
+              "US": 0,
+              "USSR": 1
+            },
+            "Ivory_Coast": {
+              "US": 0,
+              "USSR": 2
+            },
+            "Saharan_States": {
+              "US": 0,
+              "USSR": 0
+            },
+            "Nigeria": {
+              "US": 0,
+              "USSR": 1
+            },
+            "Cameroon": {
+              "US": 0,
+              "USSR": 0
+            },
+            "Zaire": {
+              "US": 0,
+              "USSR": 0
+            },
+            "Angola": {
+              "US": 0,
+              "USSR": 0
+            },
+            "South_Africa": {
+              "US": 1,
+              "USSR": 0
+            },
+            "Botswana": {
+              "US": 0,
+              "USSR": 0
+            },
+            "Zimbabwe": {
+              "US": 0,
+              "USSR": 0
+            },
+            "SE_African_States": {
+              "US": 0,
+              "USSR": 0
+            },
+            "Kenya": {
+              "US": 0,
+              "USSR": 0
+            },
+            "Somalia": {
+              "US": 0,
+              "USSR": 0
+            },
+            "Ethiopia": {
+              "US": 0,
+              "USSR": 0
+            },
+            "Sudan": {
+              "US": 0,
+              "USSR": 0
+            },
+            "Mexico": {
+              "US": 0,
+              "USSR": 0
+            },
+            "Guatemala": {
+              "US": 0,
+              "USSR": 0
+            },
+            "El_Salvador": {
+              "US": 0,
+              "USSR": 0
+            },
+            "Honduras": {
+              "US": 0,
+              "USSR": 0
+            },
+            "Costa_Rica": {
+              "US": 0,
+              "USSR": 0
+            },
+            "Panama": {
+              "US": 1,
+              "USSR": 0
+            },
+            "Nicaragua": {
+              "US": 0,
+              "USSR": 0
+            },
+            "Cuba": {
+              "US": 0,
+              "USSR": 0
+            },
+            "Haiti": {
+              "US": 0,
+              "USSR": 0
+            },
+            "Dominican_Republic": {
+              "US": 0,
+              "USSR": 0
+            },
+            "Colombia": {
+              "US": 0,
+              "USSR": 0
+            },
+            "Ecuador": {
+              "US": 0,
+              "USSR": 0
+            },
+            "Peru": {
+              "US": 0,
+              "USSR": 0
+            },
+            "Chile": {
+              "US": 0,
+              "USSR": 0
+            },
+            "Argentina": {
+              "US": 0,
+              "USSR": 0
+            },
+            "Uruguay": {
+              "US": 0,
+              "USSR": 0
+            },
+            "Paraguay": {
+              "US": 0,
+              "USSR": 0
+            },
+            "Bolivia": {
+              "US": 0,
+              "USSR": 0
+            },
+            "Brazil": {
+              "US": 0,
+              "USSR": 0
+            },
+            "Venezuela": {
+              "US": 0,
+              "USSR": 0
+            }
+          }
+        },
+        "defcon": 4,
+        "vp": -4,
+        "turn": 2,
+        "action_round": 2,
+        "next_decision_id": 101,
+        "decision_stack": [
+          {
+            "id": 101,
+            "actor": "CHANCE",
+            "kind": "realignment_opponent_roll",
+            "options": [
+              {
+                "kind": "realignment_opponent_roll",
+                "payload": {
+                  "value": 2
+                }
+              }
+            ],
+            "context": {
+              "side": "US",
+              "country": "Haiti",
+              "card_ops": 5,
+              "attempts_remaining": 3,
+              "actor_roll": 6
+            }
+          }
+        ],
+        "winner": null,
+        "game_over_reason": null,
+        "phase": "action_rounds",
+        "include_optional": false,
+        "draw_pile": [
+          "East_European_Unrest",
+          "CIA_Created",
+          "US_Japan_Mutual_Defense_Pact",
+          "Independent_Reds",
+          "Captured_Nazi_Scientist",
+          "COMECON"
+        ],
+        "discard_pile": [
+          "Duck_and_Cover",
+          "UN_Intervention",
+          "De_Stalinization",
+          "Decolonization",
+          "Indo_Pakistani_War",
+          "Socialist_Governments",
+          "Europe_Scoring",
+          "Arab_Israeli_War",
+          "Asia_Scoring"
+        ],
+        "removed_cards": [
+          "Suez_Crisis",
+          "Warsaw_Pact_Formed",
+          "NATO",
+          "Marshall_Plan",
+          "Korean_War",
+          "De_Gaulle_Leads_France",
+          "Containment",
+          "Romanian_Abdication",
+          "Truman_Doctrine"
+        ],
+        "hands": {
+          "US": [
+            "Five_Year_Plan",
+            "Fidel",
+            "Formosan_Resolution",
+            "Nuclear_Test_Ban",
+            "Red_Scare_Purge",
+            "Defectors"
+          ],
+          "USSR": [
+            "Olympic_Games",
+            "Vietnam_Revolts",
+            "Nasser",
+            "Middle_East_Scoring",
+            "Blockade"
+          ]
+        },
+        "china_card_owner": "USSR",
+        "china_card_available": false,
+        "space_race": {
+          "US": 0,
+          "USSR": 0
+        },
+        "space_race_attempts": {
+          "US": 0,
+          "USSR": 0
+        },
+        "military_ops": {
+          "US": 0,
+          "USSR": 2
+        },
+        "ars_played": 4,
+        "headline": {
+          "US": null,
+          "USSR": null
+        },
+        "headline_resolving": false,
+        "headline_pending": [],
+        "events_enabled": true,
+        "turn_effects": {
+          "containment": true
+        },
+        "game_effects": {
+          "marshall_or_warsaw": true,
+          "nato": true,
+          "degaulle_france": true
+        }
+      }
+    },
+    {
+      "after_step": 150,
+      "state": {
+        "seed": 20260812,
+        "rng_state": [
+          3,
+          [
+            4255349791,
+            3640896097,
+            1205581986,
+            3783357632,
+            1426191,
+            1786005758,
+            881003499,
+            1644271765,
+            1152596013,
+            129283755,
+            2552929154,
+            1625638791,
+            3617045036,
+            3467375861,
+            1418800424,
+            2189687589,
+            1877871983,
+            1446522771,
+            2268598557,
+            2697924480,
+            2047378093,
+            2190231403,
+            2068325105,
+            3751156778,
+            590986241,
+            3153269930,
+            1492751065,
+            2398870644,
+            3510932251,
+            776307683,
+            1204409600,
+            3220906593,
+            4026975840,
+            600647958,
+            767640848,
+            3484810312,
+            3557719240,
+            767818601,
+            3073961078,
+            3506714116,
+            3861934222,
+            4252269738,
+            4221075690,
+            3472898819,
+            1020494803,
+            3392175854,
+            246720277,
+            461533597,
+            3675199760,
+            1832866817,
+            424607631,
+            3369490114,
+            2792522277,
+            1390591063,
+            4189388130,
+            1960506718,
+            3374675290,
+            1035663001,
+            3716010753,
+            1990980735,
+            1562120407,
+            3513091309,
+            2994538144,
+            1319118628,
+            1649137768,
+            2770018605,
+            1746968749,
+            384397161,
+            4204611305,
+            2633810745,
+            1311687003,
+            491764604,
+            2067565358,
+            311881703,
+            2998594363,
+            1357990462,
+            2072800899,
+            2464165259,
+            3970591615,
+            2319229213,
+            4049227418,
+            143538983,
+            1203106178,
+            474817532,
+            1672476384,
+            1257328146,
+            1701510501,
+            2941016728,
+            2911776508,
+            766516706,
+            3224971856,
+            30778205,
+            3458603626,
+            4069672377,
+            3399248839,
+            228316781,
+            4225936689,
+            2498793074,
+            2901468222,
+            527588744,
+            2705390477,
+            432705542,
+            3819484847,
+            2590575055,
+            4215491201,
+            2786140972,
+            2625248493,
+            2849101836,
+            1867864282,
+            3206367034,
+            865642377,
+            574806233,
+            2160272586,
+            2809660397,
+            2959058664,
+            2225667081,
+            3645336090,
+            2597268644,
+            1734730391,
+            816166047,
+            2838329588,
+            1509101194,
+            2159428868,
+            2976351078,
+            1149167182,
+            1789548297,
+            3226839113,
+            956240339,
+            3494979021,
+            2028695194,
+            3736967792,
+            589233426,
+            1947429988,
+            39376671,
+            1296170827,
+            4264017485,
+            4176782507,
+            2821492065,
+            93413515,
+            2631013046,
+            2213477999,
+            184557287,
+            111623011,
+            1558235412,
+            3457020818,
+            2753438778,
+            909993130,
+            1597709386,
+            3593325271,
+            717594090,
+            3794272323,
+            742712307,
+            247067269,
+            1606016701,
+            3982277429,
+            3688146603,
+            3122464756,
+            762780691,
+            3754907025,
+            3516844119,
+            1272861958,
+            1230166817,
+            3425366536,
+            3862884222,
+            662601894,
+            2236311659,
+            3163011507,
+            830703480,
+            1472943969,
+            2511523047,
+            210836458,
+            4189279467,
+            297484494,
+            2503305677,
+            432754882,
+            2031489225,
+            2122000643,
+            3125436713,
+            2631210199,
+            1322474428,
+            3022400640,
+            4092936494,
+            519732420,
+            2458588856,
+            1931515253,
+            2470290270,
+            2214306323,
+            2031946021,
+            3353024325,
+            3168814321,
+            3151233858,
+            3211513053,
+            2817600191,
+            3892923151,
+            3250467256,
+            1228175822,
+            1298629191,
+            2546159094,
+            1909939538,
+            1216232536,
+            2862288328,
+            3104720944,
+            2921047167,
+            321489054,
+            1692098489,
+            3619489977,
+            1855760863,
+            2266311215,
+            1558116719,
+            560674994,
+            3009478140,
+            2648547113,
+            3690429214,
+            1820580624,
+            2805949809,
+            1552329130,
+            1161281482,
+            2988241742,
+            3117005367,
+            2297147428,
+            1860142954,
+            1145967844,
+            3581773428,
+            164311889,
+            1319311821,
+            3376422354,
+            1089638518,
+            4061517258,
+            3361982667,
+            552710775,
+            1568766912,
+            3782795967,
+            23384518,
+            3868062961,
+            773338490,
+            3209308862,
+            3377333647,
+            4080432404,
+            2605367185,
+            2649795295,
+            1031394326,
+            1099678254,
+            3719427521,
+            109746770,
+            619813700,
+            1303832794,
+            303746682,
+            773479733,
+            2638300822,
+            2396953225,
+            3795787733,
+            974926054,
+            263826843,
+            2063145165,
+            3751310268,
+            929239805,
+            904428113,
+            2857539122,
+            2289241718,
+            684632909,
+            3892559378,
+            798015107,
+            4244273455,
+            910853896,
+            1103392160,
+            3296118145,
+            882415297,
+            1935346608,
+            3007686212,
+            2394063665,
+            1973665732,
+            1261071632,
+            3171500068,
+            3285887589,
+            2617757290,
+            2079271306,
+            3207863084,
+            228649429,
+            656248066,
+            377291764,
+            937710927,
+            2583155485,
+            106053054,
+            824868021,
+            1045990817,
+            2969220815,
+            1598071914,
+            898089969,
+            3827019418,
+            1554939218,
+            3529581325,
+            295073886,
+            2127433784,
+            2560068055,
+            2441976603,
+            3874462076,
+            1945434589,
+            311312590,
+            3766479937,
+            2515194803,
+            587669798,
+            3805289827,
+            1418272577,
+            125566965,
+            1365675311,
+            1119785463,
+            3611748663,
+            3804894076,
+            4021522012,
+            1551701045,
+            2565843565,
+            1718840201,
+            3231009858,
+            116518487,
+            762264430,
+            1778327854,
+            1829573003,
+            3579353441,
+            2749559058,
+            3013469214,
+            2124892405,
+            3118365961,
+            3062976665,
+            793132321,
+            4059539211,
+            4206068050,
+            2330287904,
+            313926433,
+            1971215972,
+            1383704406,
+            1504847132,
+            886599381,
+            1346743731,
+            2668978516,
+            2791339742,
+            717619914,
+            3957576136,
+            297809388,
+            1081571957,
+            3714202612,
+            1126576695,
+            1581967240,
+            604325067,
+            2325053870,
+            2909975894,
+            3720207143,
+            3092009190,
+            1814222318,
+            3235349732,
+            403568741,
+            4005833154,
+            2824972798,
+            4201551826,
+            430511784,
+            2532302622,
+            1608602611,
+            1448592139,
+            4265439842,
+            2589968623,
+            2467057631,
+            2689805727,
+            2588623393,
+            1370099303,
+            3878975084,
+            2661810594,
+            3030833944,
+            3163570605,
+            2773492119,
+            2001831383,
+            1343631702,
+            1163302181,
+            3833747170,
+            3275319745,
+            80489101,
+            3621499251,
+            4209052880,
+            4083139273,
+            45670978,
+            4066409892,
+            1426603458,
+            2119588125,
+            3863396719,
+            1025048408,
+            3713211949,
+            3421428665,
+            3488965108,
+            1981953071,
+            1346698681,
+            830229524,
+            2058170496,
+            761820919,
+            3347967144,
+            3739819610,
+            3794180915,
+            4139403247,
+            93048383,
+            1585879530,
+            3550853531,
+            2399194050,
+            3445688162,
+            3325800941,
+            1729943196,
+            3271533771,
+            3966091510,
+            2049620755,
+            2953411134,
+            3004649824,
+            568716332,
+            3331078693,
+            1579446429,
+            1616513692,
+            4031164433,
+            2755043173,
+            3955058856,
+            273884512,
+            1997001774,
+            4135457934,
+            3001196441,
+            2730272303,
+            4097206569,
+            717909976,
+            2137865488,
+            2033941049,
+            1149151313,
+            4192955789,
+            889132950,
+            2793332397,
+            3215713206,
+            310994347,
+            1039859964,
+            46764004,
+            936735813,
+            399152988,
+            3388112075,
+            4085918632,
+            514070006,
+            3834830832,
+            2001656548,
+            841633962,
+            1057555877,
+            3473703345,
+            1850166375,
+            4197626911,
+            2903364496,
+            3074961787,
+            1409200488,
+            720503767,
+            1372311696,
+            2351985120,
+            2539438805,
+            1374866634,
+            782105007,
+            2754677527,
+            592732434,
+            247802333,
+            4294828339,
+            4179413215,
+            3448500607,
+            3048553112,
+            1025648991,
+            887048789,
+            2780902184,
+            681358347,
+            2192338407,
+            2885395537,
+            2902525643,
+            366839804,
+            4071347574,
+            1390594660,
+            662681044,
+            1720349199,
+            114493794,
+            2147846145,
+            3658826793,
+            1781614697,
+            2076352842,
+            3801053282,
+            1726780044,
+            591599604,
+            2512823829,
+            1552647508,
+            1734121714,
+            612867490,
+            2645361201,
+            2354407843,
+            3113487737,
+            3707197453,
+            1871645045,
+            1017445783,
+            2978975332,
+            1040688347,
+            2411082465,
+            3086897418,
+            2585039584,
+            2430751996,
+            3897424635,
+            3811668025,
+            3976350380,
+            785326062,
+            654395107,
+            2702900500,
+            3947899434,
+            1015659299,
+            2472196308,
+            2957362518,
+            102357992,
+            928349963,
+            144775352,
+            3213736601,
+            346632914,
+            1121669283,
+            17045040,
+            579062996,
+            4087371854,
+            3337321851,
+            2014185929,
+            2243181847,
+            2731654083,
+            2790496392,
+            2069196417,
+            2577000578,
+            4198249389,
+            1722701860,
+            3539102925,
+            2289504390,
+            3850642107,
+            1043243579,
+            2421511937,
+            3064612669,
+            3303823442,
+            3187831570,
+            3663879353,
+            747024417,
+            3391832007,
+            3014774146,
+            3497926590,
+            4057733487,
+            3144922765,
+            908967791,
+            4183829352,
+            894049298,
+            2551902232,
+            3740557171,
+            1119188122,
+            3117643890,
+            1840835341,
+            2049635316,
+            946024049,
+            3347919047,
+            1877118677,
+            1123909503,
+            3190115089,
+            2753088525,
+            2512647028,
+            3014041404,
+            907139259,
+            742919306,
+            1985346140,
+            1643420428,
+            3529336536,
+            3968130966,
+            173205074,
+            18777745,
+            409071294,
+            1159803427,
+            632848457,
+            4167358353,
+            1836315658,
+            1846711319,
+            894968086,
+            419870019,
+            2019936100,
+            474621306,
+            3165603705,
+            2960888602,
+            3321741,
+            3250929718,
+            3587181615,
+            1502673850,
+            4123947572,
+            2577779985,
+            2819650217,
+            2551735066,
+            698236785,
+            3706072276,
+            4235210574,
+            1965813546,
+            2814876227,
+            4259274119,
+            3371302949,
+            3284729571,
+            2810080523,
+            3126948658,
+            1466691049,
+            1011935536,
+            1565627898,
+            3786479510,
+            2320022023,
+            3239346362,
+            487571039,
+            1986810310,
+            3942390751,
+            3211567738,
+            1492352809,
+            2279886718,
+            1317171361,
+            2040218735,
+            361304563,
+            4034466098,
+            1866435685,
+            1949841154,
+            183083145,
+            2062886144,
+            2904276677,
+            3810424157,
+            578270573,
+            2024230536,
+            4065130715,
+            3401524164,
+            834775572,
+            3660009962,
+            3250785179,
+            908570166,
+            3110049594,
+            101
+          ],
+          null
+        ],
+        "board": {
+          "influence": {
+            "Canada": {
+              "US": 4,
+              "USSR": 0
+            },
+            "UK": {
+              "US": 5,
+              "USSR": 0
+            },
+            "Norway": {
+              "US": 1,
+              "USSR": 0
+            },
+            "Sweden": {
+              "US": 1,
+              "USSR": 0
+            },
+            "Denmark": {
+              "US": 1,
+              "USSR": 0
+            },
+            "Benelux": {
+              "US": 2,
+              "USSR": 0
+            },
+            "France": {
+              "US": 0,
+              "USSR": 1
+            },
+            "Spain_Portugal": {
+              "US": 0,
+              "USSR": 0
+            },
+            "Italy": {
+              "US": 2,
+              "USSR": 0
+            },
+            "Greece": {
+              "US": 2,
+              "USSR": 0
+            },
+            "Turkey": {
+              "US": 0,
+              "USSR": 0
+            },
+            "Austria": {
+              "US": 0,
+              "USSR": 0
+            },
+            "Finland": {
+              "US": 0,
+              "USSR": 0
+            },
+            "West_Germany": {
+              "US": 1,
+              "USSR": 0
+            },
+            "East_Germany": {
+              "US": 0,
+              "USSR": 6
+            },
+            "Poland": {
+              "US": 0,
+              "USSR": 1
+            },
+            "Czechoslovakia": {
+              "US": 0,
+              "USSR": 1
+            },
+            "Hungary": {
+              "US": 0,
+              "USSR": 2
+            },
+            "Yugoslavia": {
+              "US": 0,
+              "USSR": 0
+            },
+            "Romania": {
+              "US": 0,
+              "USSR": 4
+            },
+            "Bulgaria": {
+              "US": 0,
+              "USSR": 1
+            },
+            "Libya": {
+              "US": 0,
+              "USSR": 0
+            },
+            "Egypt": {
+              "US": 0,
+              "USSR": 2
+            },
+            "Israel": {
+              "US": 0,
+              "USSR": 0
+            },
+            "Lebanon": {
+              "US": 0,
+              "USSR": 0
+            },
+            "Syria": {
+              "US": 0,
+              "USSR": 1
+            },
+            "Iraq": {
+              "US": 0,
+              "USSR": 1
+            },
+            "Iran": {
+              "US": 1,
+              "USSR": 0
+            },
+            "Jordan": {
+              "US": 0,
+              "USSR": 0
+            },
+            "Gulf_States": {
+              "US": 0,
+              "USSR": 0
+            },
+            "Saudi_Arabia": {
+              "US": 0,
+              "USSR": 0
+            },
+            "Afghanistan": {
+              "US": 0,
+              "USSR": 0
+            },
+            "Pakistan": {
+              "US": 0,
+              "USSR": 0
+            },
+            "India": {
+              "US": 2,
+              "USSR": 0
+            },
+            "Australia": {
+              "US": 4,
+              "USSR": 0
+            },
+            "Japan": {
+              "US": 1,
+              "USSR": 0
+            },
+            "Taiwan": {
+              "US": 0,
+              "USSR": 0
+            },
+            "South_Korea": {
+              "US": 0,
+              "USSR": 1
+            },
+            "North_Korea": {
+              "US": 0,
+              "USSR": 0
+            },
+            "Chinese_Civil_War": {
+              "US": 0,
+              "USSR": 0
+            },
+            "Burma": {
+              "US": 0,
+              "USSR": 1
+            },
+            "Laos_Cambodia": {
+              "US": 0,
+              "USSR": 0
+            },
+            "Thailand": {
+              "US": 0,
+              "USSR": 0
+            },
+            "Vietnam": {
+              "US": 0,
+              "USSR": 1
+            },
+            "Malaysia": {
+              "US": 0,
+              "USSR": 0
+            },
+            "Indonesia": {
+              "US": 0,
+              "USSR": 0
+            },
+            "Philippines": {
+              "US": 1,
+              "USSR": 0
+            },
+            "Algeria": {
+              "US": 0,
+              "USSR": 0
+            },
+            "Morocco": {
+              "US": 0,
+              "USSR": 0
+            },
+            "Tunisia": {
+              "US": 0,
+              "USSR": 1
+            },
+            "West_African_States": {
+              "US": 0,
+              "USSR": 2
+            },
+            "Ivory_Coast": {
+              "US": 0,
+              "USSR": 2
+            },
+            "Saharan_States": {
+              "US": 0,
+              "USSR": 0
+            },
+            "Nigeria": {
+              "US": 0,
+              "USSR": 1
+            },
+            "Cameroon": {
+              "US": 0,
+              "USSR": 0
+            },
+            "Zaire": {
+              "US": 0,
+              "USSR": 0
+            },
+            "Angola": {
+              "US": 0,
+              "USSR": 0
+            },
+            "South_Africa": {
+              "US": 1,
+              "USSR": 1
+            },
+            "Botswana": {
+              "US": 0,
+              "USSR": 0
+            },
+            "Zimbabwe": {
+              "US": 0,
+              "USSR": 0
+            },
+            "SE_African_States": {
+              "US": 0,
+              "USSR": 0
+            },
+            "Kenya": {
+              "US": 0,
+              "USSR": 1
+            },
+            "Somalia": {
+              "US": 0,
+              "USSR": 0
+            },
+            "Ethiopia": {
+              "US": 0,
+              "USSR": 0
+            },
+            "Sudan": {
+              "US": 0,
+              "USSR": 0
+            },
+            "Mexico": {
+              "US": 0,
+              "USSR": 0
+            },
+            "Guatemala": {
+              "US": 0,
+              "USSR": 0
+            },
+            "El_Salvador": {
+              "US": 0,
+              "USSR": 0
+            },
+            "Honduras": {
+              "US": 0,
+              "USSR": 0
+            },
+            "Costa_Rica": {
+              "US": 0,
+              "USSR": 0
+            },
+            "Panama": {
+              "US": 1,
+              "USSR": 0
+            },
+            "Nicaragua": {
+              "US": 0,
+              "USSR": 0
+            },
+            "Cuba": {
+              "US": 0,
+              "USSR": 3
+            },
+            "Haiti": {
+              "US": 0,
+              "USSR": 0
+            },
+            "Dominican_Republic": {
+              "US": 0,
+              "USSR": 5
+            },
+            "Colombia": {
+              "US": 0,
+              "USSR": 0
+            },
+            "Ecuador": {
+              "US": 0,
+              "USSR": 0
+            },
+            "Peru": {
+              "US": 0,
+              "USSR": 0
+            },
+            "Chile": {
+              "US": 0,
+              "USSR": 0
+            },
+            "Argentina": {
+              "US": 0,
+              "USSR": 0
+            },
+            "Uruguay": {
+              "US": 0,
+              "USSR": 0
+            },
+            "Paraguay": {
+              "US": 0,
+              "USSR": 0
+            },
+            "Bolivia": {
+              "US": 0,
+              "USSR": 0
+            },
+            "Brazil": {
+              "US": 0,
+              "USSR": 0
+            },
+            "Venezuela": {
+              "US": 0,
+              "USSR": 0
+            }
+          }
+        },
+        "defcon": 5,
+        "vp": -3,
+        "turn": 3,
+        "action_round": 3,
+        "next_decision_id": 151,
+        "decision_stack": [
+          {
+            "id": 151,
+            "actor": "USSR",
+            "kind": "play_mode",
+            "options": [
+              {
+                "kind": "play_mode",
+                "payload": {
+                  "mode": "ops"
+                }
+              },
+              {
+                "kind": "play_mode",
+                "payload": {
+                  "mode": "event"
+                }
+              },
+              {
+                "kind": "play_mode",
+                "payload": {
+                  "mode": "space_race"
+                }
+              }
+            ],
+            "context": {
+              "card": "Socialist_Governments"
+            }
+          }
+        ],
+        "winner": null,
+        "game_over_reason": null,
+        "phase": "action_rounds",
+        "include_optional": false,
+        "draw_pile": [
+          "Blockade",
+          "De_Stalinization",
+          "Asia_Scoring",
+          "Duck_and_Cover",
+          "Middle_East_Scoring",
+          "Arab_Israeli_War",
+          "Defectors",
+          "Indo_Pakistani_War"
+        ],
+        "discard_pile": [
+          "Nuclear_Test_Ban",
+          "Red_Scare_Purge",
+          "Olympic_Games",
+          "Five_Year_Plan",
+          "Decolonization"
+        ],
+        "removed_cards": [
+          "Suez_Crisis",
+          "Warsaw_Pact_Formed",
+          "NATO",
+          "Marshall_Plan",
+          "Korean_War",
+          "De_Gaulle_Leads_France",
+          "Containment",
+          "Romanian_Abdication",
+          "Truman_Doctrine",
+          "Nasser",
+          "Fidel",
+          "COMECON"
+        ],
+        "hands": {
+          "US": [
+            "Formosan_Resolution",
+            "Captured_Nazi_Scientist",
+            "US_Japan_Mutual_Defense_Pact",
+            "East_European_Unrest",
+            "Europe_Scoring"
+          ],
+          "USSR": [
+            "Vietnam_Revolts",
+            "Independent_Reds",
+            "CIA_Created",
+            "Socialist_Governments",
+            "UN_Intervention"
+          ]
+        },
+        "china_card_owner": "USSR",
+        "china_card_available": true,
+        "space_race": {
+          "US": 1,
+          "USSR": 0
+        },
+        "space_race_attempts": {
+          "US": 0,
+          "USSR": 0
+        },
+        "military_ops": {
+          "US": 0,
+          "USSR": 0
+        },
+        "ars_played": 5,
+        "headline": {
+          "US": null,
+          "USSR": null
+        },
+        "headline_resolving": false,
+        "headline_pending": [],
+        "events_enabled": true,
+        "turn_effects": {
+          "red_scare": "US"
+        },
+        "game_effects": {
+          "marshall_or_warsaw": true,
+          "nato": true,
+          "degaulle_france": true
+        }
       }
     }
   ]

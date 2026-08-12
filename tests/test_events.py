@@ -250,6 +250,152 @@ def test_warsaw_pact_add_branch_places_five_capped_at_two():
     assert engine.board.influence["East_Germany"]["USSR"] == 2  # capped
 
 
+# -- tier 3: persistent game-long legality (NATO family) --------------------
+
+
+def test_nato_requires_marshall_or_warsaw_first():
+    engine = _bare()
+    engine._fire_event(Side.US, "NATO")
+    assert not engine.game_effects.get("nato")  # precondition unmet -> no effect
+    engine.game_effects["marshall_or_warsaw"] = True
+    engine._fire_event(Side.US, "NATO")
+    assert engine.game_effects.get("nato") is True
+
+
+def test_nato_blocks_ussr_coup_and_realign_on_us_europe_only():
+    engine = _bare()
+    engine.game_effects["marshall_or_warsaw"] = True
+    engine._fire_event(Side.US, "NATO")
+    engine.board.influence["West_Germany"] = {"US": 5, "USSR": 0}  # US-controlled
+    ussr_coup = {a.payload["country"] for a in engine._coup_target_options(Side.USSR)}
+    ussr_realign = {
+        a.payload["country"] for a in engine._realignment_target_options(Side.USSR)
+    }
+    us_coup = {a.payload["country"] for a in engine._coup_target_options(Side.US)}
+    assert "West_Germany" not in ussr_coup
+    assert "West_Germany" not in ussr_realign
+    assert "West_Germany" in us_coup  # the US is never locked out
+
+
+def test_de_gaulle_lifts_nato_for_france():
+    engine = _bare()
+    engine.game_effects["marshall_or_warsaw"] = True
+    engine._fire_event(Side.US, "NATO")
+    engine.board.influence["France"] = {"US": 5, "USSR": 0}
+    assert "France" not in {
+        a.payload["country"] for a in engine._coup_target_options(Side.USSR)
+    }
+    engine._fire_event(Side.USSR, "De_Gaulle_Leads_France")  # removes 2 US, +1 USSR
+    engine.board.influence["France"] = {"US": 5, "USSR": 0}  # re-establish US control
+    assert "France" in {
+        a.payload["country"] for a in engine._coup_target_options(Side.USSR)
+    }
+
+
+def test_us_japan_pact_controls_and_shields_japan():
+    engine = _bare()
+    engine.board.influence["Japan"] = {"US": 0, "USSR": 4}  # USSR-controlled first
+    engine._fire_event(Side.US, "US_Japan_Mutual_Defense_Pact")
+    assert engine.board.control("Japan") is Side.US
+    assert "Japan" not in {
+        a.payload["country"] for a in engine._coup_target_options(Side.USSR)
+    }
+
+
+def test_willy_brandt_scores_and_lifts_nato_for_west_germany():
+    engine = _bare()
+    engine.game_effects["marshall_or_warsaw"] = True
+    engine._fire_event(Side.US, "NATO")
+    engine._fire_event(Side.USSR, "Willy_Brandt")
+    assert engine.vp == -1  # +1 VP for the USSR
+    assert engine.board.influence["West_Germany"]["USSR"] == 1
+    engine.board.influence["West_Germany"] = {"US": 5, "USSR": 0}  # US-controlled
+    assert "West_Germany" in {
+        a.payload["country"] for a in engine._coup_target_options(Side.USSR)
+    }
+
+
+def test_game_effects_persist_across_turns():
+    engine = Engine.new_game(seed=5, events=True)
+    engine.game_effects["nato"] = True
+    engine._end_of_turn()
+    assert engine.game_effects.get("nato") is True  # not cleared with turn_effects
+
+
+# -- tier 4: UN Intervention (rule modifier) --------------------------------
+
+
+def test_un_intervention_cancels_an_opponent_event_played_for_ops():
+    engine = _bare()
+    engine.defcon = 5
+    engine.hands["USSR"] = ["Duck_and_Cover", "UN_Intervention"]
+    modes = engine._play_modes(Side.USSR, "Duck_and_Cover")
+    assert "un_intervention" in modes
+    _play_card_for(engine, Side.USSR, "Duck_and_Cover", "un_intervention")
+    assert engine.defcon == 5  # the US event did NOT fire
+    assert "UN_Intervention" in engine.discard_pile  # spent
+    assert "Duck_and_Cover" in engine.discard_pile
+    assert engine.pending_decision.kind is DecisionKind.OPS_TYPE  # used for Ops
+
+
+def test_un_intervention_not_offered_without_the_card_or_for_own_event():
+    engine = _bare()
+    engine.hands["USSR"] = ["Duck_and_Cover"]  # no UN Intervention held
+    assert "un_intervention" not in engine._play_modes(Side.USSR, "Duck_and_Cover")
+    # Own-side event card never offers it (there is no opponent event to cancel).
+    engine.hands["USSR"] = ["Fidel", "UN_Intervention"]
+    assert "un_intervention" not in engine._play_modes(Side.USSR, "Fidel")
+
+
+# -- the China Card's "+1 Op if used entirely in Asia" bonus ----------------
+
+
+def _play_china_ops(engine: Engine, side: Side) -> None:
+    engine.hands[side.value] = [CHINA_CARD_ID]
+    engine.china_card_owner = side.value
+    engine.china_card_available = True
+    _play_card_for(engine, side, CHINA_CARD_ID, "ops")
+
+
+def test_china_card_grants_five_ops_used_entirely_in_asia():
+    engine = _bare()
+    engine.board.influence["North_Korea"]["USSR"] = 1  # a reachable Asian foothold
+    _play_china_ops(engine, Side.USSR)
+    engine.step(Action(DecisionKind.OPS_TYPE, {"type": "influence"}))
+
+    def asian(opts):
+        return next(
+            a for a in opts
+            if engine.board.countries[a.payload["country"]].region is not None
+            and engine.board.countries[a.payload["country"]].region.value == "ASIA"
+        )
+    steps = 0
+    while (engine.pending_decision is not None
+           and engine.pending_decision.kind is DecisionKind.PLACE_INFLUENCE):
+        engine.step(asian(engine.pending_decision.options))
+        steps += 1
+    assert steps == 5  # 4 base + 1 Asia bonus
+
+
+def test_china_card_bonus_forfeited_by_leaving_asia():
+    engine = _bare()
+    engine.board.influence["North_Korea"]["USSR"] = 1
+    engine.board.influence["Mexico"]["USSR"] = 1  # a non-Asian foothold too
+    _play_china_ops(engine, Side.USSR)
+    engine.step(Action(DecisionKind.OPS_TYPE, {"type": "influence"}))
+    steps = 0
+    while (engine.pending_decision is not None
+           and engine.pending_decision.kind is DecisionKind.PLACE_INFLUENCE):
+        opts = engine.pending_decision.options
+        non_asia = [
+            a for a in opts
+            if engine.board.countries[a.payload["country"]].region.value != "ASIA"
+        ]
+        engine.step(non_asia[0] if non_asia else opts[0])
+        steps += 1
+    assert steps == 4  # leaving Asia forfeits the +1
+
+
 # -- the "opponent event fires when played for Ops" rule --------------------
 
 

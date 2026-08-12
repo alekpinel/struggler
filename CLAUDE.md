@@ -212,9 +212,10 @@ it has a replay-log regression test (see Testing strategy).
 The event layer is **opt-in**, so it never regresses M2 (whose defining
 proof is that *zero events fire*): `Engine.new_game(..., events=False)`
 — the default — is the M2 game, byte-identical to before; `events=True`
-turns the layer on. `serialize()` carries `events_enabled` and
-`turn_effects`, so a saved game round-trips its event state (mandate #5;
-the M2 golden logs were regenerated once for these two additive keys —
+turns the layer on. `serialize()` carries `events_enabled`,
+`turn_effects` (per-turn modifiers) and `game_effects` (persistent
+game-long effects), so a saved game round-trips its event state (mandate
+#5; the M2 golden logs were regenerated once for these additive keys —
 values only, no behavior change). As every card's event is implemented,
 `events=True` moves toward becoming the default and the flag becomes the
 historical "Ops-only" toggle.
@@ -261,16 +262,34 @@ historical "Ops-only" toggle.
   - *Tier 3, persistent per-turn modifiers:* Containment, Brezhnev
     Doctrine, Red Scare/Purge (consulted via `_effective_ops`, cleared at
     end of turn).
+  - *Tier 3, persistent game-long legality (`game_effects`):* NATO
+    (eligible only after Marshall Plan or Warsaw Pact; the USSR may no
+    longer coup/realign US-controlled Europe), De Gaulle Leads France and
+    Willy Brandt (each lift NATO for one country, and Willy Brandt also
+    scores/places), US/Japan Mutual Defense Pact (locks Japan against the
+    USSR). Enforced in `_usable_coup_realign_target`, consulted by both
+    coup and realignment target enumeration.
+  - *Tier 4, rule-modifier:* UN Intervention — a `un_intervention` play
+    mode that spends the held UN Intervention card to use an opponent's
+    (implemented, eligible) event card for Ops with its event cancelled.
+- **China Card bonus.** Playing the China Card for Ops grants its +1
+  ("all Ops used in Asia") for influence (an all-or-nothing invariant in
+  the placement step: the 5th point is offered only while nothing has
+  gone outside Asia) and for coups (+1 Op and +1 military Op against an
+  Asian target). The realignment case is not modeled (rare).
 - **Known limitations / remaining M3 work** (tracked here as the
   contract): the bulk of the deck's events are still unimplemented and
-  remain no-op discards in events mode. The generic tier-2 step types
-  (`EVENT_INFLUENCE`/`EVENT_CHOICE`) now exist, so more player-choice
-  events are a matter of registering them; the next big pieces are the
-  persistent-effect cards. Most Tier 3 persistent effects (NATO — hence
-  De Gaulle's "cancels NATO for France" clause is currently inert) and all
-  Tier 4 rule-modifiers (UN Intervention, Missile Envy, etc.) are not
-  implemented. The China Card's "+1 Op if used entirely in one region"
-  bonus is also still unmodeled.
+  remain no-op discards in events mode. The framework now covers all four
+  tiers (a generic player-choice step machine, persistent per-turn and
+  game-long effect stores, and one representative rule-modifier), so the
+  remaining work is mostly *registering* more cards against it. Still
+  unimplemented: the other war/target-choice cards (Brush War,
+  Indo-Pakistani War, Junta, …), most persistent-modifier cards beyond the
+  NATO family (Flower Power, Vietnam Revolts' regional Ops bonus, US
+  scoring/space perks), and the remaining Tier 4 rule-modifiers (Missile
+  Envy, Grain Sales to Soviets, ABM Treaty, Star Wars, Cuban Missile
+  Crisis, etc.). The Space Race headline-reveal perk and the China Card's
+  realignment Asia bonus are also not modeled.
 
 ## Testing strategy
 
