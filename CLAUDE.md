@@ -251,7 +251,7 @@ historical "Ops-only" toggle.
   the stack stores only the event id and the chosen option — never a
   function). These steps live on the same decision stack, so they are
   hosted correctly inside a headline or an opponent's Ops play.
-- **Implemented so far** (64 card events registered; the trickier ones have
+- **Implemented so far** (66 card events registered; the trickier ones have
   a dedicated unit test, and the loop is covered by a property test and the
   `m3_events.json` golden). Grouped by the primitive they reuse:
   - *Immediate fixed board/VP/DEFCON/Space effects:* Duck and Cover, Fidel,
@@ -279,6 +279,14 @@ historical "Ops-only" toggle.
   - *Reclaim from the discard pile (`push_take_from_discard`):* SALT
     Negotiations (also DEFCON +2) — the player takes one non-scoring card
     from the public discard back to hand.
+  - *Per-turn regional Ops bonus:* Vietnam Revolts — generalizes the China
+    Card's all-in-region +1 into a reusable "bonus region" (`_ops_bonus_region`
+    / `_in_bonus_region`); the China Card is "asia", Vietnam Revolts sets a
+    turn effect giving USSR plays "se_asia".
+  - *Influence then an optional free operation (`push_free_coup_or_realign`):*
+    Junta — place 2 Influence in the Americas, then optionally a free Coup or
+    Realignment there (the free-op choice is stacked beneath the placement so
+    it resolves afterwards).
   - *Player-choice influence (`EVENT_INFLUENCE`):* COMECON, Marshall Plan,
     Decolonization, Suez Crisis, Truman Doctrine, Warsaw Pact Formed
     (branch), Socialist Governments, Muslim Revolution, Colonial Rear
@@ -305,30 +313,29 @@ historical "Ops-only" toggle.
   gone outside Asia) and for coups (+1 Op and +1 military Op against an
   Asian target). The realignment case is not modeled (rare).
 - **Known limitations / remaining M3 work** (tracked here as the
-  contract): 64 of the deck's ~100 non-scoring events are implemented; the
+  contract): 66 of the deck's ~100 non-scoring events are implemented; the
   rest remain no-op discards in events mode because their text needs a
   subsystem the engine does not model yet. The forced-random-discard,
-  per-turn-coup-modifier and reclaim-from-discard subsystems now exist
-  (unlocking Five Year Plan, Terrorism, Nuclear Subs, Latin American Death
-  Squads, How I Learned, SALT Negotiations). The subsystems still to build,
-  and the cards waiting on them, are:
+  per-turn-coup-modifier, reclaim-from-discard, region-Ops-bonus and
+  influence-then-free-operation subsystems now exist. The subsystems still
+  to build, and the cards waiting on them, are:
   - *Revealing/taking cards from the opponent's hand:* Grain Sales to
     Soviets, Aldrich Ames Remix, Ask Not…, The Cambridge Five.
   - *Taking a card from the discard pile and playing it immediately:* Star
     Wars (the reclaim-to-hand primitive exists; the "play now" part does
     not).
-  - *Per-turn regional Ops bonuses / other coup-and-realign modifiers:*
-    Vietnam Revolts (all-Ops-in-SE-Asia +1), Iran-Contra Scandal, Chernobyl
+  - *Other per-turn coup/realign modifiers:* Iran-Contra Scandal, Chernobyl
     (region influence lock), Che, Yuri and Samantha.
-  - *Dice/branch events not yet built:* Olympic Games, Summit, Junta,
-    Cuban Missile Crisis, Wargames, We Will Bury You, Missile Envy.
+  - *Dice/branch events not yet built:* Olympic Games, Summit, Cuban Missile
+    Crisis, Wargames, We Will Bury You, Missile Envy.
   - *Scoring-time modifiers / extra rounds:* Formosan Resolution, Shuttle
     Diplomacy, North Sea Oil, Flower Power.
   - Plus a handful of smaller conditional/optional cards. Also unmodeled:
-    the Space Race headline-reveal perk and the China Card's realignment
-    Asia bonus. Some implemented cards drop a minor optional clause (noted
+    the Space Race headline-reveal perk and the region bonus for
+    realignment. Some implemented cards drop a minor optional clause (noted
     in `events.py` docstrings, e.g. Ortega's free coup, Tear Down This
-    Wall's Operations) — those are the documented rough edges.
+    Wall's Operations, Junta's "single country") — the documented rough
+    edges.
 
 ## Testing strategy
 

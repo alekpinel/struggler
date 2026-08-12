@@ -634,6 +634,80 @@ def test_how_i_learned_sets_defcon_and_adds_military_ops():
     assert engine.military_ops["US"] == 5
 
 
+# -- per-turn regional Ops bonus (Vietnam Revolts) ---------------------------
+
+
+def test_vietnam_revolts_places_and_grants_se_asia_ops_bonus():
+    engine = _bare()
+    engine._fire_event(Side.USSR, "Vietnam_Revolts")
+    assert engine.board.influence["Vietnam"]["USSR"] == 2
+    # A USSR Ops play now earns a "+1 if all in Southeast Asia" bonus.
+    engine.board.influence["Vietnam"]["USSR"] = 2  # a reachable SE Asia foothold
+    engine.hands["USSR"] = ["Socialist_Governments"]  # 3-Ops card
+    _play_card_for(engine, Side.USSR, "Socialist_Governments", "ops")
+    assert engine.pending_decision.context["bonus"] == "se_asia"
+    engine.step(Action(DecisionKind.OPS_TYPE, {"type": "influence"}))
+
+    def se_asia(opts):
+        return next(
+            a for a in opts
+            if engine.board.countries[a.payload["country"]].subregion is not None
+            and engine.board.countries[a.payload["country"]].subregion.value == "SOUTHEAST_ASIA"
+        )
+    steps = 0
+    while (engine.pending_decision is not None
+           and engine.pending_decision.kind is DecisionKind.PLACE_INFLUENCE):
+        engine.step(se_asia(engine.pending_decision.options))
+        steps += 1
+    assert steps == 4  # base 3 + 1 all-in-SE-Asia bonus
+
+
+def test_region_bonus_does_not_apply_to_us_or_outside_se_asia():
+    engine = _bare()
+    engine.turn_effects["vietnam_revolts"] = True
+    # US plays are unaffected; only the USSR gets the SE Asia bonus.
+    assert engine._ops_bonus_region(Side.US, china=False) is None
+    assert engine._ops_bonus_region(Side.USSR, china=False) == "se_asia"
+
+
+# -- influence + optional free operation (Junta) -----------------------------
+
+
+def test_junta_places_two_then_offers_a_free_regional_operation():
+    engine = _bare(seed=1)
+    engine.defcon = 5
+    engine._fire_event(Side.USSR, "Junta")
+    placed = 0
+    while (engine.pending_decision is not None
+           and engine.pending_decision.kind is DecisionKind.EVENT_INFLUENCE):
+        cid = engine.pending_decision.options[0].payload["country"]
+        assert engine.board.countries[cid].region.value in ("CENTRAL_AMERICA", "SOUTH_AMERICA")
+        engine.step(engine.pending_decision.options[0])
+        placed += 1
+    assert placed == 2
+    choice = engine.pending_decision
+    assert choice.kind is DecisionKind.EVENT_CHOICE
+    assert {a.payload["choice"] for a in choice.options} == {"none", "coup", "realign"}
+    engine.step(Action(DecisionKind.EVENT_CHOICE, {"choice": "realign"}))
+    target = engine.pending_decision
+    assert target.kind is DecisionKind.REALIGNMENT_TARGET
+    assert all(
+        engine.board.countries[a.payload["country"]].region.value
+        in ("CENTRAL_AMERICA", "SOUTH_AMERICA")
+        for a in target.options
+    )
+
+
+def test_junta_free_op_can_be_declined():
+    engine = _bare(seed=1)
+    engine.defcon = 5
+    engine._fire_event(Side.US, "Junta")
+    while engine.pending_decision.kind is DecisionKind.EVENT_INFLUENCE:
+        engine.step(engine.pending_decision.options[0])
+    engine.step(Action(DecisionKind.EVENT_CHOICE, {"choice": "none"}))
+    assert engine.pending_decision is None  # nothing further enqueued
+
+
 # -- the "opponent event fires when played for Ops" rule --------------------
 
 

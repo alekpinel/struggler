@@ -691,6 +691,15 @@ def _nuclear_subs(engine: "Engine", side: Side) -> None:
     engine.turn_effects["nuclear_subs"] = True
 
 
+@event("Vietnam_Revolts")
+def _vietnam_revolts(engine: "Engine", side: Side) -> None:
+    # Add 2 USSR Influence to Vietnam; for the rest of the turn the USSR gets
+    # +1 Op on any play whose Ops are all used in Southeast Asia (handled by the
+    # region-bonus machinery via turn_effects).
+    engine.add_influence("Vietnam", Side.USSR, 2)
+    engine.turn_effects["vietnam_revolts"] = True
+
+
 @event("Latin_American_Death_Squads")
 def _latin_american_death_squads(engine: "Engine", side: Side) -> None:
     # +1 to the player's coup rolls (and -1 to the opponent's) in Central and
@@ -713,6 +722,34 @@ def _how_i_learned_choice(engine: "Engine", side: Side, choice: str) -> None:
     engine.set_defcon(int(choice), caused_by=side)
     if not engine.is_terminal:
         engine.military_ops[side.value] += 5
+
+
+# -- influence then an optional free operation (Junta) ----------------------
+
+
+def _central_and_south_america(engine: "Engine") -> list[str]:
+    return [
+        cid for cid, info in engine.board.countries.items()
+        if info.region in (Region.CENTRAL_AMERICA, Region.SOUTH_AMERICA)
+    ]
+
+
+@event("Junta")
+def _junta(engine: "Engine", side: Side) -> None:
+    # Place 2 Influence in Central/South America, then optionally make a free
+    # Coup or Realignment there. The free-op choice is pushed first so it
+    # resolves *after* the placement drains. (The card says a single country;
+    # here the 2 points may be split within the region — a minor deviation.)
+    americas = _central_and_south_america(engine)
+    engine.push_free_coup_or_realign(side, "Junta", ops=2, countries=americas)
+    engine.push_event_influence(
+        event="Junta", op="place", choose_side=side, inf_side=side,
+        remaining=2, candidates=americas, cap=2,
+    )
+
+
+def _junta_choice(engine: "Engine", side: Side, choice: str) -> None:
+    engine.resolve_free_op_choice(side, choice, 2, _central_and_south_america(engine))
 
 
 # -- reclaim-from-discard -----------------------------------------------------
@@ -754,4 +791,5 @@ CHOICE_ROUTERS: dict[str, Callable[["Engine", Side, str], None]] = {
     "Independent_Reds": _independent_reds_choice,
     "How_I_Learned_to_Stop_Worrying": _how_i_learned_choice,
     "Salt_Negotiations": _salt_reclaim_choice,
+    "Junta": _junta_choice,
 }

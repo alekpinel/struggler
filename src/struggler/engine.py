@@ -298,13 +298,13 @@ class Engine:
             raise ValueError("ops must be positive")
         self._maybe_push_place_influence(side, ops)
 
-    def begin_coup(self, side: Side, ops: int, china: bool = False) -> None:
+    def begin_coup(self, side: Side, ops: int, bonus: str | None = None) -> None:
         if ops <= 0:
             raise ValueError("ops must be positive")
         options = self._coup_target_options(side)
         if not options:
             return
-        self._push(side, DecisionKind.COUP_TARGET, options, {"ops": ops, "china": china})
+        self._push(side, DecisionKind.COUP_TARGET, options, {"ops": ops, "bonus": bonus})
 
     def begin_realignment_operations(self, side: Side, ops: int) -> None:
         if ops <= 0:
@@ -712,8 +712,27 @@ class Engine:
     def _push_ops_type(self, side: Side, ops: int, china: bool = False) -> None:
         self._push(
             side, DecisionKind.OPS_TYPE, self._ops_type_options(side, ops),
-            {"side": side.value, "ops": ops, "china": china},
+            {"side": side.value, "ops": ops, "bonus": self._ops_bonus_region(side, china)},
         )
+
+    def _ops_bonus_region(self, side: Side, china: bool) -> str | None:
+        """The region a play earns its "+1 Op if all Ops used here" bonus in:
+        "asia" for the China Card, "se_asia" for a USSR play while Vietnam
+        Revolts is in effect this turn, else None. (China takes precedence; the
+        rare China+Vietnam stack is not modeled.)"""
+        if china:
+            return "asia"
+        if side is Side.USSR and self.turn_effects.get("vietnam_revolts"):
+            return "se_asia"
+        return None
+
+    def _in_bonus_region(self, cid: str, bonus: str) -> bool:
+        info = self.board.countries[cid]
+        if bonus == "asia":
+            return info.region is Region.ASIA
+        if bonus == "se_asia":
+            return info.subregion is Subregion.SOUTHEAST_ASIA
+        return False
 
     def _ops_type_options(self, side: Side, ops: int) -> tuple[Action, ...]:
         types = []
@@ -728,24 +747,25 @@ class Engine:
     def _handle_ops_type(self, decision: Decision, action: Action) -> None:
         side = Side(decision.context["side"])
         ops = decision.context["ops"]
-        china = decision.context.get("china", False)
+        bonus = decision.context.get("bonus")
         ops_type = action.payload["type"]
         if ops_type == "influence":
-            if china:
-                # The China Card's +1 bonus applies only if every Op is spent in
-                # Asia; the placement step enforces that all-or-nothing rule.
-                self._maybe_push_china_influence(side, base=ops, spent=0, non_asia=0)
+            if bonus:
+                # A region-bonus play's +1 applies only if every Op is spent in
+                # that region; the placement step enforces the all-or-nothing
+                # rule (China Card -> Asia, Vietnam Revolts -> Southeast Asia).
+                self._maybe_push_bonus_influence(side, ops, 0, 0, bonus)
             else:
                 self._maybe_push_place_influence(side, ops)
         elif ops_type == "coup":
-            # Coups count toward the turn's required military operations. A China
-            # Card coup gets its +1 only against an Asian target (resolved at
-            # target selection, in _handle_coup_target).
+            # Coups count toward the turn's required military operations. A
+            # region-bonus coup gets its +1 only against a target in that region
+            # (resolved at target selection, in _handle_coup_target).
             self.military_ops[side.value] += ops
-            self.begin_coup(side, ops, china=china)
+            self.begin_coup(side, ops, bonus=bonus)
         else:  # realignment
-            # (The China Card's Asia bonus is not modeled for realignment — a
-            # rare combination; tracked in CLAUDE.md.)
+            # (The region bonus is not modeled for realignment — rare; tracked
+            # in CLAUDE.md.)
             self._maybe_push_realignment_target(side, card_ops=ops, attempts_remaining=ops)
 
     # -- M2: space race -----------------------------------------------------
@@ -1308,37 +1328,37 @@ class Engine:
             return
         self._push(side, DecisionKind.PLACE_INFLUENCE, options, {"ops_remaining": ops_remaining})
 
-    def _china_influence_options(
-        self, side: Side, base: int, spent: int, non_asia: int
+    def _bonus_influence_options(
+        self, side: Side, base: int, spent: int, non_bonus: int, bonus: str
     ) -> tuple[Action, ...]:
-        """Legal placements for a China Card influence spend. The +1 bonus point
-        is available only while nothing has been (and nothing would be) placed
-        outside Asia: a placement of cost `c` in region R is legal iff
-        `spent + c <= base`, or all Ops (this one included) stay in Asia and
-        `spent + c <= base + 1`."""
+        """Legal placements for a region-bonus influence spend. The +1 bonus
+        point is available only while nothing has been (and nothing would be)
+        placed outside the bonus region: a placement of cost `c` is legal iff
+        `spent + c <= base`, or all Ops (this one included) stay in the region
+        and `spent + c <= base + 1`."""
         options = []
         for cid in self.board.countries:
             if not self.board.is_reachable(side, cid):
                 continue
             cost = self.board.influence_cost(side, cid)
-            asia = self.board.countries[cid].region is Region.ASIA
+            in_region = self._in_bonus_region(cid, bonus)
             new_spent = spent + cost
-            new_non_asia = non_asia + (0 if asia else cost)
-            if new_spent <= base or (new_non_asia == 0 and new_spent <= base + 1):
+            new_non_bonus = non_bonus + (0 if in_region else cost)
+            if new_spent <= base or (new_non_bonus == 0 and new_spent <= base + 1):
                 options.append(Action(DecisionKind.PLACE_INFLUENCE, {"country": cid}))
         return tuple(options)
 
-    def _maybe_push_china_influence(
-        self, side: Side, base: int, spent: int, non_asia: int
+    def _maybe_push_bonus_influence(
+        self, side: Side, base: int, spent: int, non_bonus: int, bonus: str
     ) -> None:
         if self.is_terminal:
             return
-        options = self._china_influence_options(side, base, spent, non_asia)
+        options = self._bonus_influence_options(side, base, spent, non_bonus, bonus)
         if not options:
             return
         self._push(
             side, DecisionKind.PLACE_INFLUENCE, options,
-            {"china": True, "base": base, "spent": spent, "non_asia": non_asia},
+            {"bonus": bonus, "base": base, "spent": spent, "non_bonus": non_bonus},
         )
 
     def _handle_place_influence(self, decision: Decision, action: Action) -> None:
@@ -1349,13 +1369,15 @@ class Engine:
         country = action.payload["country"]
         cost = self.board.influence_cost(side, country)
         self.board.influence[country][side.value] += 1
-        if decision.context.get("china"):
-            asia = self.board.countries[country].region is Region.ASIA
-            self._maybe_push_china_influence(
+        bonus = decision.context.get("bonus")
+        if bonus:
+            in_region = self._in_bonus_region(country, bonus)
+            self._maybe_push_bonus_influence(
                 side,
                 decision.context["base"],
                 decision.context["spent"] + cost,
-                decision.context["non_asia"] + (0 if asia else cost),
+                decision.context["non_bonus"] + (0 if in_region else cost),
+                bonus,
             )
             return
         self._maybe_push_place_influence(side, decision.context["ops_remaining"] - cost)
@@ -1391,8 +1413,10 @@ class Engine:
         side = decision.actor
         country = action.payload["country"]
         ops = decision.context["ops"]
-        # China Card: +1 Op (and +1 military Op) when the coup target is in Asia.
-        if decision.context.get("china") and self.board.countries[country].region is Region.ASIA:
+        # Region-bonus play: +1 Op (and +1 military Op) when the coup target is
+        # in the bonus region (China Card -> Asia, Vietnam Revolts -> SE Asia).
+        bonus = decision.context.get("bonus")
+        if bonus and self._in_bonus_region(country, bonus):
             ops += 1
             self.military_ops[side.value] += 1
         roll = self._roll_d6()
@@ -1439,6 +1463,65 @@ class Engine:
         if self.turn_effects.get("salt"):
             mod -= 1
         return mod
+
+    # -- M3: a free operation confined to a set of countries ----------------
+
+    def push_free_coup_or_realign(
+        self, side: Side, event: str, ops: int, countries: list[str]
+    ) -> None:
+        """Offer `side` a free Coup or Realignment (or neither), restricted to
+        `countries` (Junta's "free Coup/Realignment in the Americas"). Coup is
+        offered only where DEFCON and the persistent locks allow it."""
+        choices = ["none"]
+        coupable = [
+            cid for cid in countries
+            if self._coup_defcon_ok(cid) and self._usable_coup_realign_target(side, cid)
+        ]
+        realignable = [
+            cid for cid in countries
+            if self._usable_coup_realign_target(side, cid, for_coup=False)
+        ]
+        if coupable:
+            choices.append("coup")
+        if realignable:
+            choices.append("realign")
+        if len(choices) == 1:  # only "none"
+            return
+        self._push(
+            side, DecisionKind.EVENT_CHOICE,
+            tuple(Action(DecisionKind.EVENT_CHOICE, {"choice": c}) for c in choices),
+            {"event": event, "choose_side": side.value,
+             "ops": ops, "countries": list(countries)},
+        )
+
+    def _coup_defcon_ok(self, cid: str) -> bool:
+        info = self.board.countries[cid]
+        return self.defcon >= COUP_MIN_DEFCON.get(info.region, _DEFAULT_MIN_DEFCON)
+
+    def resolve_free_op_choice(
+        self, side: Side, choice: str, ops: int, countries: list[str]
+    ) -> None:
+        """Continue a push_free_coup_or_realign branch once the player picks."""
+        if choice == "coup":
+            self.military_ops[side.value] += ops
+            options = tuple(
+                Action(DecisionKind.COUP_TARGET, {"country": cid})
+                for cid in countries
+                if self._coup_defcon_ok(cid) and self._usable_coup_realign_target(side, cid)
+            )
+            if options:
+                self._push(side, DecisionKind.COUP_TARGET, options, {"ops": ops, "bonus": None})
+        elif choice == "realign":
+            options = tuple(
+                Action(DecisionKind.REALIGNMENT_TARGET, {"country": cid})
+                for cid in countries
+                if self._usable_coup_realign_target(side, cid, for_coup=False)
+            )
+            if options:
+                self._push(
+                    side, DecisionKind.REALIGNMENT_TARGET, options,
+                    {"card_ops": ops, "attempts_remaining": ops},
+                )
 
     # -- M3: reclaim a card from the (public) discard pile ------------------
 
