@@ -75,6 +75,12 @@ CHINA_CARD_ID = "The_China_Card"
 # an *opponent's* card for Ops while cancelling that card's event.
 UN_INTERVENTION_ID = "UN_Intervention"
 
+# The "war" cards, tracked so Flower Power can score the USSR each time the US
+# plays one (for its Event or Operations).
+WAR_CARDS = frozenset(
+    {"Korean_War", "Arab_Israeli_War", "Indo_Pakistani_War", "Brush_War", "Iran_Iraq_War"}
+)
+
 # Additional influence each side places by choice during setup, after the
 # printed at-start influence: the USSR into Eastern Europe, the US into
 # Western Europe. VERIFY the exact counts against the rulebook.
@@ -563,10 +569,19 @@ class Engine:
         )
         return [[s.value, picks[s]] for s in order]
 
+    def _maybe_flower_power(self, side: Side, cid: str) -> None:
+        """Flower Power: the USSR scores 2 VP each time the US plays a war card
+        (for its Event or Operations), until An Evil Empire cancels it."""
+        if side is Side.US and cid in WAR_CARDS and self.game_effects.get("flower_power"):
+            self._award_vp(Side.USSR, 2)
+
     def _resolve_headline_card(self, side: Side, cid: str) -> None:
         """Resolve one headlined card for its owner. A scoring card scores; with
         events on, a card with an implemented event fires it (and may enqueue
         sub-decisions); otherwise it is a no-op discard (M2 behavior)."""
+        self._maybe_flower_power(side, cid)
+        if self.is_terminal:
+            return
         card = self.cards[cid]
         if card.scoring:
             self._resolve_scoring_card(cid)
@@ -649,6 +664,11 @@ class Engine:
         cid = decision.context["card"]
         card = self.cards[cid]
         mode = action.payload["mode"]
+
+        if mode in ("event", "ops", "un_intervention"):
+            self._maybe_flower_power(side, cid)
+            if self.is_terminal:
+                return
 
         if mode == "event":
             if card.scoring:
@@ -1310,12 +1330,22 @@ class Engine:
 
     # -- influence placement --------------------------------------------------
 
+    def _chernobyl_blocks(self, side: Side, cid: str) -> bool:
+        """Chernobyl: the USSR may not add Influence via Operations to the
+        designated region for the rest of the turn (events still may)."""
+        return (
+            side is Side.USSR
+            and self.turn_effects.get("chernobyl") == self.board.countries[cid].region.value
+        )
+
     def _place_influence_options(self, side: Side, ops_remaining: int) -> tuple[Action, ...]:
         options = []
         for cid in self.board.countries:
             if not self.board.is_reachable(side, cid):
                 continue
             if self.board.influence_cost(side, cid) > ops_remaining:
+                continue
+            if self._chernobyl_blocks(side, cid):
                 continue
             options.append(Action(DecisionKind.PLACE_INFLUENCE, {"country": cid}))
         return tuple(options)
@@ -1339,6 +1369,8 @@ class Engine:
         options = []
         for cid in self.board.countries:
             if not self.board.is_reachable(side, cid):
+                continue
+            if self._chernobyl_blocks(side, cid):
                 continue
             cost = self.board.influence_cost(side, cid)
             in_region = self._in_bonus_region(cid, bonus)
@@ -1451,6 +1483,15 @@ class Engine:
         )
         if not nuclear_subs:
             self._change_defcon(-1, caused_by=side)
+
+        # Yuri and Samantha: the USSR scores 1 VP for every US coup attempt,
+        # for the rest of the game.
+        if (
+            side is Side.US
+            and self.game_effects.get("yuri_samantha")
+            and not self.is_terminal
+        ):
+            self._award_vp(Side.USSR, 1)
 
     def _coup_roll_modifier(self, side: Side, info) -> int:
         """Per-turn additive modifiers to a coup roll: Latin American Death
@@ -1594,7 +1635,10 @@ class Engine:
         actor_roll = decision.context["actor_roll"]
         opp_roll = action.payload["value"]
 
-        actor_total = actor_roll + card_ops + self._realignment_bonus(side, country)
+        actor_total = (
+            actor_roll + card_ops + self._realignment_bonus(side, country)
+            + self._realignment_modifier(side)
+        )
         opp_total = opp_roll + self._realignment_bonus(opponent, country)
         margin = actor_total - opp_total
         if margin > 0:
@@ -1612,6 +1656,13 @@ class Engine:
         bonus = 1 if self.board.is_adjacent(side.value, country) else 0
         bonus += sum(1 for n in self.board.neighbors(country) if self.board.control(n) is side)
         return bonus
+
+    def _realignment_modifier(self, side: Side) -> int:
+        """Per-turn additive modifier to the acting side's realignment roll
+        (Iran-Contra Scandal: -1 to US realignment rolls this turn)."""
+        if side is Side.US and self.turn_effects.get("iran_contra"):
+            return -1
+        return 0
 
     # -- shared -------------------------------------------------------------
 

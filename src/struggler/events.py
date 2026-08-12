@@ -386,7 +386,8 @@ def _iron_lady(engine: "Engine", side: Side) -> None:
 @event("An_Evil_Empire")
 def _evil_empire(engine: "Engine", side: Side) -> None:
     engine._award_vp(Side.US, 1)
-    engine.game_effects["evil_empire"] = True  # cancels Flower Power (unmodeled)
+    engine.game_effects.pop("flower_power", None)  # cancels Flower Power
+    engine.game_effects["evil_empire"] = True
 
 
 @event("U2_Incident")
@@ -707,6 +708,43 @@ def _latin_american_death_squads(engine: "Engine", side: Side) -> None:
     engine.turn_effects["la_death_squads"] = side.value
 
 
+@event("Iran_Contra_Scandal")
+def _iran_contra(engine: "Engine", side: Side) -> None:
+    # US Realignment rolls are -1 for the remainder of the turn.
+    engine.turn_effects["iran_contra"] = True
+
+
+@event("Chernobyl")
+def _chernobyl(engine: "Engine", side: Side) -> None:
+    # The US designates a region; the USSR may not add Influence there via
+    # Operations for the rest of the turn.
+    engine.push_event_choice(
+        "Chernobyl", side,
+        ("EUROPE", "ASIA", "MIDDLE_EAST", "AFRICA", "CENTRAL_AMERICA", "SOUTH_AMERICA"),
+    )
+
+
+def _chernobyl_choice(engine: "Engine", side: Side, choice: str) -> None:
+    engine.turn_effects["chernobyl"] = choice
+
+
+# -- persistent game-long triggers -------------------------------------------
+
+
+@event("Flower_Power")
+def _flower_power(engine: "Engine", side: Side) -> None:
+    # The USSR scores 2 VP each time the US plays a war card, until An Evil
+    # Empire is played (checked in the engine at play time).
+    if not engine.game_effects.get("evil_empire"):
+        engine.game_effects["flower_power"] = True
+
+
+@event("Yuri_and_Samantha")
+def _yuri_and_samantha(engine: "Engine", side: Side) -> None:
+    # The USSR scores 1 VP for every US coup attempt for the rest of the game.
+    engine.game_effects["yuri_samantha"] = True
+
+
 # -- set-DEFCON branch -------------------------------------------------------
 
 
@@ -792,4 +830,5 @@ CHOICE_ROUTERS: dict[str, Callable[["Engine", Side, str], None]] = {
     "How_I_Learned_to_Stop_Worrying": _how_i_learned_choice,
     "Salt_Negotiations": _salt_reclaim_choice,
     "Junta": _junta_choice,
+    "Chernobyl": _chernobyl_choice,
 }

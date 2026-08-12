@@ -708,6 +708,68 @@ def test_junta_free_op_can_be_declined():
     assert engine.pending_decision is None  # nothing further enqueued
 
 
+# -- more per-turn / game-long coup & realignment modifiers ------------------
+
+
+def test_yuri_and_samantha_scores_ussr_on_us_coups():
+    engine = _bare(seed=1)
+    engine.defcon = 5
+    engine.game_effects["yuri_samantha"] = True
+    engine.board.influence["Cuba"] = {"US": 0, "USSR": 1}
+    _resolve_coup_roll(engine, Side.US, "Cuba", ops=3, value=1)
+    assert engine.vp == -1  # 1 VP to the USSR for the US coup attempt
+    # A USSR coup does not trigger it.
+    engine.vp = 0
+    _resolve_coup_roll(engine, Side.USSR, "Cuba", ops=3, value=1)
+    assert engine.vp == 0
+
+
+def test_iran_contra_penalises_only_us_realignment():
+    engine = _bare()
+    engine.turn_effects["iran_contra"] = True
+    assert engine._realignment_modifier(Side.US) == -1
+    assert engine._realignment_modifier(Side.USSR) == 0
+
+
+def test_flower_power_scores_ussr_when_us_plays_a_war_card():
+    engine = _bare()
+    engine.game_effects["flower_power"] = True
+    engine.hands["US"] = ["Brush_War"]
+    _play_card_for(engine, Side.US, "Brush_War", "event")
+    assert engine.vp == -2  # 2 VP to the USSR
+    # The USSR playing a war card does not trigger it.
+    engine2 = _bare()
+    engine2.game_effects["flower_power"] = True
+    engine2.hands["USSR"] = ["Korean_War"]
+    _play_card_for(engine2, Side.USSR, "Korean_War", "event")
+    assert engine2.vp == 0
+
+
+def test_an_evil_empire_cancels_flower_power():
+    engine = _bare()
+    engine.game_effects["flower_power"] = True
+    engine._fire_event(Side.US, "An_Evil_Empire")
+    assert "flower_power" not in engine.game_effects
+    engine.hands["US"] = ["Brush_War"]
+    engine.vp = 0
+    _play_card_for(engine, Side.US, "Brush_War", "event")
+    assert engine.vp == 0  # no longer scored (An Evil Empire itself gave +1 above)
+
+
+def test_chernobyl_blocks_ussr_ops_influence_in_the_named_region():
+    engine = _bare()
+    engine._fire_event(Side.US, "Chernobyl")
+    assert engine.pending_decision.kind is DecisionKind.EVENT_CHOICE
+    engine.step(Action(DecisionKind.EVENT_CHOICE, {"choice": "EUROPE"}))
+    engine.board.influence["Poland"]["USSR"] = 3  # reachable European foothold
+    ussr = {a.payload["country"] for a in engine._place_influence_options(Side.USSR, 5)}
+    assert "Poland" not in ussr  # Europe blocked for the USSR
+    # The US is unaffected, and the block is Europe-only for the USSR.
+    engine.board.influence["Vietnam"]["USSR"] = 1
+    assert "Vietnam" in {a.payload["country"] for a in engine._place_influence_options(Side.USSR, 5)}
+    assert engine._chernobyl_blocks(Side.US, "Poland") is False
+
+
 # -- the "opponent event fires when played for Ops" rule --------------------
 
 
