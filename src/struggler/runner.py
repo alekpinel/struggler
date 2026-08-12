@@ -10,20 +10,32 @@ from __future__ import annotations
 from typing import Mapping
 
 from struggler.engine import Engine
-from struggler.players.base import Player
+from struggler.players.base import Event, Player
 from struggler.types import Side
 
 
 def play_game(engine: Engine, players: Mapping[Side, Player]) -> Side | None:
     """Run `engine` to completion, returning the winner (or None on a draw)."""
+    history: list[Event] = []
     while not engine.is_terminal:
         decision = engine.pending_decision
         if decision.actor is Side.CHANCE:
             # Chance decisions carry exactly one pre-rolled option — nothing
             # for a Player to decide, so the runner resolves it directly.
-            engine.step(decision.options[0])
-            continue
-        observation = engine.observe(decision.actor)
-        action = players[decision.actor].choose_action(observation)
+            action = decision.options[0]
+        else:
+            observation = engine.observe(decision.actor)
+            action = players[decision.actor].choose_action(observation, history)
         engine.step(action)
+        history.append(
+            Event(
+                actor=decision.actor,
+                decision=decision,
+                action=action,
+                defcon=engine.defcon,
+                vp=engine.vp,
+                turn=engine.turn,
+                action_round=engine.action_round,
+            )
+        )
     return engine.winner

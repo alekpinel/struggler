@@ -3,14 +3,16 @@
 from __future__ import annotations
 
 import random
+from typing import Sequence
 
+from struggler.players.base import Event
 from struggler.types import Action, Observation
 
 
 class FirstLegalPlayer:
     """Always picks the first legal option. Deterministic baseline."""
 
-    def choose_action(self, observation: Observation) -> Action:
+    def choose_action(self, observation: Observation, history: Sequence[Event]) -> Action:
         return observation.pending_decision.options[0]
 
 
@@ -24,5 +26,5 @@ class RandomPlayer:
     def __init__(self, seed: int) -> None:
         self._rng = random.Random(seed)
 
-    def choose_action(self, observation: Observation) -> Action:
+    def choose_action(self, observation: Observation, history: Sequence[Event]) -> Action:
         return self._rng.choice(observation.pending_decision.options)

@@ -13,12 +13,34 @@ ever returns one `Action` drawn from `observation.pending_decision.options`
 
 from __future__ import annotations
 
-from typing import Protocol
+from dataclasses import dataclass
+from typing import Protocol, Sequence
 
-from struggler.types import Action, Observation
+from struggler.types import Action, Decision, Observation, Side
+
+
+@dataclass(frozen=True)
+class Event:
+    """One resolved decision: what was decided, by whom, and its public
+    aftermath (DEFCON/VP/turn track). Only public state — safe to show to
+    either player regardless of whose decision it was.
+    """
+
+    actor: Side
+    decision: Decision
+    action: Action
+    defcon: int
+    vp: int
+    turn: int
+    action_round: int
 
 
 class Player(Protocol):
-    def choose_action(self, observation: Observation) -> Action:
-        """Pick one action from `observation.pending_decision.options`."""
+    def choose_action(self, observation: Observation, history: Sequence[Event]) -> Action:
+        """Pick one action from `observation.pending_decision.options`.
+
+        `history` holds every `Event` resolved so far, oldest first —
+        including the opponent's moves and CHANCE rolls made since this
+        player was last consulted. Bots are free to ignore it.
+        """
         ...
