@@ -715,6 +715,26 @@ def _how_i_learned_choice(engine: "Engine", side: Side, choice: str) -> None:
         engine.military_ops[side.value] += 5
 
 
+# -- reclaim-from-discard -----------------------------------------------------
+
+
+@event("Salt_Negotiations")
+def _salt_negotiations(engine: "Engine", side: Side) -> None:
+    # Improve DEFCON two levels; both sides get -1 to coups for the rest of the
+    # turn; the player may reclaim one non-scoring card from the discard pile.
+    engine._change_defcon(+2, caused_by=side)
+    if engine.is_terminal:
+        return
+    engine.turn_effects["salt"] = True
+    engine.push_take_from_discard(side, "Salt_Negotiations")
+
+
+def _salt_reclaim_choice(engine: "Engine", side: Side, choice: str) -> None:
+    if choice != "none" and choice in engine.discard_pile:
+        engine.discard_pile.remove(choice)
+        engine.hands[side.value].append(choice)
+
+
 # -- shared helpers ---------------------------------------------------------
 
 
@@ -733,4 +753,5 @@ CHOICE_ROUTERS: dict[str, Callable[["Engine", Side, str], None]] = {
     "Warsaw_Pact_Formed": _warsaw_pact_choice,
     "Independent_Reds": _independent_reds_choice,
     "How_I_Learned_to_Stop_Worrying": _how_i_learned_choice,
+    "Salt_Negotiations": _salt_reclaim_choice,
 }

@@ -251,7 +251,7 @@ historical "Ops-only" toggle.
   the stack stores only the event id and the chosen option — never a
   function). These steps live on the same decision stack, so they are
   hosted correctly inside a headline or an opponent's Ops play.
-- **Implemented so far** (63 card events registered; the trickier ones have
+- **Implemented so far** (64 card events registered; the trickier ones have
   a dedicated unit test, and the loop is covered by a property test and the
   `m3_events.json` golden). Grouped by the primitive they reuse:
   - *Immediate fixed board/VP/DEFCON/Space effects:* Duck and Cover, Fidel,
@@ -273,8 +273,12 @@ historical "Ops-only" toggle.
     Crisis).
   - *Per-turn coup modifiers (`turn_effects`, consulted in the coup roll):*
     Nuclear Subs (US Battleground coups skip the DEFCON degrade), Latin
-    American Death Squads (±1 to Americas coup rolls). Set-DEFCON branch:
-    How I Learned to Stop Worrying (`set_defcon` + 5 military Ops).
+    American Death Squads (±1 to Americas coup rolls), SALT Negotiations
+    (-1 to both sides' coups). Set-DEFCON branch: How I Learned to Stop
+    Worrying (`set_defcon` + 5 military Ops).
+  - *Reclaim from the discard pile (`push_take_from_discard`):* SALT
+    Negotiations (also DEFCON +2) — the player takes one non-scoring card
+    from the public discard back to hand.
   - *Player-choice influence (`EVENT_INFLUENCE`):* COMECON, Marshall Plan,
     Decolonization, Suez Crisis, Truman Doctrine, Warsaw Pact Formed
     (branch), Socialist Governments, Muslim Revolution, Colonial Rear
@@ -301,15 +305,18 @@ historical "Ops-only" toggle.
   gone outside Asia) and for coups (+1 Op and +1 military Op against an
   Asian target). The realignment case is not modeled (rare).
 - **Known limitations / remaining M3 work** (tracked here as the
-  contract): 63 of the deck's ~100 non-scoring events are implemented; the
+  contract): 64 of the deck's ~100 non-scoring events are implemented; the
   rest remain no-op discards in events mode because their text needs a
-  subsystem the engine does not model yet. The forced-random-discard and
-  per-turn-coup-modifier subsystems now exist (unlocking Five Year Plan,
-  Terrorism, Nuclear Subs, Latin American Death Squads, How I Learned).
-  The subsystems still to build, and the cards waiting on them, are:
+  subsystem the engine does not model yet. The forced-random-discard,
+  per-turn-coup-modifier and reclaim-from-discard subsystems now exist
+  (unlocking Five Year Plan, Terrorism, Nuclear Subs, Latin American Death
+  Squads, How I Learned, SALT Negotiations). The subsystems still to build,
+  and the cards waiting on them, are:
   - *Revealing/taking cards from the opponent's hand:* Grain Sales to
     Soviets, Aldrich Ames Remix, Ask Not…, The Cambridge Five.
-  - *Taking a card from the discard pile:* Star Wars, SALT Negotiations.
+  - *Taking a card from the discard pile and playing it immediately:* Star
+    Wars (the reclaim-to-hand primitive exists; the "play now" part does
+    not).
   - *Per-turn regional Ops bonuses / other coup-and-realign modifiers:*
     Vietnam Revolts (all-Ops-in-SE-Asia +1), Iran-Contra Scandal, Chernobyl
     (region influence lock), Che, Yuri and Samantha.

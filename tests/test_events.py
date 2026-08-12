@@ -598,6 +598,30 @@ def test_latin_american_death_squads_shifts_coup_margins():
 # -- set-DEFCON branch -------------------------------------------------------
 
 
+def test_salt_negotiations_defcon_coup_penalty_and_reclaim():
+    engine = _bare(seed=1)
+    engine.defcon = 3
+    engine.discard_pile = ["Duck_and_Cover", "Asia_Scoring", "Fidel"]
+    engine.hands["US"] = []
+    engine._fire_event(Side.US, "Salt_Negotiations")
+    assert engine.defcon == 5  # +2
+    assert engine.turn_effects.get("salt") is True
+    choices = {a.payload["choice"] for a in engine.pending_decision.options}
+    assert "Asia_Scoring" not in choices  # scoring cards are not reclaimable
+    assert {"Duck_and_Cover", "Fidel", "none"} <= choices
+    engine.step(Action(DecisionKind.EVENT_CHOICE, {"choice": "Fidel"}))
+    assert "Fidel" in engine.hands["US"] and "Fidel" not in engine.discard_pile
+
+
+def test_salt_coup_penalty_applies_to_both_sides():
+    engine = _bare(seed=1)
+    engine.turn_effects["salt"] = True
+    from struggler.board import CountryInfo  # info object carries region/battleground
+    info = engine.board.countries["Cuba"]
+    assert engine._coup_roll_modifier(Side.US, info) == -1
+    assert engine._coup_roll_modifier(Side.USSR, info) == -1
+
+
 def test_how_i_learned_sets_defcon_and_adds_military_ops():
     engine = _bare(seed=1)
     engine.defcon = 5

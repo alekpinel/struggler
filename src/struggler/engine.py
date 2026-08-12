@@ -1429,12 +1429,29 @@ class Engine:
             self._change_defcon(-1, caused_by=side)
 
     def _coup_roll_modifier(self, side: Side, info) -> int:
-        """Per-turn additive modifiers to a coup roll (Latin American Death
-        Squads: +1 for its player, -1 for the opponent, in the Americas)."""
+        """Per-turn additive modifiers to a coup roll: Latin American Death
+        Squads (+1 for its player, -1 for the opponent, in the Americas) and
+        SALT Negotiations (-1 for both sides, everywhere)."""
+        mod = 0
         lads = self.turn_effects.get("la_death_squads")
         if lads and info.region in (Region.CENTRAL_AMERICA, Region.SOUTH_AMERICA):
-            return 1 if side.value == lads else -1
-        return 0
+            mod += 1 if side.value == lads else -1
+        if self.turn_effects.get("salt"):
+            mod -= 1
+        return mod
+
+    # -- M3: reclaim a card from the (public) discard pile ------------------
+
+    def push_take_from_discard(self, side: Side, event: str) -> None:
+        """Offer `side` a non-scoring card from the discard pile to take back to
+        hand (SALT Negotiations, ...). A "none" option keeps it optional; if the
+        discard has no non-scoring card, no decision is pushed."""
+        choices = tuple(
+            cid for cid in self.discard_pile if not self.cards[cid].scoring
+        )
+        if not choices:
+            return
+        self.push_event_choice(event, side, choices + ("none",))
 
     # -- realignment ---------------------------------------------------------
 
