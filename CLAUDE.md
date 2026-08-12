@@ -207,6 +207,136 @@ Introduce events in increasing order of implementation difficulty:
 Each tier is its own set of sub-milestones; a card is not "done" until
 it has a replay-log regression test (see Testing strategy).
 
+#### M3 implementation status and framework
+
+The event layer is **opt-in**, so it never regresses M2 (whose defining
+proof is that *zero events fire*): `Engine.new_game(..., events=False)`
+— the default — is the M2 game, byte-identical to before; `events=True`
+turns the layer on. `serialize()` carries `events_enabled`,
+`turn_effects` (per-turn modifiers) and `game_effects` (persistent
+game-long effects), so a saved game round-trips its event state (mandate
+#5; the M2 golden logs were regenerated once for these additive keys —
+values only, no behavior change). As every card's event is implemented,
+`events=True` moves toward becoming the default and the flag becomes the
+historical "Ops-only" toggle.
+
+- **Registry.** `src/struggler/events.py` maps a card id → an `Event`
+  (`resolve(engine, side)`, plus an `eligible` predicate for
+  preconditions). A card *absent* from the registry has no event yet: in
+  events mode it is a no-op discard, exactly as in M2. This is what lets
+  M3 grow card-by-card without touching the game loop.
+- **Firing paths (mandates #1–#2).** An event fires when its owner (or a
+  NEUTRAL card's player) plays it as its event; and — per the core TS
+  rule — when the **opponent's** card is played for Ops, its event *also*
+  fires, with the phasing player choosing the order via an
+  `EVENT_OPS_ORDER` decision (`event_first`/`ops_first`). Ordering is
+  implemented on the decision stack itself: an `EVENT_RESUME` marker is
+  slipped beneath the first half's sub-decisions so the second half runs
+  only after they drain. Dice inside events (the "war" family) are logged
+  `WAR_ROLL` CHANCE decisions, never silent `random` calls (mandate #3).
+- **Headline firing.** Non-scoring events now fire during the headline
+  too. Headline resolution is stack-driven: both cards are chosen, their
+  order is frozen (higher Ops first, ties US-first) into
+  `_headline_pending`, and each card resolves in turn — if its event
+  enqueues sub-decisions (e.g. a war roll) those drain before the next
+  headline card resolves, the same interrupt order the action-round path
+  uses. `serialize()` carries `headline_resolving`/`headline_pending`.
+- **Player-choice steps (tier 2).** An event that lets a player distribute
+  influence enqueues its own decisions through two generic, fully
+  serializable step types: `EVENT_INFLUENCE` (place / remove / remove-all
+  one country at a time, for N steps, honouring a per-country cap, a
+  control filter, and an "uncontrolled only" filter; it re-pushes itself
+  until N hits 0 or no legal target remains) and `EVENT_CHOICE` (a branch,
+  e.g. Warsaw Pact's "remove or add", routed by `events.CHOICE_ROUTERS` so
+  the stack stores only the event id and the chosen option — never a
+  function). These steps live on the same decision stack, so they are
+  hosted correctly inside a headline or an opponent's Ops play.
+- **Implemented so far** (66 card events registered; the trickier ones have
+  a dedicated unit test, and the loop is covered by a property test and the
+  `m3_events.json` golden). Grouped by the primitive they reuse:
+  - *Immediate fixed board/VP/DEFCON/Space effects:* Duck and Cover, Fidel,
+    Nasser, Romanian Abdication, De Gaulle Leads France, Captured Nazi
+    Scientist, Nuclear Test Ban, Allende, Portuguese Empire Crumbles,
+    Panama Canal Returned, Sadat Expels Soviets, John Paul II Elected Pope,
+    Camp David Accords, Iranian Hostage Crisis, The Iron Lady, An Evil
+    Empire, U-2 Incident, Cultural Revolution, Ortega Elected, Tear Down
+    This Wall, Kitchen Debates, OPEC, Alliance for Progress, Reagan Bombs
+    Libya, One Small Step, AWACS Sale to Saudis.
+  - *War family (attacker chosen, seeded CHANCE roll):* Korean War,
+    Arab-Israeli War (fixed target); Indo-Pakistani War, Iran-Iraq War,
+    Brush War (attacker picks the target via `WAR_TARGET`).
+  - *Events that conduct Operations (`push_event_operations`):* CIA Created,
+    Lone Gunman, ABM Treaty.
+  - *Forced random discard (`RANDOM_DISCARD`, a seeded CHANCE decision that
+    reveals only the drawn card):* Five Year Plan (a discarded USSR event
+    fires), Terrorism (opponent discards, twice after Iranian Hostage
+    Crisis).
+  - *Per-turn coup modifiers (`turn_effects`, consulted in the coup roll):*
+    Nuclear Subs (US Battleground coups skip the DEFCON degrade), Latin
+    American Death Squads (±1 to Americas coup rolls), SALT Negotiations
+    (-1 to both sides' coups). Set-DEFCON branch: How I Learned to Stop
+    Worrying (`set_defcon` + 5 military Ops).
+  - *Reclaim from the discard pile (`push_take_from_discard`):* SALT
+    Negotiations (also DEFCON +2) — the player takes one non-scoring card
+    from the public discard back to hand.
+  - *Per-turn regional Ops bonus:* Vietnam Revolts — generalizes the China
+    Card's all-in-region +1 into a reusable "bonus region" (`_ops_bonus_region`
+    / `_in_bonus_region`); the China Card is "asia", Vietnam Revolts sets a
+    turn effect giving USSR plays "se_asia".
+  - *Influence then an optional free operation (`push_free_coup_or_realign`):*
+    Junta — place 2 Influence in the Americas, then optionally a free Coup or
+    Realignment there (the free-op choice is stacked beneath the placement so
+    it resolves afterwards).
+  - *Player-choice influence (`EVENT_INFLUENCE`):* COMECON, Marshall Plan,
+    Decolonization, Suez Crisis, Truman Doctrine, Warsaw Pact Formed
+    (branch), Socialist Governments, Muslim Revolution, Colonial Rear
+    Guards, Liberation Theology, The Voice of America, Puppet Governments,
+    OAS Founded, Pershing II Deployed, The Reformer, Solidarity, Marine
+    Barracks Bombing; Independent Reds (match-influence branch).
+  - *Persistent per-turn modifiers:* Containment, Brezhnev Doctrine, Red
+    Scare/Purge (consulted via `_effective_ops`, cleared at end of turn).
+  - *Persistent game-long legality (`game_effects`):* NATO (eligible only
+    after Marshall Plan or Warsaw Pact; USSR may no longer coup/realign
+    US-controlled Europe), De Gaulle and Willy Brandt (each lift NATO for
+    one country), US/Japan Mutual Defense Pact (locks Japan), The Reformer
+    (bars USSR coups in Europe). Enforced in `_usable_coup_realign_target`
+    (which distinguishes coup from realignment for The Reformer), consulted
+    by both target enumerations. Eligibility flags also gate Arab-Israeli
+    War (Camp David), Socialist Governments (Iron Lady) and Solidarity
+    (John Paul II).
+  - *Rule-modifier (tier 4):* UN Intervention — a `un_intervention` play
+    mode that spends the held UN Intervention card to use an opponent's
+    (implemented, eligible) event card for Ops with its event cancelled.
+- **China Card bonus.** Playing the China Card for Ops grants its +1
+  ("all Ops used in Asia") for influence (an all-or-nothing invariant in
+  the placement step: the 5th point is offered only while nothing has
+  gone outside Asia) and for coups (+1 Op and +1 military Op against an
+  Asian target). The realignment case is not modeled (rare).
+- **Known limitations / remaining M3 work** (tracked here as the
+  contract): 66 of the deck's ~100 non-scoring events are implemented; the
+  rest remain no-op discards in events mode because their text needs a
+  subsystem the engine does not model yet. The forced-random-discard,
+  per-turn-coup-modifier, reclaim-from-discard, region-Ops-bonus and
+  influence-then-free-operation subsystems now exist. The subsystems still
+  to build, and the cards waiting on them, are:
+  - *Revealing/taking cards from the opponent's hand:* Grain Sales to
+    Soviets, Aldrich Ames Remix, Ask Not…, The Cambridge Five.
+  - *Taking a card from the discard pile and playing it immediately:* Star
+    Wars (the reclaim-to-hand primitive exists; the "play now" part does
+    not).
+  - *Other per-turn coup/realign modifiers:* Iran-Contra Scandal, Chernobyl
+    (region influence lock), Che, Yuri and Samantha.
+  - *Dice/branch events not yet built:* Olympic Games, Summit, Cuban Missile
+    Crisis, Wargames, We Will Bury You, Missile Envy.
+  - *Scoring-time modifiers / extra rounds:* Formosan Resolution, Shuttle
+    Diplomacy, North Sea Oil, Flower Power.
+  - Plus a handful of smaller conditional/optional cards. Also unmodeled:
+    the Space Race headline-reveal perk and the region bonus for
+    realignment. Some implemented cards drop a minor optional clause (noted
+    in `events.py` docstrings, e.g. Ortega's free coup, Tear Down This
+    Wall's Operations, Junta's "single country") — the documented rough
+    edges.
+
 ## Testing strategy
 
 Testing is first-class, not an afterthought — this is a rules engine;

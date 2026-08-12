@@ -5296,7 +5296,12 @@
         "headline": {
           "US": null,
           "USSR": null
-        }
+        },
+        "headline_resolving": false,
+        "headline_pending": [],
+        "events_enabled": false,
+        "turn_effects": {},
+        "game_effects": {}
       }
     },
     {
@@ -6583,7 +6588,12 @@
         "headline": {
           "US": null,
           "USSR": null
-        }
+        },
+        "headline_resolving": false,
+        "headline_pending": [],
+        "events_enabled": false,
+        "turn_effects": {},
+        "game_effects": {}
       }
     },
     {
@@ -7898,7 +7908,12 @@
         "headline": {
           "US": null,
           "USSR": null
-        }
+        },
+        "headline_resolving": false,
+        "headline_pending": [],
+        "events_enabled": false,
+        "turn_effects": {},
+        "game_effects": {}
       }
     },
     {
@@ -9022,7 +9037,12 @@
         "headline": {
           "US": null,
           "USSR": null
-        }
+        },
+        "headline_resolving": false,
+        "headline_pending": [],
+        "events_enabled": false,
+        "turn_effects": {},
+        "game_effects": {}
       }
     }
   ]
