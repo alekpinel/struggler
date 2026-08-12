@@ -5301,7 +5301,9 @@
         "headline_pending": [],
         "events_enabled": false,
         "turn_effects": {},
-        "game_effects": {}
+        "game_effects": {},
+        "our_man_queue": [],
+        "our_man_kept": []
       }
     },
     {
@@ -6593,7 +6595,9 @@
         "headline_pending": [],
         "events_enabled": false,
         "turn_effects": {},
-        "game_effects": {}
+        "game_effects": {},
+        "our_man_queue": [],
+        "our_man_kept": []
       }
     },
     {
@@ -7913,7 +7917,9 @@
         "headline_pending": [],
         "events_enabled": false,
         "turn_effects": {},
-        "game_effects": {}
+        "game_effects": {},
+        "our_man_queue": [],
+        "our_man_kept": []
       }
     },
     {
@@ -9042,7 +9048,9 @@
         "headline_pending": [],
         "events_enabled": false,
         "turn_effects": {},
-        "game_effects": {}
+        "game_effects": {},
+        "our_man_queue": [],
+        "our_man_kept": []
       }
     }
   ]

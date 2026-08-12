@@ -164,6 +164,13 @@ class Engine:
         # cleared at end of turn; its values are JSON primitives (mandate #5).
         self.events_enabled = False
         self.turn_effects: dict[str, object] = {}
+        # Our Man in Tehran reveals the top few draw-pile cards to the US one at
+        # a time; the not-yet-decided cards wait here (serialized state, mandate
+        # #5) but are deliberately *not* surfaced by observe(), so only the card
+        # currently being decided is exposed — the rest of the draw order stays
+        # hidden (mandate #4).
+        self._our_man_queue: list[str] = []
+        self._our_man_kept: list[str] = []
         # Persistent effects that last for the rest of the *game* (not just the
         # turn): NATO and similar "USSR may no longer coup/realign X" locks, and
         # the flags they depend on. Never cleared at end of turn. JSON-native
@@ -258,6 +265,8 @@ class Engine:
             "events_enabled": self.events_enabled,
             "turn_effects": dict(self.turn_effects),
             "game_effects": dict(self.game_effects),
+            "our_man_queue": list(self._our_man_queue),
+            "our_man_kept": list(self._our_man_kept),
         }
 
     @classmethod
@@ -295,6 +304,8 @@ class Engine:
         engine.events_enabled = data.get("events_enabled", False)
         engine.turn_effects = dict(data.get("turn_effects", {}))
         engine.game_effects = dict(data.get("game_effects", {}))
+        engine._our_man_queue = list(data.get("our_man_queue", []))
+        engine._our_man_kept = list(data.get("our_man_kept", []))
         return engine
 
     # -- M1 test-harness entry points (no cards yet) -----------------------
@@ -381,7 +392,9 @@ class Engine:
                     return
                 # Both cards are chosen: freeze the resolution order and clear
                 # the picks so they live in exactly one place from here on.
-                self._headline_pending = self._headline_resolution_order()
+                order = self._headline_resolution_order()
+                order = self._apply_defectors_headline(order)
+                self._headline_pending = order
                 self._headline = {"US": None, "USSR": None}
                 self._headline_resolving = True
             if self._headline_pending:
@@ -404,7 +417,11 @@ class Engine:
             side = self._side_for_play_index(idx)
             self.action_round = idx // 2 + 1
             self._ars_played += 1
-            self._push_action_round_play(side)
+            trap_key = self._trap_key_for(side)
+            if trap_key is not None:
+                self._push_trap_step(side, trap_key)
+            else:
+                self._push_action_round_play(side)
             return
 
     # -- M2: turn boundaries ------------------------------------------------
@@ -589,6 +606,25 @@ class Engine:
             key=lambda s: (-self.cards[picks[s]].ops, s is not Side.US),
         )
         return [[s.value, picks[s]] for s in order]
+
+    def _apply_defectors_headline(self, order: list[list[str]]) -> list[list[str]]:
+        """Defectors, headlined by the US, cancels the USSR's headline — the
+        USSR card is discarded without resolving (Defectors always acts first,
+        so this happens before any card in `order` resolves). If the USSR ever
+        headlines Defectors (only reachable via Missile Envy handing it over),
+        the US instead gains 1 VP. Only meaningful with the event layer on;
+        without it both headlines are no-op discards anyway."""
+        if not self.events_enabled:
+            return order
+        picks = {side_str: cid for side_str, cid in order}
+        if picks.get("US") == "Defectors":
+            ussr_card = picks.get("USSR")
+            if ussr_card is not None:
+                self._file_card(Side.USSR, ussr_card, fired=False)
+                order = [pair for pair in order if pair[0] != "USSR"]
+        elif picks.get("USSR") == "Defectors":
+            self._award_vp(Side.US, 1)
+        return order
 
     def _maybe_flower_power(self, side: Side, cid: str) -> None:
         """Flower Power: the USSR scores 2 VP each time the US plays a war card
@@ -1456,6 +1492,8 @@ class Engine:
             DecisionKind.EVENT_CHOICE: self._handle_event_choice,
             DecisionKind.RANDOM_DISCARD: self._handle_random_discard,
             DecisionKind.CONTEST_ROLL: self._handle_contest_roll,
+            DecisionKind.QUAGMIRE_DISCARD: self._handle_quagmire_discard,
+            DecisionKind.QUAGMIRE_ROLL: self._handle_quagmire_roll,
         }[decision.kind]
         handler(decision, action)
 
@@ -1839,6 +1877,71 @@ class Engine:
             self.discard_pile.append(cid)
             self.push_event_operations(taker, card.ops)
 
+    # -- M3: Special Relationship — a free Realignment attempt --------------
+
+    def push_free_realignment(
+        self, side: Side, countries: list[str], attempts: int = 1
+    ) -> None:
+        """Offer `side` a free Realignment roll (no card-Ops bonus) against one
+        of `countries` (Special Relationship). No-op if nothing is a legal
+        target (e.g. NATO/The Reformer lock every candidate out)."""
+        options = tuple(
+            Action(DecisionKind.REALIGNMENT_TARGET, {"country": cid})
+            for cid in countries
+            if self._usable_coup_realign_target(side, cid, for_coup=False)
+        )
+        if options:
+            self._push(
+                side, DecisionKind.REALIGNMENT_TARGET, options,
+                {"card_ops": 0, "attempts_remaining": attempts},
+            )
+
+    # -- M3: Bear Trap / Quagmire — a persistent per-player operating lock --
+    #
+    # While trapped, `side` may not play cards normally: each of its action
+    # rounds instead offers (mandatorily, when possible) a discard of an Ops-2+
+    # card, followed by a seeded CHANCE die that frees it on a 5-6. No legal
+    # discard simply wastes that action round (a documented simplification —
+    # the printed text's exact wording on that edge case is not reconfirmed
+    # here). Bear Trap traps the USSR; Quagmire traps the US — independent of
+    # who actually plays the card, exactly like Duck and Cover always favors
+    # the US regardless of who plays it.
+
+    _TRAP_KEYS: dict[str, Side] = {"bear_trap": Side.USSR, "quagmire": Side.US}
+
+    def _trap_key_for(self, side: Side) -> str | None:
+        for key, trapped_side in self._TRAP_KEYS.items():
+            if trapped_side is side and self.game_effects.get(key):
+                return key
+        return None
+
+    def _push_trap_step(self, side: Side, key: str) -> None:
+        payable = [
+            cid for cid in self.hands[side.value]
+            if not self.cards[cid].scoring and self.cards[cid].ops >= 2
+        ]
+        if not payable:
+            return  # nothing to discard: the action round is simply wasted
+        options = tuple(
+            Action(DecisionKind.QUAGMIRE_DISCARD, {"card": cid}) for cid in payable
+        )
+        self._push(side, DecisionKind.QUAGMIRE_DISCARD, options, {"key": key})
+
+    def _handle_quagmire_discard(self, decision: Decision, action: Action) -> None:
+        side = decision.actor
+        key = decision.context["key"]
+        cid = action.payload["card"]
+        self._file_card(side, cid, fired=False)
+        roll = self._roll_d6()
+        self._push(
+            Side.CHANCE, DecisionKind.QUAGMIRE_ROLL,
+            (Action(DecisionKind.QUAGMIRE_ROLL, {"value": roll}),), {"key": key},
+        )
+
+    def _handle_quagmire_roll(self, decision: Decision, action: Action) -> None:
+        if action.payload["value"] >= 5:  # break free
+            self.game_effects.pop(decision.context["key"], None)
+
     # -- realignment ---------------------------------------------------------
 
     def _realignment_target_options(self, side: Side) -> tuple[Action, ...]:
@@ -1929,9 +2032,25 @@ class Engine:
     # -- shared -------------------------------------------------------------
 
     def _change_defcon(self, delta: int, caused_by: Side) -> None:
+        before = self.defcon
         self.defcon = max(1, min(5, self.defcon + delta))
         if self.defcon == 1:
             self._win(caused_by.opponent, "defcon_1")
+            return
+        # NORAD: as long as it is in effect, the US adds 1 Influence to a
+        # country where it already has some, each time DEFCON MOVES to level 2.
+        if self.defcon == 2 and before != 2 and self.game_effects.get("norad"):
+            self._push_norad_influence()
+
+    def _push_norad_influence(self) -> None:
+        candidates = [
+            cid for cid in self.board.countries if self.board.influence[cid]["US"] > 0
+        ]
+        if candidates:
+            self.push_event_influence(
+                event="NORAD", op="place", choose_side=Side.US, inf_side=Side.US,
+                remaining=1, candidates=candidates,
+            )
 
 
 # -- serialization helpers ---------------------------------------------------
