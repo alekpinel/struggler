@@ -818,19 +818,25 @@ class Engine:
         if ev is not None and ev.eligible(self, side):
             ev.resolve(self, side)
 
-    def _usable_coup_realign_target(self, attacker: Side, cid: str) -> bool:
+    def _usable_coup_realign_target(
+        self, attacker: Side, cid: str, for_coup: bool = True
+    ) -> bool:
         """Whether `attacker` may coup/realign `cid` given persistent effects.
         Only the USSR is ever locked out (NATO protects US-controlled Europe;
-        the US/Japan pact protects Japan). NATO's lock is lifted per-country by
-        De Gaulle (France) and Willy Brandt (West Germany)."""
+        the US/Japan pact protects Japan; The Reformer bars USSR *coups* in
+        Europe). NATO's lock is lifted per-country by De Gaulle (France) and
+        Willy Brandt (West Germany)."""
         if attacker is not Side.USSR:
             return True
         ge = self.game_effects
+        region = self.board.countries[cid].region
         if ge.get("us_japan_pact") and cid == "Japan":
+            return False
+        if for_coup and ge.get("reformer") and region is Region.EUROPE:
             return False
         if (
             ge.get("nato")
-            and self.board.countries[cid].region is Region.EUROPE
+            and region is Region.EUROPE
             and self.board.control(cid) is Side.US
         ):
             if cid == "France" and ge.get("degaulle_france"):
@@ -1018,7 +1024,53 @@ class Engine:
         if self.board.influence[country][side.value] < stability:
             self.board.influence[country][side.value] = stability
 
-    # -- M3: the "war" family (fixed target, seeded CHANCE roll) ------------
+    # -- M3: events that grant "conduct Operations" -------------------------
+
+    def push_event_operations(self, side: Side, ops: int) -> None:
+        """An event that has its beneficiary conduct `ops` Operations (CIA
+        Created, Lone Gunman, ABM Treaty, ...)."""
+        if ops > 0:
+            self._push_ops_type(side, ops)
+
+    # -- M3: the "war" family (seeded CHANCE roll) --------------------------
+
+    def push_war_target_choice(
+        self,
+        card_id: str,
+        attacker: Side,
+        candidates: list[str],
+        win_from: int,
+        vp: int,
+        military_ops: int,
+        count_target_control: bool = True,
+    ) -> None:
+        """A war whose attacker chooses the target (Brush War, Indo-Pakistani
+        War, Iran-Iraq War). Resolves to begin_war once the target is picked."""
+        options = tuple(
+            Action(DecisionKind.WAR_TARGET, {"country": c}) for c in candidates
+        )
+        if not options:
+            return
+        self._push(
+            attacker, DecisionKind.WAR_TARGET, options,
+            {
+                "card": card_id, "attacker": attacker.value, "win_from": win_from,
+                "vp": vp, "military_ops": military_ops,
+                "count_target_control": count_target_control,
+            },
+        )
+
+    def _handle_war_target(self, decision: Decision, action: Action) -> None:
+        ctx = decision.context
+        self.begin_war(
+            card_id=ctx["card"],
+            attacker=Side(ctx["attacker"]),
+            target=action.payload["country"],
+            win_from=ctx["win_from"],
+            vp=ctx["vp"],
+            military_ops=ctx["military_ops"],
+            count_target_control=ctx["count_target_control"],
+        )
 
     def begin_war(
         self,
@@ -1171,6 +1223,7 @@ class Engine:
             DecisionKind.EVENT_OPS_ORDER: self._handle_event_ops_order,
             DecisionKind.EVENT_RESUME: self._handle_event_resume,
             DecisionKind.WAR_ROLL: self._handle_war_roll,
+            DecisionKind.WAR_TARGET: self._handle_war_target,
             DecisionKind.EVENT_INFLUENCE: self._handle_event_influence,
             DecisionKind.EVENT_CHOICE: self._handle_event_choice,
         }[decision.kind]
@@ -1332,7 +1385,7 @@ class Engine:
         return tuple(
             Action(DecisionKind.REALIGNMENT_TARGET, {"country": cid})
             for cid in self.board.countries
-            if self._usable_coup_realign_target(side, cid)
+            if self._usable_coup_realign_target(side, cid, for_coup=False)
         )
 
     def _maybe_push_realignment_target(

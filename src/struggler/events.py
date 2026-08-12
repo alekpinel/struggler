@@ -139,7 +139,10 @@ def _korean_war(engine: "Engine", side: Side) -> None:
     )
 
 
-@event("Arab_Israeli_War")
+@event(
+    "Arab_Israeli_War",
+    eligible=lambda engine, side: not engine.game_effects.get("camp_david"),
+)
 def _arab_israeli_war(engine: "Engine", side: Side) -> None:
     # Pan-Arab coalition attacks Israel: USSR war, target Israel, penalty also
     # counts Israel itself if US-controlled, win on a modified 4-6.
@@ -316,9 +319,366 @@ def _willy_brandt(engine: "Engine", side: Side) -> None:
         engine.game_effects["willy_brandt"] = True
 
 
+# ---------------------------------------------------------------------------
+# More cards, grouped by the primitive they reuse. Numeric effects are from the
+# physical card text. Cards whose text needs a subsystem we do not model yet
+# (random discard from a hidden hand, revealing/taking hand cards, per-turn
+# regional Ops bonuses, taking cards from the discard pile, DEFCON-status
+# restrictions) are intentionally left unregistered — see CLAUDE.md.
+# ---------------------------------------------------------------------------
+
+# -- immediate, fixed board/VP/DEFCON/space effects -------------------------
+
+
+@event("Allende")
+def _allende(engine: "Engine", side: Side) -> None:
+    engine.add_influence("Chile", Side.USSR, 2)
+
+
+@event("Portuguese_Empire_Crumbles")
+def _portuguese_empire(engine: "Engine", side: Side) -> None:
+    engine.add_influence("Angola", Side.USSR, 2)
+    engine.add_influence("SE_African_States", Side.USSR, 2)
+
+
+@event("Panama_Canal_Returned")
+def _panama_canal(engine: "Engine", side: Side) -> None:
+    for cid in ("Panama", "Costa_Rica", "Venezuela"):
+        engine.add_influence(cid, Side.US, 1)
+
+
+@event("Sadat_Expels_Soviets")
+def _sadat(engine: "Engine", side: Side) -> None:
+    engine.remove_all_influence("Egypt", Side.USSR)
+    engine.add_influence("Egypt", Side.US, 1)
+
+
+@event("John_Paul_II_Elected_Pope")
+def _john_paul(engine: "Engine", side: Side) -> None:
+    engine.remove_influence("Poland", Side.USSR, 2)
+    engine.add_influence("Poland", Side.US, 1)
+    engine.game_effects["john_paul"] = True  # precondition for Solidarity
+
+
+@event("Camp_David_Accords")
+def _camp_david(engine: "Engine", side: Side) -> None:
+    engine._award_vp(Side.US, 1)
+    for cid in ("Israel", "Jordan", "Egypt"):
+        engine.add_influence(cid, Side.US, 1)
+    engine.game_effects["camp_david"] = True  # blocks Arab-Israeli War
+
+
+@event("Iranian_Hostage_Crisis")
+def _iranian_hostage(engine: "Engine", side: Side) -> None:
+    engine.remove_all_influence("Iran", Side.US)
+    engine.add_influence("Iran", Side.USSR, 2)
+
+
+@event("The_Iron_Lady")
+def _iron_lady(engine: "Engine", side: Side) -> None:
+    engine._award_vp(Side.US, 1)
+    engine.add_influence("Argentina", Side.USSR, 1)
+    engine.remove_all_influence("UK", Side.USSR)
+    engine.game_effects["iron_lady"] = True  # blocks Socialist Governments
+
+
+@event("An_Evil_Empire")
+def _evil_empire(engine: "Engine", side: Side) -> None:
+    engine._award_vp(Side.US, 1)
+    engine.game_effects["evil_empire"] = True  # cancels Flower Power (unmodeled)
+
+
+@event("U2_Incident")
+def _u2_incident(engine: "Engine", side: Side) -> None:
+    # (The extra VP if UN Intervention is later played this turn is not modeled.)
+    engine._award_vp(Side.USSR, 1)
+
+
+@event("Cultural_Revolution")
+def _cultural_revolution(engine: "Engine", side: Side) -> None:
+    if engine.china_card_owner == "US":
+        engine.china_card_owner = "USSR"
+        engine.china_card_available = True  # taken face up
+    else:
+        engine._award_vp(Side.USSR, 1)
+
+
+@event("Ortega_Elected_in_Nicaragua")
+def _ortega(engine: "Engine", side: Side) -> None:
+    # (The optional free coup against a Nicaragua-adjacent country is not
+    # modeled.)
+    engine.remove_all_influence("Nicaragua", Side.US)
+
+
+@event("Tear_Down_This_Wall")
+def _tear_down_wall(engine: "Engine", side: Side) -> None:
+    # (The optional US Operations/coup in Europe is not modeled.)
+    engine.game_effects.pop("willy_brandt", None)  # cancels Willy Brandt
+    engine.add_influence("East_Germany", Side.US, 3)
+
+
+@event("Kitchen_Debates")
+def _kitchen_debates(engine: "Engine", side: Side) -> None:
+    us_bg = _controlled_battlegrounds(engine, Side.US)
+    ussr_bg = _controlled_battlegrounds(engine, Side.USSR)
+    if us_bg > ussr_bg:
+        engine._award_vp(Side.US, 2)
+
+
+@event("OPEC")
+def _opec(engine: "Engine", side: Side) -> None:
+    fields = ["Egypt", "Iran", "Libya", "Saudi_Arabia", "Iraq", "Gulf_States",
+              "Venezuela", "Nigeria"]
+    vp = sum(1 for cid in fields if engine.board.control(cid) is Side.USSR)
+    engine._award_vp(Side.USSR, vp)
+
+
+@event("Alliance_for_Progress")
+def _alliance_for_progress(engine: "Engine", side: Side) -> None:
+    regions = (Region.CENTRAL_AMERICA, Region.SOUTH_AMERICA)
+    vp = sum(
+        1
+        for cid, info in engine.board.countries.items()
+        if info.battleground
+        and info.region in regions
+        and engine.board.control(cid) is Side.US
+    )
+    engine._award_vp(Side.US, vp)
+
+
+@event("Reagan_Bombs_Libya")
+def _reagan_bombs_libya(engine: "Engine", side: Side) -> None:
+    engine._award_vp(Side.US, engine.board.influence["Libya"]["USSR"] // 2)
+
+
+@event("One_Small_Step")
+def _one_small_step(engine: "Engine", side: Side) -> None:
+    # If you are behind on the Space Race, jump two boxes.
+    if engine.space_race[side.value] < engine.space_race[side.opponent.value]:
+        engine.advance_space_race_box(side)
+        engine.advance_space_race_box(side)
+
+
+@event("AWACS_Sale_to_Saudis")
+def _awacs(engine: "Engine", side: Side) -> None:
+    engine.add_influence("Saudi_Arabia", Side.US, 2)
+    engine.game_effects["awacs"] = True  # blocks Muslim Revolution
+
+
+# -- events that conduct Operations -----------------------------------------
+
+
+@event("CIA_Created")
+def _cia_created(engine: "Engine", side: Side) -> None:
+    # (The "USSR reveals hand" is information only; the mechanical effect is the
+    # 1 Op of US Operations.)
+    engine.push_event_operations(Side.US, 1)
+
+
+@event("Lone_Gunman")
+def _lone_gunman(engine: "Engine", side: Side) -> None:
+    engine.push_event_operations(Side.USSR, 1)
+
+
+@event("ABM_Treaty")
+def _abm_treaty(engine: "Engine", side: Side) -> None:
+    engine._change_defcon(+1, caused_by=side)
+    if not engine.is_terminal:
+        engine.push_event_operations(side, 4)
+
+
+# -- player-choice influence (EVENT_INFLUENCE) ------------------------------
+
+
+@event(
+    "Socialist_Governments",
+    eligible=lambda engine, side: not engine.game_effects.get("iron_lady"),
+)
+def _socialist_governments(engine: "Engine", side: Side) -> None:
+    engine.push_event_influence(
+        event="Socialist_Governments", op="remove", choose_side=Side.USSR,
+        inf_side=Side.US, remaining=3,
+        candidates=_in_subregion(engine, Subregion.WESTERN_EUROPE), cap=2,
+    )
+
+
+@event("Muslim_Revolution")
+def _muslim_revolution(engine: "Engine", side: Side) -> None:
+    countries = ["Sudan", "Iran", "Iraq", "Egypt", "Libya", "Saudi_Arabia",
+                 "Syria", "Jordan"]
+    engine.push_event_influence(
+        event="Muslim_Revolution", op="remove", choose_side=Side.USSR,
+        inf_side=Side.US, remaining=2, candidates=countries, whole=True,
+    )
+
+
+@event("Colonial_Rear_Guards")
+def _colonial_rear_guards(engine: "Engine", side: Side) -> None:
+    candidates = _in_region(engine, Region.AFRICA) + _in_subregion(
+        engine, Subregion.SOUTHEAST_ASIA
+    )
+    engine.push_event_influence(
+        event="Colonial_Rear_Guards", op="place", choose_side=Side.US,
+        inf_side=Side.US, remaining=4, candidates=candidates, cap=1,
+    )
+
+
+@event("Liberation_Theology")
+def _liberation_theology(engine: "Engine", side: Side) -> None:
+    engine.push_event_influence(
+        event="Liberation_Theology", op="place", choose_side=Side.USSR,
+        inf_side=Side.USSR, remaining=3,
+        candidates=_in_region(engine, Region.CENTRAL_AMERICA), cap=2,
+    )
+
+
+@event("The_Voice_Of_America")
+def _voice_of_america(engine: "Engine", side: Side) -> None:
+    candidates = [
+        cid for cid, info in engine.board.countries.items()
+        if info.region is not Region.EUROPE
+    ]
+    engine.push_event_influence(
+        event="The_Voice_Of_America", op="remove", choose_side=Side.US,
+        inf_side=Side.USSR, remaining=4, candidates=candidates, cap=2,
+    )
+
+
+@event("Puppet_Governments")
+def _puppet_governments(engine: "Engine", side: Side) -> None:
+    empty = [
+        cid for cid in engine.board.countries
+        if engine.board.influence[cid]["US"] == 0
+        and engine.board.influence[cid]["USSR"] == 0
+    ]
+    engine.push_event_influence(
+        event="Puppet_Governments", op="place", choose_side=Side.US,
+        inf_side=Side.US, remaining=3, candidates=empty, cap=1,
+    )
+
+
+@event("OAS_Founded")
+def _oas_founded(engine: "Engine", side: Side) -> None:
+    candidates = _in_region(engine, Region.CENTRAL_AMERICA) + _in_region(
+        engine, Region.SOUTH_AMERICA
+    )
+    engine.push_event_influence(
+        event="OAS_Founded", op="place", choose_side=Side.US, inf_side=Side.US,
+        remaining=2, candidates=candidates,
+    )
+
+
+@event("Pershing_II_Deployed")
+def _pershing_ii(engine: "Engine", side: Side) -> None:
+    engine._award_vp(Side.USSR, 1)
+    engine.push_event_influence(
+        event="Pershing_II_Deployed", op="remove", choose_side=Side.USSR,
+        inf_side=Side.US, remaining=3,
+        candidates=_in_subregion(engine, Subregion.WESTERN_EUROPE), cap=1,
+    )
+
+
+@event("The_Reformer")
+def _the_reformer(engine: "Engine", side: Side) -> None:
+    # 6 Influence if the USSR is ahead on VP (US-positive track, so vp < 0),
+    # else 4; the USSR may no longer coup in Europe.
+    amount = 6 if engine.vp < 0 else 4
+    engine.game_effects["reformer"] = True
+    engine.push_event_influence(
+        event="The_Reformer", op="place", choose_side=Side.USSR,
+        inf_side=Side.USSR, remaining=amount,
+        candidates=_in_region(engine, Region.EUROPE), cap=2,
+    )
+
+
+@event(
+    "Solidarity",
+    eligible=lambda engine, side: bool(engine.game_effects.get("john_paul")),
+)
+def _solidarity(engine: "Engine", side: Side) -> None:
+    engine.add_influence("Poland", Side.US, 3)
+
+
+# -- an immediate effect that then hands off a player-choice removal ---------
+
+
+@event("Marine_Barracks_Bombing")
+def _marine_barracks(engine: "Engine", side: Side) -> None:
+    engine.remove_all_influence("Lebanon", Side.US)
+    middle_east = [
+        cid for cid, info in engine.board.countries.items()
+        if info.region is Region.MIDDLE_EAST and cid != "Lebanon"
+    ]
+    engine.push_event_influence(
+        event="Marine_Barracks_Bombing", op="remove", choose_side=Side.USSR,
+        inf_side=Side.US, remaining=2, candidates=middle_east, whole=True,
+    )
+
+
+# -- wars where the attacker picks the target -------------------------------
+
+
+@event("Indo_Pakistani_War")
+def _indo_pakistani_war(engine: "Engine", side: Side) -> None:
+    engine.push_war_target_choice(
+        card_id="Indo_Pakistani_War", attacker=side,
+        candidates=["India", "Pakistan"], win_from=4, vp=2, military_ops=2,
+    )
+
+
+@event("Iran_Iraq_War")
+def _iran_iraq_war(engine: "Engine", side: Side) -> None:
+    engine.push_war_target_choice(
+        card_id="Iran_Iraq_War", attacker=side,
+        candidates=["Iran", "Iraq"], win_from=4, vp=2, military_ops=2,
+    )
+
+
+@event("Brush_War")
+def _brush_war(engine: "Engine", side: Side) -> None:
+    # Attack any country with stability 1 or 2; success on a modified 3-6.
+    candidates = [
+        cid for cid, info in engine.board.countries.items() if info.stability <= 2
+    ]
+    engine.push_war_target_choice(
+        card_id="Brush_War", attacker=side, candidates=candidates,
+        win_from=3, vp=1, military_ops=3,
+    )
+
+
+# -- match-influence branch (Independent Reds) ------------------------------
+
+
+@event("Independent_Reds")
+def _independent_reds(engine: "Engine", side: Side) -> None:
+    # Add US Influence in one of these to equal the USSR Influence there.
+    engine.push_event_choice(
+        "Independent_Reds", Side.US,
+        ("Yugoslavia", "Romania", "Bulgaria", "Hungary", "Czechoslovakia"),
+    )
+
+
+def _independent_reds_choice(engine: "Engine", side: Side, choice: str) -> None:
+    ussr = engine.board.influence[choice]["USSR"]
+    if engine.board.influence[choice]["US"] < ussr:
+        engine.board.influence[choice]["US"] = ussr
+
+
+# -- shared helpers ---------------------------------------------------------
+
+
+def _controlled_battlegrounds(engine: "Engine", side: Side) -> int:
+    return sum(
+        1
+        for cid, info in engine.board.countries.items()
+        if info.battleground and engine.board.control(cid) is side
+    )
+
+
 # Routers for EVENT_CHOICE branches, looked up by the engine at handle time
 # (the decision stack stays serializable — only the event id and the chosen
 # option are stored, never a function).
 CHOICE_ROUTERS: dict[str, Callable[["Engine", Side, str], None]] = {
     "Warsaw_Pact_Formed": _warsaw_pact_choice,
+    "Independent_Reds": _independent_reds_choice,
 }

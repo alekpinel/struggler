@@ -396,6 +396,110 @@ def test_china_card_bonus_forfeited_by_leaving_asia():
     assert steps == 4  # leaving Asia forfeits the +1
 
 
+# -- more registered cards (representative sample) ---------------------------
+
+
+def test_immediate_fixed_influence_cards():
+    engine = _bare()
+    engine._fire_event(Side.USSR, "Allende")
+    assert engine.board.influence["Chile"]["USSR"] == 2
+    engine._fire_event(Side.US, "Panama_Canal_Returned")
+    for cid in ("Panama", "Costa_Rica", "Venezuela"):
+        assert engine.board.influence[cid]["US"] == 1
+
+
+def test_camp_david_scores_places_and_blocks_arab_israeli_war():
+    engine = _bare()
+    engine._fire_event(Side.US, "Camp_David_Accords")
+    assert engine.vp == 1
+    assert engine.board.influence["Israel"]["US"] == 1
+    # Arab-Israeli War is now ineligible, so firing it does nothing.
+    engine.board.influence["Israel"] = {"US": 0, "USSR": 0}
+    engine._fire_event(Side.USSR, "Arab_Israeli_War")
+    assert engine.pending_decision is None  # no war roll enqueued
+
+
+def test_solidarity_requires_john_paul_ii():
+    engine = _bare()
+    engine._fire_event(Side.US, "Solidarity")  # precondition unmet
+    assert engine.board.influence["Poland"]["US"] == 0
+    engine._fire_event(Side.US, "John_Paul_II_Elected_Pope")  # itself adds 1 US
+    engine._fire_event(Side.US, "Solidarity")
+    assert engine.board.influence["Poland"]["US"] == 4  # 1 (John Paul) + 3
+
+
+def test_opec_scores_per_ussr_controlled_field():
+    engine = _bare()
+    engine.board.influence["Iran"] = {"US": 0, "USSR": 3}   # controlled
+    engine.board.influence["Libya"] = {"US": 0, "USSR": 3}  # controlled
+    engine._fire_event(Side.USSR, "OPEC")
+    assert engine.vp == -2  # 2 fields, USSR-favouring
+
+
+def test_cia_created_conducts_one_op_of_us_operations():
+    engine = _bare()
+    engine.board.influence["France"]["US"] = 1  # a reachable US foothold
+    engine._fire_event(Side.US, "CIA_Created")
+    d = engine.pending_decision
+    assert d is not None and d.kind is DecisionKind.OPS_TYPE
+    assert d.actor is Side.US and d.context["ops"] == 1
+
+
+def test_the_reformer_places_more_when_ussr_is_ahead():
+    engine = _bare()
+    engine.vp = -3  # USSR ahead
+    engine._fire_event(Side.USSR, "The_Reformer")
+    assert engine.pending_decision.context["remaining"] == 6
+    assert engine.game_effects.get("reformer") is True
+
+
+def test_reformer_bars_ussr_coups_in_europe_but_not_realignment():
+    engine = _bare()
+    engine.game_effects["reformer"] = True
+    coup = {a.payload["country"] for a in engine._coup_target_options(Side.USSR)}
+    realign = {a.payload["country"] for a in engine._realignment_target_options(Side.USSR)}
+    assert "France" not in coup       # Europe coups barred
+    assert "France" in realign        # realignment still allowed
+    assert "Vietnam" in coup          # non-Europe coups unaffected
+
+
+def test_brush_war_only_targets_low_stability_countries():
+    engine = _bare(seed=8)
+    engine._fire_event(Side.US, "Brush_War")
+    d = engine.pending_decision
+    assert d.kind is DecisionKind.WAR_TARGET and d.actor is Side.US
+    for a in d.options:
+        assert engine.board.countries[a.payload["country"]].stability <= 2
+
+
+def test_indo_pakistani_war_target_choice_resolves_to_a_roll():
+    engine = _bare(seed=9)
+    engine._fire_event(Side.USSR, "Indo_Pakistani_War")
+    d = engine.pending_decision
+    assert {a.payload["country"] for a in d.options} == {"India", "Pakistan"}
+    engine.step(Action(DecisionKind.WAR_TARGET, {"country": "Pakistan"}))
+    assert engine.pending_decision.kind is DecisionKind.WAR_ROLL
+    assert engine.military_ops["USSR"] == 2
+
+
+def test_independent_reds_matches_us_to_ussr_influence():
+    engine = _bare()
+    engine.board.influence["Romania"] = {"US": 0, "USSR": 3}
+    engine._fire_event(Side.US, "Independent_Reds")
+    assert engine.pending_decision.kind is DecisionKind.EVENT_CHOICE
+    engine.step(Action(DecisionKind.EVENT_CHOICE, {"choice": "Romania"}))
+    assert engine.board.influence["Romania"]["US"] == 3  # matched
+
+
+def test_puppet_governments_only_targets_empty_countries():
+    engine = _bare()
+    engine.board.influence["Angola"] = {"US": 1, "USSR": 0}   # not empty
+    engine.board.influence["Chile"] = {"US": 0, "USSR": 2}    # not empty
+    engine._fire_event(Side.US, "Puppet_Governments")
+    offered = {a.payload["country"] for a in engine.pending_decision.options}
+    assert "Angola" not in offered and "Chile" not in offered
+
+
 # -- the "opponent event fires when played for Ops" rule --------------------
 
 

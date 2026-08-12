@@ -251,25 +251,40 @@ historical "Ops-only" toggle.
   the stack stores only the event id and the chosen option — never a
   function). These steps live on the same decision stack, so they are
   hosted correctly inside a headline or an opponent's Ops play.
-- **Implemented so far** (each with a unit test; the loop is covered by a
-  property test and the `m3_events.json` golden):
-  - *Tier 1, immediate:* Duck and Cover, Fidel, Nasser, Romanian
-    Abdication, De Gaulle Leads France, Captured Nazi Scientist, Nuclear
-    Test Ban.
-  - *Tier 1, war family (CHANCE roll):* Korean War, Arab-Israeli War.
-  - *Tier 2, player-choice:* COMECON, Marshall Plan, Decolonization, Suez
-    Crisis, Truman Doctrine, Warsaw Pact Formed (branch).
-  - *Tier 3, persistent per-turn modifiers:* Containment, Brezhnev
-    Doctrine, Red Scare/Purge (consulted via `_effective_ops`, cleared at
-    end of turn).
-  - *Tier 3, persistent game-long legality (`game_effects`):* NATO
-    (eligible only after Marshall Plan or Warsaw Pact; the USSR may no
-    longer coup/realign US-controlled Europe), De Gaulle Leads France and
-    Willy Brandt (each lift NATO for one country, and Willy Brandt also
-    scores/places), US/Japan Mutual Defense Pact (locks Japan against the
-    USSR). Enforced in `_usable_coup_realign_target`, consulted by both
-    coup and realignment target enumeration.
-  - *Tier 4, rule-modifier:* UN Intervention — a `un_intervention` play
+- **Implemented so far** (58 card events registered; the trickier ones have
+  a dedicated unit test, and the loop is covered by a property test and the
+  `m3_events.json` golden). Grouped by the primitive they reuse:
+  - *Immediate fixed board/VP/DEFCON/Space effects:* Duck and Cover, Fidel,
+    Nasser, Romanian Abdication, De Gaulle Leads France, Captured Nazi
+    Scientist, Nuclear Test Ban, Allende, Portuguese Empire Crumbles,
+    Panama Canal Returned, Sadat Expels Soviets, John Paul II Elected Pope,
+    Camp David Accords, Iranian Hostage Crisis, The Iron Lady, An Evil
+    Empire, U-2 Incident, Cultural Revolution, Ortega Elected, Tear Down
+    This Wall, Kitchen Debates, OPEC, Alliance for Progress, Reagan Bombs
+    Libya, One Small Step, AWACS Sale to Saudis.
+  - *War family (attacker chosen, seeded CHANCE roll):* Korean War,
+    Arab-Israeli War (fixed target); Indo-Pakistani War, Iran-Iraq War,
+    Brush War (attacker picks the target via `WAR_TARGET`).
+  - *Events that conduct Operations (`push_event_operations`):* CIA Created,
+    Lone Gunman, ABM Treaty.
+  - *Player-choice influence (`EVENT_INFLUENCE`):* COMECON, Marshall Plan,
+    Decolonization, Suez Crisis, Truman Doctrine, Warsaw Pact Formed
+    (branch), Socialist Governments, Muslim Revolution, Colonial Rear
+    Guards, Liberation Theology, The Voice of America, Puppet Governments,
+    OAS Founded, Pershing II Deployed, The Reformer, Solidarity, Marine
+    Barracks Bombing; Independent Reds (match-influence branch).
+  - *Persistent per-turn modifiers:* Containment, Brezhnev Doctrine, Red
+    Scare/Purge (consulted via `_effective_ops`, cleared at end of turn).
+  - *Persistent game-long legality (`game_effects`):* NATO (eligible only
+    after Marshall Plan or Warsaw Pact; USSR may no longer coup/realign
+    US-controlled Europe), De Gaulle and Willy Brandt (each lift NATO for
+    one country), US/Japan Mutual Defense Pact (locks Japan), The Reformer
+    (bars USSR coups in Europe). Enforced in `_usable_coup_realign_target`
+    (which distinguishes coup from realignment for The Reformer), consulted
+    by both target enumerations. Eligibility flags also gate Arab-Israeli
+    War (Camp David), Socialist Governments (Iron Lady) and Solidarity
+    (John Paul II).
+  - *Rule-modifier (tier 4):* UN Intervention — a `un_intervention` play
     mode that spends the held UN Intervention card to use an opponent's
     (implemented, eligible) event card for Ops with its event cancelled.
 - **China Card bonus.** Playing the China Card for Ops grants its +1
@@ -278,18 +293,26 @@ historical "Ops-only" toggle.
   gone outside Asia) and for coups (+1 Op and +1 military Op against an
   Asian target). The realignment case is not modeled (rare).
 - **Known limitations / remaining M3 work** (tracked here as the
-  contract): the bulk of the deck's events are still unimplemented and
-  remain no-op discards in events mode. The framework now covers all four
-  tiers (a generic player-choice step machine, persistent per-turn and
-  game-long effect stores, and one representative rule-modifier), so the
-  remaining work is mostly *registering* more cards against it. Still
-  unimplemented: the other war/target-choice cards (Brush War,
-  Indo-Pakistani War, Junta, …), most persistent-modifier cards beyond the
-  NATO family (Flower Power, Vietnam Revolts' regional Ops bonus, US
-  scoring/space perks), and the remaining Tier 4 rule-modifiers (Missile
-  Envy, Grain Sales to Soviets, ABM Treaty, Star Wars, Cuban Missile
-  Crisis, etc.). The Space Race headline-reveal perk and the China Card's
-  realignment Asia bonus are also not modeled.
+  contract): 58 of the deck's ~100 non-scoring events are implemented; the
+  rest remain no-op discards in events mode because their text needs a
+  subsystem the engine does not model yet. Those subsystems (and the cards
+  waiting on them) are:
+  - *Random discard from a hidden hand:* Five Year Plan, Terrorism.
+  - *Revealing/taking cards from the opponent's hand:* Grain Sales to
+    Soviets, Aldrich Ames Remix, Ask Not…, The Cambridge Five.
+  - *Taking a card from the discard pile:* Star Wars, SALT Negotiations.
+  - *Per-turn regional/conditional Ops or coup modifiers:* Vietnam Revolts,
+    Latin American Death Squads, Nuclear Subs, Iran-Contra Scandal,
+    Chernobyl (region lock), Che, Yuri and Samantha.
+  - *Dice/branch events not yet built:* Olympic Games, Summit, Junta,
+    Cuban Missile Crisis, Wargames, We Will Bury You, Missile Envy.
+  - *Scoring-time modifiers / extra rounds:* Formosan Resolution, Shuttle
+    Diplomacy, North Sea Oil, Flower Power.
+  - Plus a handful of smaller conditional/optional cards. Also unmodeled:
+    the Space Race headline-reveal perk and the China Card's realignment
+    Asia bonus. Some implemented cards drop a minor optional clause (noted
+    in `events.py` docstrings, e.g. Ortega's free coup, Tear Down This
+    Wall's Operations) — those are the documented rough edges.
 
 ## Testing strategy
 
