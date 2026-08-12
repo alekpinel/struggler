@@ -815,6 +815,122 @@ class Engine:
         else:  # "event"
             self._fire_event(side, ctx["card"])
 
+    # -- M3: player-choice event steps (tier 2) -----------------------------
+    #
+    # An event that lets a player distribute influence enqueues its own
+    # decisions through one generic, fully serializable step type
+    # (EVENT_INFLUENCE): place, remove, or remove-all, one country at a time,
+    # for `remaining` steps, honouring a per-country cap and control filters.
+    # The step re-pushes itself until `remaining` hits 0 or no legal target is
+    # left — so it lives on the same decision stack as everything else and is
+    # hosted correctly inside a headline or an opponent's Ops play. A branch
+    # ("remove OR add", e.g. Warsaw Pact) is a single EVENT_CHOICE first.
+
+    def push_event_influence(
+        self,
+        event: str,
+        op: str,                       # "place" | "remove"
+        choose_side: Side,             # who makes the choices (the beneficiary)
+        inf_side: Side,                # whose influence is placed/removed
+        remaining: int,
+        candidates: list[str],
+        cap: int | None = None,
+        whole: bool = False,           # remove: clear ALL inf_side in the country
+        requires_uncontrolled: bool = False,
+        exclude_controlled_by: Side | None = None,
+    ) -> None:
+        """Begin a player-choice influence sequence, if it has any legal step."""
+        context = {
+            "event": event,
+            "op": op,
+            "choose_side": choose_side.value,
+            "inf_side": inf_side.value,
+            "remaining": remaining,
+            "candidates": list(candidates),
+            "cap": cap,
+            "whole": whole,
+            "requires_uncontrolled": requires_uncontrolled,
+            "exclude_controlled_by": (
+                exclude_controlled_by.value if exclude_controlled_by is not None else None
+            ),
+            "placed": {},
+        }
+        self._maybe_push_event_influence(context)
+
+    def _maybe_push_event_influence(self, context: dict) -> None:
+        if context["remaining"] <= 0:
+            return
+        options = self._event_influence_options(context)
+        if not options:
+            return
+        self._push(
+            Side(context["choose_side"]), DecisionKind.EVENT_INFLUENCE, options, context
+        )
+
+    def _event_influence_options(self, context: dict) -> tuple[Action, ...]:
+        inf_side = context["inf_side"]
+        cap = context["cap"]
+        whole = context["whole"]
+        placed = context["placed"]
+        exclude = context["exclude_controlled_by"]
+        options = []
+        for cid in context["candidates"]:
+            used = placed.get(cid, 0)
+            if context["op"] == "place":
+                if cap is not None and used >= cap:
+                    continue
+                if exclude is not None and self.board.control(cid) is Side(exclude):
+                    continue
+            else:  # remove
+                if self.board.influence[cid][inf_side] <= 0:
+                    continue
+                if whole:
+                    if used >= 1:
+                        continue
+                elif cap is not None and used >= cap:
+                    continue
+            if context["requires_uncontrolled"] and self.board.control(cid) is not None:
+                continue
+            options.append(Action(DecisionKind.EVENT_INFLUENCE, {"country": cid}))
+        return tuple(options)
+
+    def _handle_event_influence(self, decision: Decision, action: Action) -> None:
+        context = dict(decision.context)
+        cid = action.payload["country"]
+        inf_side = context["inf_side"]
+        if context["op"] == "place":
+            self.board.influence[cid][inf_side] += 1
+        elif context["whole"]:
+            self.board.influence[cid][inf_side] = 0
+        else:
+            self.board.influence[cid][inf_side] = max(
+                0, self.board.influence[cid][inf_side] - 1
+            )
+        placed = dict(context["placed"])
+        placed[cid] = placed.get(cid, 0) + 1
+        context["placed"] = placed
+        context["remaining"] -= 1
+        self._maybe_push_event_influence(context)
+
+    def push_event_choice(
+        self, event: str, choose_side: Side, choices: tuple[str, ...]
+    ) -> None:
+        """Offer a player a branch within an event (routed by events.py)."""
+        options = tuple(
+            Action(DecisionKind.EVENT_CHOICE, {"choice": c}) for c in choices
+        )
+        self._push(
+            choose_side, DecisionKind.EVENT_CHOICE, options,
+            {"event": event, "choose_side": choose_side.value},
+        )
+
+    def _handle_event_choice(self, decision: Decision, action: Action) -> None:
+        from struggler.events import CHOICE_ROUTERS
+
+        event = decision.context["event"]
+        side = Side(decision.context["choose_side"])
+        CHOICE_ROUTERS[event](self, side, action.payload["choice"])
+
     # -- M3: influence / control helpers used by events ---------------------
 
     def add_influence(self, country: str, side: Side, amount: int) -> None:
@@ -988,6 +1104,8 @@ class Engine:
             DecisionKind.EVENT_OPS_ORDER: self._handle_event_ops_order,
             DecisionKind.EVENT_RESUME: self._handle_event_resume,
             DecisionKind.WAR_ROLL: self._handle_war_roll,
+            DecisionKind.EVENT_INFLUENCE: self._handle_event_influence,
+            DecisionKind.EVENT_CHOICE: self._handle_event_choice,
         }[decision.kind]
         handler(decision, action)
 

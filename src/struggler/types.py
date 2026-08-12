@@ -80,6 +80,8 @@ class DecisionKind(Enum):
     EVENT_OPS_ORDER = "event_ops_order"    # opponent's card played for Ops: event- or ops-first
     EVENT_RESUME = "event_resume"          # forced continuation after the first half resolves
     WAR_ROLL = "war_roll"                  # CHANCE: a "war" event's success die
+    EVENT_INFLUENCE = "event_influence"    # a player-choice event's targeted place/remove step
+    EVENT_CHOICE = "event_choice"          # a player-choice event's branch (pick a sub-option)
 
 
 class ScoringTier(Enum):

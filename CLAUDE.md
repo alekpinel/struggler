@@ -240,26 +240,37 @@ historical "Ops-only" toggle.
   enqueues sub-decisions (e.g. a war roll) those drain before the next
   headline card resolves, the same interrupt order the action-round path
   uses. `serialize()` carries `headline_resolving`/`headline_pending`.
+- **Player-choice steps (tier 2).** An event that lets a player distribute
+  influence enqueues its own decisions through two generic, fully
+  serializable step types: `EVENT_INFLUENCE` (place / remove / remove-all
+  one country at a time, for N steps, honouring a per-country cap, a
+  control filter, and an "uncontrolled only" filter; it re-pushes itself
+  until N hits 0 or no legal target remains) and `EVENT_CHOICE` (a branch,
+  e.g. Warsaw Pact's "remove or add", routed by `events.CHOICE_ROUTERS` so
+  the stack stores only the event id and the chosen option — never a
+  function). These steps live on the same decision stack, so they are
+  hosted correctly inside a headline or an opponent's Ops play.
 - **Implemented so far** (each with a unit test; the loop is covered by a
   property test and the `m3_events.json` golden):
   - *Tier 1, immediate:* Duck and Cover, Fidel, Nasser, Romanian
     Abdication, De Gaulle Leads France, Captured Nazi Scientist, Nuclear
     Test Ban.
   - *Tier 1, war family (CHANCE roll):* Korean War, Arab-Israeli War.
+  - *Tier 2, player-choice:* COMECON, Marshall Plan, Decolonization, Suez
+    Crisis, Truman Doctrine, Warsaw Pact Formed (branch).
   - *Tier 3, persistent per-turn modifiers:* Containment, Brezhnev
     Doctrine, Red Scare/Purge (consulted via `_effective_ops`, cleared at
     end of turn).
 - **Known limitations / remaining M3 work** (tracked here as the
   contract): the bulk of the deck's events are still unimplemented and
-  remain no-op discards in events mode. Tier 2 player-choice events (e.g.
-  Warsaw Pact, Marshall Plan, Suez Crisis) are the next increment — they
-  need the event to enqueue its own player decisions (the framework and
-  headline/action-round interrupt-ordering to host them already exist).
-  Most Tier 3 persistent effects (NATO — hence De Gaulle's "cancels NATO
-  for France" clause is currently inert) and all Tier 4 rule-modifiers
-  (UN Intervention, Missile Envy, etc.) are not implemented. The China
-  Card's "+1 Op if used entirely in one region" bonus is also still
-  unmodeled.
+  remain no-op discards in events mode. The generic tier-2 step types
+  (`EVENT_INFLUENCE`/`EVENT_CHOICE`) now exist, so more player-choice
+  events are a matter of registering them; the next big pieces are the
+  persistent-effect cards. Most Tier 3 persistent effects (NATO — hence
+  De Gaulle's "cancels NATO for France" clause is currently inert) and all
+  Tier 4 rule-modifiers (UN Intervention, Missile Envy, etc.) are not
+  implemented. The China Card's "+1 Op if used entirely in one region"
+  bonus is also still unmodeled.
 
 ## Testing strategy
 

@@ -26,7 +26,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Callable
 
-from struggler.types import Side
+from struggler.types import Region, Side, Subregion
 
 if TYPE_CHECKING:  # avoid a circular import at module load; engine imports us.
     from struggler.engine import Engine
@@ -176,3 +176,107 @@ def _brezhnev_doctrine(engine: "Engine", side: Side) -> None:
 def _red_scare_purge(engine: "Engine", side: Side) -> None:
     # The opponent's Operations are -1 (min 1) for the remainder of the turn.
     engine.turn_effects["red_scare"] = side.opponent.value
+
+
+# ---------------------------------------------------------------------------
+# Tier 2 — player-choice events (the event enqueues its own decisions)
+#
+# Each of these hands a set of countries to a player and lets them distribute
+# the effect, through the engine's generic EVENT_INFLUENCE / EVENT_CHOICE
+# steps. Candidate country sets are derived from the live board, not hard-coded
+# lists, so they stay correct if the board data changes.
+# ---------------------------------------------------------------------------
+
+
+def _in_subregion(engine: "Engine", subregion: Subregion) -> list[str]:
+    return [
+        cid for cid, info in engine.board.countries.items() if info.subregion is subregion
+    ]
+
+
+def _in_region(engine: "Engine", region: Region) -> list[str]:
+    return [cid for cid, info in engine.board.countries.items() if info.region is region]
+
+
+@event("COMECON")
+def _comecon(engine: "Engine", side: Side) -> None:
+    # Add 1 USSR Influence to each of 4 non-US-controlled Eastern Europe
+    # countries.
+    engine.push_event_influence(
+        event="COMECON", op="place", choose_side=Side.USSR, inf_side=Side.USSR,
+        remaining=4, candidates=_in_subregion(engine, Subregion.EASTERN_EUROPE),
+        cap=1, exclude_controlled_by=Side.US,
+    )
+
+
+@event("Marshall_Plan")
+def _marshall_plan(engine: "Engine", side: Side) -> None:
+    # Add 1 US Influence to each of 7 non-USSR-controlled Western Europe
+    # countries.
+    engine.push_event_influence(
+        event="Marshall_Plan", op="place", choose_side=Side.US, inf_side=Side.US,
+        remaining=7, candidates=_in_subregion(engine, Subregion.WESTERN_EUROPE),
+        cap=1, exclude_controlled_by=Side.USSR,
+    )
+
+
+@event("Decolonization")
+def _decolonization(engine: "Engine", side: Side) -> None:
+    # Add 1 USSR Influence to each of any 4 countries in Africa and/or Southeast
+    # Asia.
+    candidates = _in_region(engine, Region.AFRICA) + _in_subregion(
+        engine, Subregion.SOUTHEAST_ASIA
+    )
+    engine.push_event_influence(
+        event="Decolonization", op="place", choose_side=Side.USSR, inf_side=Side.USSR,
+        remaining=4, candidates=candidates, cap=1,
+    )
+
+
+@event("Suez_Crisis")
+def _suez_crisis(engine: "Engine", side: Side) -> None:
+    # Remove a total of 4 US Influence from France, the UK and Israel, no more
+    # than 2 from any one country.
+    engine.push_event_influence(
+        event="Suez_Crisis", op="remove", choose_side=Side.USSR, inf_side=Side.US,
+        remaining=4, candidates=["France", "UK", "Israel"], cap=2,
+    )
+
+
+@event("Truman_Doctrine")
+def _truman_doctrine(engine: "Engine", side: Side) -> None:
+    # Remove all USSR Influence from a single uncontrolled country in Europe.
+    engine.push_event_influence(
+        event="Truman_Doctrine", op="remove", choose_side=Side.US, inf_side=Side.USSR,
+        remaining=1, candidates=_in_region(engine, Region.EUROPE),
+        whole=True, requires_uncontrolled=True,
+    )
+
+
+@event("Warsaw_Pact_Formed")
+def _warsaw_pact_formed(engine: "Engine", side: Side) -> None:
+    # Either remove all US Influence from 4 Eastern Europe countries, or add 5
+    # USSR Influence to Eastern Europe (no more than 2 per country).
+    engine.push_event_choice("Warsaw_Pact_Formed", Side.USSR, ("remove", "add"))
+
+
+def _warsaw_pact_choice(engine: "Engine", side: Side, choice: str) -> None:
+    eastern = _in_subregion(engine, Subregion.EASTERN_EUROPE)
+    if choice == "remove":
+        engine.push_event_influence(
+            event="Warsaw_Pact_Formed", op="remove", choose_side=Side.USSR,
+            inf_side=Side.US, remaining=4, candidates=eastern, whole=True,
+        )
+    else:  # "add"
+        engine.push_event_influence(
+            event="Warsaw_Pact_Formed", op="place", choose_side=Side.USSR,
+            inf_side=Side.USSR, remaining=5, candidates=eastern, cap=2,
+        )
+
+
+# Routers for EVENT_CHOICE branches, looked up by the engine at handle time
+# (the decision stack stays serializable — only the event id and the chosen
+# option are stored, never a function).
+CHOICE_ROUTERS: dict[str, Callable[["Engine", Side, str], None]] = {
+    "Warsaw_Pact_Formed": _warsaw_pact_choice,
+}

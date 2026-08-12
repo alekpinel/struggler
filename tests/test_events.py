@@ -154,6 +154,102 @@ def test_turn_effects_lapse_at_end_of_turn():
     assert engine.turn_effects == {}
 
 
+# -- tier 2: player-choice events -------------------------------------------
+
+
+def _drain_event_influence(engine: Engine, taker=lambda opts: opts[0]) -> int:
+    """Step through a run of EVENT_INFLUENCE decisions, returning how many."""
+    steps = 0
+    while (
+        engine.pending_decision is not None
+        and engine.pending_decision.kind is DecisionKind.EVENT_INFLUENCE
+    ):
+        engine.step(taker(engine.pending_decision.options))
+        steps += 1
+    return steps
+
+
+def _eastern_europe(engine: Engine) -> list[str]:
+    return [c for c, i in engine.board.countries.items()
+            if i.subregion is not None and i.subregion.value == "EASTERN_EUROPE"]
+
+
+def test_comecon_places_four_in_non_us_eastern_europe():
+    engine = _bare()
+    engine.board.influence["East_Germany"] = {"US": 5, "USSR": 0}  # US-controlled
+    engine._fire_event(Side.USSR, "COMECON")
+    # Every offered country is USSR's choice and never the US-controlled one.
+    assert engine.pending_decision.actor is Side.USSR
+    assert "East_Germany" not in [
+        a.payload["country"] for a in engine.pending_decision.options
+    ]
+    assert _drain_event_influence(engine) == 4  # one point into each of 4 countries
+    placed = sum(
+        1 for c in _eastern_europe(engine) if engine.board.influence[c]["USSR"] > 0
+    )
+    assert placed == 4
+
+
+def test_marshall_plan_places_seven_and_skips_ussr_controlled():
+    engine = _bare()
+    engine.board.influence["Italy"] = {"US": 0, "USSR": 5}  # USSR-controlled
+    engine._fire_event(Side.US, "Marshall_Plan")
+    assert "Italy" not in [a.payload["country"] for a in engine.pending_decision.options]
+    assert _drain_event_influence(engine) == 7
+
+
+def test_suez_crisis_caps_removal_at_two_per_country():
+    engine = _bare()
+    engine.board.influence["France"] = {"US": 5, "USSR": 0}
+    engine.board.influence["UK"] = {"US": 0, "USSR": 0}
+    engine.board.influence["Israel"] = {"US": 0, "USSR": 0}
+    engine._fire_event(Side.USSR, "Suez_Crisis")
+    # Only France has US influence; the 2-per-country cap stops removal at 2 even
+    # though the card allows 4 total.
+    removed = _drain_event_influence(engine)
+    assert removed == 2
+    assert engine.board.influence["France"]["US"] == 3
+
+
+def test_truman_doctrine_only_offers_uncontrolled_europe():
+    engine = _bare()
+    engine.board.influence["Italy"] = {"US": 1, "USSR": 2}   # uncontrolled
+    engine.board.influence["Poland"] = {"US": 0, "USSR": 5}  # USSR-controlled
+    engine._fire_event(Side.US, "Truman_Doctrine")
+    offered = [a.payload["country"] for a in engine.pending_decision.options]
+    assert "Italy" in offered and "Poland" not in offered
+    engine.step(Action(DecisionKind.EVENT_INFLUENCE, {"country": "Italy"}))
+    assert engine.board.influence["Italy"]["USSR"] == 0  # all USSR removed
+    assert engine.pending_decision is None  # single-country event is done
+
+
+def test_warsaw_pact_remove_branch_clears_us_from_eastern_europe():
+    engine = _bare()
+    engine.board.influence["East_Germany"] = {"US": 3, "USSR": 0}
+    engine.board.influence["Poland"] = {"US": 2, "USSR": 0}
+    engine._fire_event(Side.USSR, "Warsaw_Pact_Formed")
+    assert engine.pending_decision.kind is DecisionKind.EVENT_CHOICE
+    engine.step(Action(DecisionKind.EVENT_CHOICE, {"choice": "remove"}))
+    # Only two EE countries have US influence, so removal stops after both.
+    assert _drain_event_influence(engine) == 2
+    assert engine.board.influence["East_Germany"]["US"] == 0
+    assert engine.board.influence["Poland"]["US"] == 0
+
+
+def test_warsaw_pact_add_branch_places_five_capped_at_two():
+    engine = _bare()
+    engine._fire_event(Side.USSR, "Warsaw_Pact_Formed")
+    engine.step(Action(DecisionKind.EVENT_CHOICE, {"choice": "add"}))
+    # Always take East Germany when offered to prove the per-country cap of 2.
+    def prefer_east_germany(opts):
+        for a in opts:
+            if a.payload["country"] == "East_Germany":
+                return a
+        return opts[0]
+    assert _drain_event_influence(engine, prefer_east_germany) == 5
+    assert engine.board.influence["East_Germany"]["USSR"] == 2  # capped
+
+
 # -- the "opponent event fires when played for Ops" rule --------------------
 
 
