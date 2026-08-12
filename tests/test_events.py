@@ -708,6 +708,210 @@ def test_junta_free_op_can_be_declined():
     assert engine.pending_decision is None  # nothing further enqueued
 
 
+# -- more per-turn / game-long coup & realignment modifiers ------------------
+
+
+def test_yuri_and_samantha_scores_ussr_on_us_coups():
+    engine = _bare(seed=1)
+    engine.defcon = 5
+    engine.game_effects["yuri_samantha"] = True
+    engine.board.influence["Cuba"] = {"US": 0, "USSR": 1}
+    _resolve_coup_roll(engine, Side.US, "Cuba", ops=3, value=1)
+    assert engine.vp == -1  # 1 VP to the USSR for the US coup attempt
+    # A USSR coup does not trigger it.
+    engine.vp = 0
+    _resolve_coup_roll(engine, Side.USSR, "Cuba", ops=3, value=1)
+    assert engine.vp == 0
+
+
+def test_iran_contra_penalises_only_us_realignment():
+    engine = _bare()
+    engine.turn_effects["iran_contra"] = True
+    assert engine._realignment_modifier(Side.US) == -1
+    assert engine._realignment_modifier(Side.USSR) == 0
+
+
+def test_flower_power_scores_ussr_when_us_plays_a_war_card():
+    engine = _bare()
+    engine.game_effects["flower_power"] = True
+    engine.hands["US"] = ["Brush_War"]
+    _play_card_for(engine, Side.US, "Brush_War", "event")
+    assert engine.vp == -2  # 2 VP to the USSR
+    # The USSR playing a war card does not trigger it.
+    engine2 = _bare()
+    engine2.game_effects["flower_power"] = True
+    engine2.hands["USSR"] = ["Korean_War"]
+    _play_card_for(engine2, Side.USSR, "Korean_War", "event")
+    assert engine2.vp == 0
+
+
+def test_an_evil_empire_cancels_flower_power():
+    engine = _bare()
+    engine.game_effects["flower_power"] = True
+    engine._fire_event(Side.US, "An_Evil_Empire")
+    assert "flower_power" not in engine.game_effects
+    engine.hands["US"] = ["Brush_War"]
+    engine.vp = 0
+    _play_card_for(engine, Side.US, "Brush_War", "event")
+    assert engine.vp == 0  # no longer scored (An Evil Empire itself gave +1 above)
+
+
+def test_chernobyl_blocks_ussr_ops_influence_in_the_named_region():
+    engine = _bare()
+    engine._fire_event(Side.US, "Chernobyl")
+    assert engine.pending_decision.kind is DecisionKind.EVENT_CHOICE
+    engine.step(Action(DecisionKind.EVENT_CHOICE, {"choice": "EUROPE"}))
+    engine.board.influence["Poland"]["USSR"] = 3  # reachable European foothold
+    ussr = {a.payload["country"] for a in engine._place_influence_options(Side.USSR, 5)}
+    assert "Poland" not in ussr  # Europe blocked for the USSR
+    # The US is unaffected, and the block is Europe-only for the USSR.
+    engine.board.influence["Vietnam"]["USSR"] = 1
+    assert "Vietnam" in {a.payload["country"] for a in engine._place_influence_options(Side.USSR, 5)}
+    assert engine._chernobyl_blocks(Side.US, "Poland") is False
+
+
+# -- dice-contest / branch events -------------------------------------------
+
+
+def test_olympic_games_participate_runs_a_contest_awarding_two_vp():
+    engine = _bare(seed=1)
+    engine._fire_event(Side.US, "Olympic_Games")  # US sponsors; USSR decides
+    decision = engine.pending_decision
+    assert decision.actor is Side.USSR
+    assert {a.payload["choice"] for a in decision.options} == {"participate", "boycott"}
+    engine.step(Action(DecisionKind.EVENT_CHOICE, {"choice": "participate"}))
+    assert engine.pending_decision.kind is DecisionKind.CONTEST_ROLL
+    engine.step(engine.pending_decision.options[0])
+    assert abs(engine.vp) == 2  # exactly one side won 2 VP
+    assert engine.pending_decision is None
+
+
+def test_olympic_games_boycott_degrades_defcon_and_gives_sponsor_ops():
+    engine = _bare(seed=1)
+    engine.defcon = 5
+    engine._fire_event(Side.US, "Olympic_Games")
+    engine.step(Action(DecisionKind.EVENT_CHOICE, {"choice": "boycott"}))
+    assert engine.defcon == 4
+    assert engine.pending_decision.kind is DecisionKind.OPS_TYPE
+    assert engine.pending_decision.actor is Side.US
+    assert engine.pending_decision.context["ops"] == 4
+
+
+def test_summit_contest_then_winner_adjusts_defcon():
+    engine = _bare(seed=3)
+    engine.defcon = 3
+    engine._fire_event(Side.US, "Summit")
+    assert engine.pending_decision.kind is DecisionKind.CONTEST_ROLL
+    engine.step(engine.pending_decision.options[0])
+    follow = engine.pending_decision
+    assert follow.kind is DecisionKind.EVENT_CHOICE
+    assert {a.payload["choice"] for a in follow.options} == {"raise", "lower", "none"}
+    winner = follow.actor
+    engine.step(Action(DecisionKind.EVENT_CHOICE, {"choice": "raise"}))
+    assert engine.defcon == 4
+    assert abs(engine.vp) == 2  # the winner also took 2 VP
+    assert winner in (Side.US, Side.USSR)
+
+
+def test_summit_reroll_on_a_tie_is_deterministic_and_resolves():
+    # Equal modifiers make ties possible; the contest must still resolve.
+    engine = _bare(seed=11)
+    engine._fire_event(Side.USSR, "Summit")
+    guard = 0
+    while engine.pending_decision.kind is DecisionKind.CONTEST_ROLL:
+        engine.step(engine.pending_decision.options[0])
+        guard += 1
+        assert guard < 100
+    assert engine.pending_decision.kind is DecisionKind.EVENT_CHOICE  # a winner emerged
+
+
+def test_wargames_only_playable_at_defcon_two_and_can_end_the_game():
+    engine = _bare(seed=1)
+    engine.defcon = 3
+    engine._fire_event(Side.US, "Wargames")  # ineligible above DEFCON 2
+    assert engine.pending_decision is None
+    engine.defcon = 2
+    engine._fire_event(Side.US, "Wargames")
+    assert {a.payload["choice"] for a in engine.pending_decision.options} == {
+        "end_game", "decline"
+    }
+    engine.step(Action(DecisionKind.EVENT_CHOICE, {"choice": "end_game"}))
+    assert engine.is_terminal  # the US gave the USSR 6 VP and the game was scored
+
+
+# -- revealing / taking cards from the opponent's hand -----------------------
+
+
+def test_aldrich_ames_lets_ussr_discard_a_chosen_us_card():
+    engine = _bare()
+    engine.hands["US"] = ["Duck_and_Cover", "NATO", "Containment"]
+    engine._fire_event(Side.USSR, "Aldrich_Ames_Remix")
+    decision = engine.pending_decision
+    assert decision.actor is Side.USSR
+    assert {a.payload["choice"] for a in decision.options} == set(engine.hands["US"])
+    engine.step(Action(DecisionKind.EVENT_CHOICE, {"choice": "NATO"}))
+    assert "NATO" not in engine.hands["US"]
+    assert "NATO" in engine.discard_pile
+
+
+def test_grain_sales_reveals_exactly_one_ussr_card():
+    engine = _bare(seed=4)
+    engine.hands["USSR"] = ["Fidel", "Nasser", "Allende", "COMECON"]
+    engine._fire_event(Side.US, "Grain_Sales_to_Soviets")
+    reveal = engine.pending_decision
+    assert reveal.kind is DecisionKind.RANDOM_DISCARD and reveal.actor is Side.CHANCE
+    assert len(reveal.options) == 1  # only the drawn card, not the whole hand
+    revealed = reveal.options[0].payload["card"]
+    engine.step(reveal.options[0])
+    choice = engine.pending_decision
+    assert choice.actor is Side.US
+    assert {a.payload["choice"] for a in choice.options} == {"take", "return"}
+    engine.step(Action(DecisionKind.EVENT_CHOICE, {"choice": "take"}))
+    assert revealed not in engine.hands["USSR"] and revealed in engine.discard_pile
+    assert engine.pending_decision.kind is DecisionKind.OPS_TYPE  # US uses its Ops
+
+
+def test_grain_sales_return_leaves_the_card_and_gives_two_ops():
+    engine = _bare(seed=4)
+    engine.hands["USSR"] = ["Fidel"]
+    engine._fire_event(Side.US, "Grain_Sales_to_Soviets")
+    engine.step(engine.pending_decision.options[0])  # reveal
+    engine.step(Action(DecisionKind.EVENT_CHOICE, {"choice": "return"}))
+    assert "Fidel" in engine.hands["USSR"]  # returned
+    assert engine.pending_decision.context["ops"] == 2  # Grain Sales' own Ops
+
+
+def test_ask_not_discards_chosen_cards_and_redraws_the_same_number():
+    engine = _bare(seed=5)
+    engine.draw_pile = ["Blockade", "Defectors", "Quagmire"]
+    engine.hands["US"] = ["Containment", "NATO"]
+    engine._fire_event(Side.US, "Ask_Not_What_Your_Country_Can_Do_For_You")
+    engine.step(Action(DecisionKind.EVENT_CHOICE, {"choice": "Containment"}))
+    engine.step(Action(DecisionKind.EVENT_CHOICE, {"choice": "stop"}))
+    assert len(engine.hands["US"]) == 2  # one discarded, one drawn
+    assert "Containment" in engine.discard_pile
+    assert "Containment" not in engine.hands["US"]
+
+
+def test_cambridge_five_places_in_a_revealed_scoring_region():
+    engine = _bare()
+    engine.hands["US"] = ["Asia_Scoring", "NATO"]  # US holds the Asia scoring card
+    engine._fire_event(Side.USSR, "The_Cambridge_Five")
+    decision = engine.pending_decision
+    assert decision.kind is DecisionKind.EVENT_INFLUENCE and decision.actor is Side.USSR
+    assert all(
+        engine.board.countries[a.payload["country"]].region.value == "ASIA"
+        for a in decision.options
+    )
+
+
+def test_cambridge_five_no_op_without_us_scoring_cards():
+    engine = _bare()
+    engine.hands["US"] = ["NATO", "Containment"]
+    engine._fire_event(Side.USSR, "The_Cambridge_Five")
+    assert engine.pending_decision is None
+
+
 # -- the "opponent event fires when played for Ops" rule --------------------
 
 
@@ -821,13 +1025,13 @@ def test_headline_event_interrupt_drains_before_the_second_card():
 
 def test_headline_non_event_card_is_still_a_no_op_discard():
     engine = _bare(seed=2)
-    # Socialist Governments has no implemented event yet: headlining it must be
-    # a plain discard, exactly as in M2, even with events on.
-    _headline_setup(engine, "Socialist_Governments", "Olympic_Games")
-    engine.step(Action(DecisionKind.HEADLINE_PLAY, {"card": "Socialist_Governments"}))
-    engine.step(Action(DecisionKind.HEADLINE_PLAY, {"card": "Olympic_Games"}))
-    assert "Socialist_Governments" in engine.discard_pile
-    assert "Olympic_Games" in engine.discard_pile
+    # Quagmire and Defectors have no implemented event yet: headlining them must
+    # be a plain discard, exactly as in M2, even with events on.
+    _headline_setup(engine, "Quagmire", "Defectors")
+    engine.step(Action(DecisionKind.HEADLINE_PLAY, {"card": "Quagmire"}))
+    engine.step(Action(DecisionKind.HEADLINE_PLAY, {"card": "Defectors"}))
+    assert "Quagmire" in engine.discard_pile
+    assert "Defectors" in engine.discard_pile
     assert engine.phase == "action_rounds"
 
 

@@ -75,6 +75,12 @@ CHINA_CARD_ID = "The_China_Card"
 # an *opponent's* card for Ops while cancelling that card's event.
 UN_INTERVENTION_ID = "UN_Intervention"
 
+# The "war" cards, tracked so Flower Power can score the USSR each time the US
+# plays one (for its Event or Operations).
+WAR_CARDS = frozenset(
+    {"Korean_War", "Arab_Israeli_War", "Indo_Pakistani_War", "Brush_War", "Iran_Iraq_War"}
+)
+
 # Additional influence each side places by choice during setup, after the
 # printed at-start influence: the USSR into Eastern Europe, the US into
 # Western Europe. VERIFY the exact counts against the rulebook.
@@ -563,10 +569,19 @@ class Engine:
         )
         return [[s.value, picks[s]] for s in order]
 
+    def _maybe_flower_power(self, side: Side, cid: str) -> None:
+        """Flower Power: the USSR scores 2 VP each time the US plays a war card
+        (for its Event or Operations), until An Evil Empire cancels it."""
+        if side is Side.US and cid in WAR_CARDS and self.game_effects.get("flower_power"):
+            self._award_vp(Side.USSR, 2)
+
     def _resolve_headline_card(self, side: Side, cid: str) -> None:
         """Resolve one headlined card for its owner. A scoring card scores; with
         events on, a card with an implemented event fires it (and may enqueue
         sub-decisions); otherwise it is a no-op discard (M2 behavior)."""
+        self._maybe_flower_power(side, cid)
+        if self.is_terminal:
+            return
         card = self.cards[cid]
         if card.scoring:
             self._resolve_scoring_card(cid)
@@ -649,6 +664,11 @@ class Engine:
         cid = decision.context["card"]
         card = self.cards[cid]
         mode = action.payload["mode"]
+
+        if mode in ("event", "ops", "un_intervention"):
+            self._maybe_flower_power(side, cid)
+            if self.is_terminal:
+                return
 
         if mode == "event":
             if card.scoring:
@@ -1006,23 +1026,29 @@ class Engine:
         self._maybe_push_event_influence(context)
 
     def push_event_choice(
-        self, event: str, choose_side: Side, choices: tuple[str, ...]
+        self,
+        event: str,
+        choose_side: Side,
+        choices: tuple[str, ...],
+        extra: dict | None = None,
     ) -> None:
-        """Offer a player a branch within an event (routed by events.py)."""
+        """Offer a player a branch within an event (routed by events.py). `extra`
+        merges extra JSON-native keys into the decision context, so a router can
+        carry running state (e.g. Ask Not's discard count, Grain Sales' card)."""
         options = tuple(
             Action(DecisionKind.EVENT_CHOICE, {"choice": c}) for c in choices
         )
-        self._push(
-            choose_side, DecisionKind.EVENT_CHOICE, options,
-            {"event": event, "choose_side": choose_side.value},
-        )
+        context = {"event": event, "choose_side": choose_side.value}
+        if extra:
+            context.update(extra)
+        self._push(choose_side, DecisionKind.EVENT_CHOICE, options, context)
 
     def _handle_event_choice(self, decision: Decision, action: Action) -> None:
         from struggler.events import CHOICE_ROUTERS
 
         event = decision.context["event"]
         side = Side(decision.context["choose_side"])
-        CHOICE_ROUTERS[event](self, side, action.payload["choice"])
+        CHOICE_ROUTERS[event](self, side, action.payload["choice"], decision.context)
 
     # -- M3: influence / control helpers used by events ---------------------
 
@@ -1090,9 +1116,73 @@ class Engine:
                 self._fire_event(owner, card)
             else:
                 self._file_card(owner, card, fired=False)
+        elif ctx["purpose"] == "grain_sales":
+            # The revealed card is not filed yet: the opponent (US) decides to
+            # take it (use its Ops, then discard) or return it (use Grain Sales'
+            # own 2 Ops). It stays in the USSR hand until then.
+            self.push_event_choice(
+                "Grain_Sales_to_Soviets", owner.opponent, ("take", "return"),
+                extra={"card": card},
+            )
         else:  # plain forced discard (Terrorism), possibly repeated
             self._file_card(owner, card, fired=False)
             self.push_random_discard(owner, ctx["purpose"], ctx["count"] - 1)
+
+    def draw_cards_to_hand(self, side: Side, n: int) -> None:
+        """Draw `n` cards from the deck into `side`'s hand (Ask Not's redraw)."""
+        for _ in range(n):
+            card = self._draw_card()
+            if card is None:
+                break
+            self.hands[side.value].append(card)
+
+    # -- M3: a two-die "both roll, higher wins" contest ---------------------
+    #
+    # Both sides roll (from the seeded RNG, logged as a single CHANCE option),
+    # a per-side modifier is added, ties reroll, and the winner takes `vp`.
+    # An optional per-event follow-up (events.CONTEST_RESOLVERS) runs after.
+
+    def push_dice_contest(
+        self, event: str, sponsor: Side, sponsor_mod: int, defender_mod: int, vp: int
+    ) -> None:
+        s_roll, d_roll = self._roll_d6(), self._roll_d6()
+        self._push(
+            Side.CHANCE, DecisionKind.CONTEST_ROLL,
+            (Action(DecisionKind.CONTEST_ROLL,
+                    {"sponsor_roll": s_roll, "defender_roll": d_roll}),),
+            {"event": event, "sponsor": sponsor.value,
+             "sponsor_mod": sponsor_mod, "defender_mod": defender_mod, "vp": vp},
+        )
+
+    def _handle_contest_roll(self, decision: Decision, action: Action) -> None:
+        from struggler.events import CONTEST_RESOLVERS
+
+        ctx = decision.context
+        sponsor = Side(ctx["sponsor"])
+        s_total = action.payload["sponsor_roll"] + ctx["sponsor_mod"]
+        d_total = action.payload["defender_roll"] + ctx["defender_mod"]
+        if s_total == d_total:  # tie: reroll
+            self.push_dice_contest(
+                ctx["event"], sponsor, ctx["sponsor_mod"], ctx["defender_mod"], ctx["vp"]
+            )
+            return
+        winner = sponsor if s_total > d_total else sponsor.opponent
+        if ctx["vp"]:
+            self._award_vp(winner, ctx["vp"])
+        if self.is_terminal:
+            return
+        resolver = CONTEST_RESOLVERS.get(ctx["event"])
+        if resolver is not None:
+            resolver(self, sponsor, winner)
+
+    def _regions_dominated(self, side: Side) -> int:
+        """How many regions `side` Dominates or Controls (Summit's modifier)."""
+        return sum(
+            1
+            for region in Region
+            if self.board.region_tier(side, region)
+            in (ScoringTier.DOMINATION, ScoringTier.CONTROL)
+        )
 
     # -- M3: the "war" family (seeded CHANCE roll) --------------------------
 
@@ -1289,6 +1379,7 @@ class Engine:
             DecisionKind.EVENT_INFLUENCE: self._handle_event_influence,
             DecisionKind.EVENT_CHOICE: self._handle_event_choice,
             DecisionKind.RANDOM_DISCARD: self._handle_random_discard,
+            DecisionKind.CONTEST_ROLL: self._handle_contest_roll,
         }[decision.kind]
         handler(decision, action)
 
@@ -1310,12 +1401,22 @@ class Engine:
 
     # -- influence placement --------------------------------------------------
 
+    def _chernobyl_blocks(self, side: Side, cid: str) -> bool:
+        """Chernobyl: the USSR may not add Influence via Operations to the
+        designated region for the rest of the turn (events still may)."""
+        return (
+            side is Side.USSR
+            and self.turn_effects.get("chernobyl") == self.board.countries[cid].region.value
+        )
+
     def _place_influence_options(self, side: Side, ops_remaining: int) -> tuple[Action, ...]:
         options = []
         for cid in self.board.countries:
             if not self.board.is_reachable(side, cid):
                 continue
             if self.board.influence_cost(side, cid) > ops_remaining:
+                continue
+            if self._chernobyl_blocks(side, cid):
                 continue
             options.append(Action(DecisionKind.PLACE_INFLUENCE, {"country": cid}))
         return tuple(options)
@@ -1339,6 +1440,8 @@ class Engine:
         options = []
         for cid in self.board.countries:
             if not self.board.is_reachable(side, cid):
+                continue
+            if self._chernobyl_blocks(side, cid):
                 continue
             cost = self.board.influence_cost(side, cid)
             in_region = self._in_bonus_region(cid, bonus)
@@ -1451,6 +1554,15 @@ class Engine:
         )
         if not nuclear_subs:
             self._change_defcon(-1, caused_by=side)
+
+        # Yuri and Samantha: the USSR scores 1 VP for every US coup attempt,
+        # for the rest of the game.
+        if (
+            side is Side.US
+            and self.game_effects.get("yuri_samantha")
+            and not self.is_terminal
+        ):
+            self._award_vp(Side.USSR, 1)
 
     def _coup_roll_modifier(self, side: Side, info) -> int:
         """Per-turn additive modifiers to a coup roll: Latin American Death
@@ -1594,7 +1706,10 @@ class Engine:
         actor_roll = decision.context["actor_roll"]
         opp_roll = action.payload["value"]
 
-        actor_total = actor_roll + card_ops + self._realignment_bonus(side, country)
+        actor_total = (
+            actor_roll + card_ops + self._realignment_bonus(side, country)
+            + self._realignment_modifier(side)
+        )
         opp_total = opp_roll + self._realignment_bonus(opponent, country)
         margin = actor_total - opp_total
         if margin > 0:
@@ -1612,6 +1727,13 @@ class Engine:
         bonus = 1 if self.board.is_adjacent(side.value, country) else 0
         bonus += sum(1 for n in self.board.neighbors(country) if self.board.control(n) is side)
         return bonus
+
+    def _realignment_modifier(self, side: Side) -> int:
+        """Per-turn additive modifier to the acting side's realignment roll
+        (Iran-Contra Scandal: -1 to US realignment rolls this turn)."""
+        if side is Side.US and self.turn_effects.get("iran_contra"):
+            return -1
+        return 0
 
     # -- shared -------------------------------------------------------------
 

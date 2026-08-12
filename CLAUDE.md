@@ -251,7 +251,7 @@ historical "Ops-only" toggle.
   the stack stores only the event id and the chosen option — never a
   function). These steps live on the same decision stack, so they are
   hosted correctly inside a headline or an opponent's Ops play.
-- **Implemented so far** (66 card events registered; the trickier ones have
+- **Implemented so far** (77 card events registered; the trickier ones have
   a dedicated unit test, and the loop is covered by a property test and the
   `m3_events.json` golden). Grouped by the primitive they reuse:
   - *Immediate fixed board/VP/DEFCON/Space effects:* Duck and Cover, Fidel,
@@ -271,14 +271,33 @@ historical "Ops-only" toggle.
     reveals only the drawn card):* Five Year Plan (a discarded USSR event
     fires), Terrorism (opponent discards, twice after Iranian Hostage
     Crisis).
-  - *Per-turn coup modifiers (`turn_effects`, consulted in the coup roll):*
-    Nuclear Subs (US Battleground coups skip the DEFCON degrade), Latin
-    American Death Squads (±1 to Americas coup rolls), SALT Negotiations
-    (-1 to both sides' coups). Set-DEFCON branch: How I Learned to Stop
-    Worrying (`set_defcon` + 5 military Ops).
+  - *Per-turn coup/realign modifiers:* Nuclear Subs (US Battleground coups
+    skip the DEFCON degrade), Latin American Death Squads (±1 to Americas
+    coup rolls), SALT Negotiations (-1 to both sides' coups), Iran-Contra
+    Scandal (-1 to US realignment via `_realignment_modifier`), Chernobyl
+    (a chosen region bars USSR Ops influence, via `_chernobyl_blocks`).
+    Set-DEFCON branch: How I Learned to Stop Worrying (`set_defcon` + 5
+    military Ops).
+  - *Persistent game-long triggers (`game_effects`):* Yuri and Samantha
+    (USSR +1 VP per US coup, in `_handle_coup_roll`), Flower Power (USSR +2
+    VP per US war-card play, via `_maybe_flower_power`, cancelled by An Evil
+    Empire).
+  - *Dice-contest / branch (`push_dice_contest` — both roll, ties reroll,
+    higher wins, logged as `CONTEST_ROLL`):* Olympic Games (opponent
+    boycotts or a +2 contest), Summit (regional-domination modifiers, winner
+    takes 2 VP then adjusts DEFCON), Wargames (only at DEFCON 2: give the
+    opponent 6 VP and final-score the game).
   - *Reclaim from the discard pile (`push_take_from_discard`):* SALT
     Negotiations (also DEFCON +2) — the player takes one non-scoring card
     from the public discard back to hand.
+  - *Revealing/taking cards from the opponent's hand (the reveal is
+    sanctioned by the card, so surfacing the involved cards as decision
+    options is correct, not a leak):* Aldrich Ames Remix (USSR discards a
+    chosen US card), Grain Sales to Soviets (one random USSR card revealed
+    via a CHANCE step, the US takes it for its Ops or returns it for 2),
+    Ask Not… (discard any own cards and redraw as many, via
+    `draw_cards_to_hand`), The Cambridge Five (place in a region whose
+    scoring card the US holds).
   - *Per-turn regional Ops bonus:* Vietnam Revolts — generalizes the China
     Card's all-in-region +1 into a reusable "bonus region" (`_ops_bonus_region`
     / `_in_bonus_region`); the China Card is "asia", Vietnam Revolts sets a
@@ -313,23 +332,24 @@ historical "Ops-only" toggle.
   gone outside Asia) and for coups (+1 Op and +1 military Op against an
   Asian target). The realignment case is not modeled (rare).
 - **Known limitations / remaining M3 work** (tracked here as the
-  contract): 66 of the deck's ~100 non-scoring events are implemented; the
+  contract): 77 of the deck's ~100 non-scoring events are implemented; the
   rest remain no-op discards in events mode because their text needs a
   subsystem the engine does not model yet. The forced-random-discard,
-  per-turn-coup-modifier, reclaim-from-discard, region-Ops-bonus and
-  influence-then-free-operation subsystems now exist. The subsystems still
-  to build, and the cards waiting on them, are:
-  - *Revealing/taking cards from the opponent's hand:* Grain Sales to
-    Soviets, Aldrich Ames Remix, Ask Not…, The Cambridge Five.
+  per-turn coup/realign-modifier, reclaim-from-discard, region-Ops-bonus,
+  influence-then-free-operation, persistent-game-long-trigger, dice-contest
+  and hand-reveal subsystems now exist. The remaining cards, by what they
+  still need, are:
+  - *Taking the opponent's highest-Op card and playing it, then swapping:*
+    Missile Envy.
   - *Taking a card from the discard pile and playing it immediately:* Star
     Wars (the reclaim-to-hand primitive exists; the "play now" part does
     not).
-  - *Other per-turn coup/realign modifiers:* Iran-Contra Scandal, Chernobyl
-    (region influence lock), Che, Yuri and Samantha.
-  - *Dice/branch events not yet built:* Olympic Games, Summit, Cuban Missile
-    Crisis, Wargames, We Will Bury You, Missile Envy.
+  - *A free coup with a conditional repeat:* Che.
+  - *Deferred-conditional events:* Cuban Missile Crisis (per-turn "coup =
+    loss unless defused"), We Will Bury You (conditional VP unless UN
+    Intervention next round).
   - *Scoring-time modifiers / extra rounds:* Formosan Resolution, Shuttle
-    Diplomacy, North Sea Oil, Flower Power.
+    Diplomacy, North Sea Oil.
   - Plus a handful of smaller conditional/optional cards. Also unmodeled:
     the Space Race headline-reveal perk and the region bonus for
     realignment. Some implemented cards drop a minor optional clause (noted
