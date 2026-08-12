@@ -396,12 +396,12 @@ class Engine:
             return
 
         if self.phase == "action_rounds":
-            total = 2 * action_rounds(self.turn)
+            total = self._total_action_rounds()
             if self._ars_played >= total:
                 self._end_of_turn()
                 return
             idx = self._ars_played  # 0-based play index within the turn
-            side = Side.USSR if idx % 2 == 0 else Side.US
+            side = self._side_for_play_index(idx)
             self.action_round = idx // 2 + 1
             self._ars_played += 1
             self._push_action_round_play(side)
@@ -430,6 +430,12 @@ class Engine:
                 self._award_vp(side.opponent, deficit)
                 if self.is_terminal:
                     return
+        # We Will Bury You: the USSR scores 3 VP at the end of the turn unless
+        # the US cancelled it (by playing UN Intervention, see _handle_play_mode).
+        if self.turn_effects.get("we_will_bury_you"):
+            self._award_vp(Side.USSR, 3)
+            if self.is_terminal:
+                return
         # DEFCON recovers by one at the end of every turn.
         self._change_defcon(+1, caused_by=Side.US)
         # A China Card passed this turn becomes available to its new owner.
@@ -471,6 +477,21 @@ class Engine:
         self.phase = "action_rounds"
         self._ars_played = 0
         self.action_round = 1
+
+    def _total_action_rounds(self) -> int:
+        """Total card plays this turn across both sides. Normally 2*N (N per
+        side); North Sea Oil grants the US one extra action round this turn."""
+        base = 2 * action_rounds(self.turn)
+        return base + (1 if self.turn_effects.get("north_sea_oil_extra") else 0)
+
+    def _side_for_play_index(self, idx: int) -> Side:
+        """Whose play the 0-based `idx` is. The base rounds alternate USSR, US,
+        USSR, ...; any extra rounds beyond the base belong to the US (North Sea
+        Oil is the only extra-round source so far)."""
+        base = 2 * action_rounds(self.turn)
+        if idx < base:
+            return Side.USSR if idx % 2 == 0 else Side.US
+        return Side.US
 
     # -- M2: opening setup --------------------------------------------------
 
@@ -619,12 +640,15 @@ class Engine:
 
     def _remaining_action_rounds(self, side: Side) -> int:
         """Action rounds `side` still has this turn, including the one now
-        being set up. (`side` is always the side whose play is current.)"""
-        total = 2 * action_rounds(self.turn)
-        idx = self._ars_played - 1  # current 0-based play index within the turn
-        if idx < 0 or idx >= total:
+        being set up. (`side` is always the side whose play is current.)
+
+        Counted from the current play index onward so it stays correct with an
+        asymmetric extra round in play (North Sea Oil)."""
+        total = self._total_action_rounds()
+        start = self._ars_played - 1  # current 0-based play index within the turn
+        if start < 0:
             return 0
-        return (total - 1 - idx) // 2 + 1
+        return sum(1 for i in range(start, total) if self._side_for_play_index(i) is side)
 
     def _handle_action_round_play(self, decision: Decision, action: Action) -> None:
         side = decision.actor
@@ -686,7 +710,10 @@ class Engine:
 
         if mode == "un_intervention":
             # Cancel the opponent card's event; use it purely for its Ops. UN
-            # Intervention itself is spent to the discard pile.
+            # Intervention itself is spent to the discard pile. Playing it also
+            # defuses We Will Bury You's end-of-turn VP for the US.
+            if side is Side.US:
+                self.turn_effects.pop("we_will_bury_you", None)
             self.hands[side.value].remove(UN_INTERVENTION_ID)
             self.discard_pile.append(UN_INTERVENTION_ID)
             self._file_card(side, cid, fired=False)  # event cancelled: normal discard
@@ -1285,6 +1312,46 @@ class Engine:
             net = self._score_region_net(SCORING_CARD_REGION[cid])
         self._change_vp_by(net)
 
+    def _scoring_overrides(self, region: Region) -> tuple[frozenset[str], frozenset[str]]:
+        """Per-scoring board adjustments set by events, as
+        (extra_battlegrounds, ignored) for `region`.
+
+        - Formosan Resolution: while active and the US controls Taiwan, Taiwan
+          scores as a Battleground in Asia. (Persistent until the China Card is
+          played; not consumed here.)
+        - Shuttle Diplomacy: at the *next* scoring of the Middle East or Asia,
+          one USSR-controlled Battleground is not counted; the effect is
+          consumed (whichever region scores first).
+        """
+        extra_battlegrounds: set[str] = set()
+        ignored: set[str] = set()
+        if (
+            region is Region.ASIA
+            and self.game_effects.get("formosan_resolution")
+            and self.board.control("Taiwan") is Side.US
+        ):
+            extra_battlegrounds.add("Taiwan")
+        if region in (Region.MIDDLE_EAST, Region.ASIA) and self.game_effects.get(
+            "shuttle_diplomacy"
+        ):
+            dropped = self._first_ussr_battleground(region)
+            if dropped is not None:
+                ignored.add(dropped)
+            self.game_effects.pop("shuttle_diplomacy", None)  # consumed
+        return frozenset(extra_battlegrounds), frozenset(ignored)
+
+    def _first_ussr_battleground(self, region: Region) -> str | None:
+        """A USSR-controlled Battleground in `region` (canonical order), or
+        None. Shuttle Diplomacy drops exactly one from the USSR tally."""
+        for cid, info in self.board.countries.items():
+            if (
+                info.region is region
+                and info.battleground
+                and self.board.control(cid) is Side.USSR
+            ):
+                return cid
+        return None
+
     def _score_region_net(self, region: Region) -> int:
         # Controlling all of Europe when Europe is scored wins outright.
         if region is Region.EUROPE:
@@ -1292,6 +1359,7 @@ class Engine:
             if controller is not None:
                 self._win(controller, "europe_control")
                 return 0
+        extra_bg, ignored = self._scoring_overrides(region)
         presence, domination, control = SCORING[region]
         tier_value = {
             ScoringTier.NONE: 0,
@@ -1300,7 +1368,7 @@ class Engine:
         }
 
         def value_for(s: Side) -> int:
-            tier = self.board.region_tier(s, region)
+            tier = self.board.region_tier(s, region, extra_bg, ignored)
             if tier is ScoringTier.CONTROL:
                 # Europe leaves its Control value undefined (full control is
                 # the win handled above); approximate as Domination. VERIFY.
@@ -1346,7 +1414,9 @@ class Engine:
     def _file_card(self, side: Side, cid: str, fired: bool) -> None:
         if cid == CHINA_CARD_ID:
             # The China Card is never discarded: it passes to the opponent
-            # face-down and becomes available to them next turn.
+            # face-down and becomes available to them next turn. Playing it also
+            # nullifies Formosan Resolution for the rest of the game.
+            self.game_effects.pop("formosan_resolution", None)
             self.china_card_owner = side.opponent.value
             self.china_card_available = False
             return
@@ -1537,12 +1607,19 @@ class Engine:
         roll = action.payload["value"]
         info = self.board.countries[country]
 
+        # Cuban Missile Crisis: any coup attempt by the flagged side this turn
+        # is Global Thermonuclear War — that side loses immediately.
+        if self.turn_effects.get("cuban_missile_crisis") == side.value:
+            self._win(side.opponent, "cuban_missile_crisis")
+            return
+
+        opp_removed = 0
         margin = roll + ops - 2 * info.stability + self._coup_roll_modifier(side, info)
         if margin > 0:
             opponent = side.opponent
-            removed = min(margin, self.board.influence[country][opponent.value])
-            self.board.influence[country][opponent.value] -= removed
-            leftover = margin - removed
+            opp_removed = min(margin, self.board.influence[country][opponent.value])
+            self.board.influence[country][opponent.value] -= opp_removed
+            leftover = margin - opp_removed
             self.board.influence[country][side.value] += leftover
 
         # Every coup attempt degrades DEFCON by 1 — except a US coup in a
@@ -1563,6 +1640,18 @@ class Engine:
             and not self.is_terminal
         ):
             self._award_vp(Side.USSR, 1)
+
+        # Che: a coup that removed opponent Influence grants ONE second free coup
+        # against a *different* country in the same regions (len(used) < 2 caps
+        # the chain at two attempts total).
+        che = decision.context.get("che")
+        if (
+            che is not None
+            and opp_removed > 0
+            and not self.is_terminal
+            and len(che["used"]) < 2
+        ):
+            self.push_che_coup(side, che["ops"], che["candidates"], used=che["used"])
 
     def _coup_roll_modifier(self, side: Side, info) -> int:
         """Per-turn additive modifiers to a coup roll: Latin American Death
@@ -1647,6 +1736,102 @@ class Engine:
         if not choices:
             return
         self.push_event_choice(event, side, choices + ("none",))
+
+    def play_card_from_discard(self, side: Side, cid: str) -> None:
+        """Play `cid` — already pulled out of the discard pile — immediately for
+        its event, on `side`'s behalf (Star Wars). Files it afterwards (removed
+        if it is a remove-after-event card), exactly like a normal event play; an
+        unimplemented event is a no-op discard."""
+        card = self.cards[cid]
+        if card.scoring:
+            self._resolve_scoring_card(cid)
+            if not self.is_terminal:
+                self._file_card(side, cid, fired=True)
+            return
+        if self._has_event(cid) and EVENTS[cid].eligible(self, side):
+            self._file_card(side, cid, fired=True)
+            self._fire_event(side, cid)
+        else:
+            self._file_card(side, cid, fired=False)
+
+    # -- M3: Che — a free coup with a conditional repeat --------------------
+
+    def push_che_coup(
+        self, side: Side, ops: int, candidates: list[str], used: tuple[str, ...] = ()
+    ) -> None:
+        """Offer `side` a free Coup (or a decline) against one of `candidates`,
+        excluding any already couped this play (`used`). Reused for both the
+        first Che attempt and the conditional second one."""
+        used = list(used)
+        targets = [
+            cid
+            for cid in candidates
+            if cid not in used
+            and self._coup_defcon_ok(cid)
+            and self._usable_coup_realign_target(side, cid)
+        ]
+        if not targets:
+            return
+        self.push_event_choice(
+            "Che", side, tuple(targets) + ("none",),
+            extra={"che_ops": ops, "che_candidates": list(candidates), "che_used": used},
+        )
+
+    def begin_che_coup(
+        self, side: Side, country: str, ops: int, candidates: list[str], used: list[str]
+    ) -> None:
+        """Resolve a chosen Che coup: it counts as military Ops, then a logged
+        CHANCE roll decides it. The COUP_ROLL context carries the `che` state so
+        _handle_coup_roll can offer the second attempt if this one removes US
+        Influence."""
+        self.military_ops[side.value] += ops
+        used = list(used) + [country]
+        roll = self._roll_d6()
+        self._push(
+            Side.CHANCE,
+            DecisionKind.COUP_ROLL,
+            (Action(DecisionKind.COUP_ROLL, {"value": roll}),),
+            {
+                "side": side.value, "country": country, "ops": ops,
+                "che": {"ops": ops, "candidates": list(candidates), "used": used},
+            },
+        )
+
+    # -- M3: Missile Envy — take the opponent's top-Ops card and use it -----
+
+    def missile_envy_take(self, taker: Side, cid: str) -> None:
+        """`taker` takes `cid` from the giver and either uses it (a neutral card
+        or one of the taker's own events → Ops-or-Event choice) or is forced to
+        Ops only (a scoring card or the giver's own event).
+
+        The card is left in the giver's hand until `missile_envy_use` actually
+        resolves it, so it is never in limbo while the Ops-or-Event choice is
+        pending (the same convention Grain Sales uses for its revealed card)."""
+        card = self.cards[cid]
+        ops_only = card.scoring or card.side.value == taker.opponent.value
+        if ops_only:
+            self.missile_envy_use(taker, cid, "ops")
+        else:
+            self.push_event_choice(
+                "Missile_Envy_use", taker, ("ops", "event"), extra={"card": cid}
+            )
+
+    def missile_envy_use(self, taker: Side, cid: str, mode: str) -> None:
+        """Resolve the taken card as `mode` for `taker`: fire its event, or
+        conduct its Ops. The card leaves the giver's hand here and is filed
+        (removed if it is a remove-after-event card whose event fired)."""
+        giver = taker.opponent
+        if cid in self.hands[giver.value]:
+            self.hands[giver.value].remove(cid)
+        card = self.cards[cid]
+        if mode == "event":
+            implemented = self._has_event(cid) and EVENTS[cid].eligible(self, taker)
+            self._file_card(taker, cid, fired=implemented)
+            if implemented:
+                self._fire_event(taker, cid)
+        else:  # ops
+            self.discard_pile.append(cid)
+            self.push_event_operations(taker, card.ops)
 
     # -- realignment ---------------------------------------------------------
 

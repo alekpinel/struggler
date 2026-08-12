@@ -171,16 +171,36 @@ class Board:
 
     # -- region scoring ---------------------------------------------------------
 
-    def region_tier(self, side: Side, region: Region) -> ScoringTier:
+    def region_tier(
+        self,
+        side: Side,
+        region: Region,
+        extra_battlegrounds: frozenset[str] = frozenset(),
+        ignored: frozenset[str] = frozenset(),
+    ) -> ScoringTier:
+        """The Presence/Domination/Control tier `side` holds in `region`.
+
+        `extra_battlegrounds` treats the named countries as Battlegrounds for
+        this scoring only (Formosan Resolution promotes Taiwan); `ignored`
+        treats the named countries as controlled by neither side (Shuttle
+        Diplomacy drops one USSR Battleground from the tally). Both default to
+        empty, so every existing caller is unaffected."""
         country_ids = self.countries_in(region)
-        bg_ids = [cid for cid in country_ids if self.countries[cid].battleground]
+        bg_ids = [
+            cid
+            for cid in country_ids
+            if self.countries[cid].battleground or cid in extra_battlegrounds
+        ]
         total_bg = len(bg_ids)
 
+        def controller(cid: str) -> Side | None:
+            return None if cid in ignored else self.control(cid)
+
         opponent = side.opponent
-        side_count = sum(1 for cid in country_ids if self.control(cid) is side)
-        opp_count = sum(1 for cid in country_ids if self.control(cid) is opponent)
-        side_bg = sum(1 for cid in bg_ids if self.control(cid) is side)
-        opp_bg = sum(1 for cid in bg_ids if self.control(cid) is opponent)
+        side_count = sum(1 for cid in country_ids if controller(cid) is side)
+        opp_count = sum(1 for cid in country_ids if controller(cid) is opponent)
+        side_bg = sum(1 for cid in bg_ids if controller(cid) is side)
+        opp_bg = sum(1 for cid in bg_ids if controller(cid) is opponent)
 
         if total_bg > 0 and side_bg == total_bg and side_count > opp_count:
             return ScoringTier.CONTROL

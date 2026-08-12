@@ -251,7 +251,7 @@ historical "Ops-only" toggle.
   the stack stores only the event id and the chosen option — never a
   function). These steps live on the same decision stack, so they are
   hosted correctly inside a headline or an opponent's Ops play.
-- **Implemented so far** (77 card events registered; the trickier ones have
+- **Implemented so far** (85 card events registered; the trickier ones have
   a dedicated unit test, and the loop is covered by a property test and the
   `m3_events.json` golden). Grouped by the primitive they reuse:
   - *Immediate fixed board/VP/DEFCON/Space effects:* Duck and Cover, Fidel,
@@ -326,35 +326,60 @@ historical "Ops-only" toggle.
   - *Rule-modifier (tier 4):* UN Intervention — a `un_intervention` play
     mode that spends the held UN Intervention card to use an opponent's
     (implemented, eligible) event card for Ops with its event cancelled.
+  - *Take-and-play from a hand or the discard pile:* Missile Envy
+    (`missile_envy_take`/`missile_envy_use` — take the opponent's highest-Ops
+    card, opponent breaks ties; use it for Ops, or its Event when it is neutral
+    or the taker's own; Missile Envy itself passes to the opponent's hand),
+    Star Wars (`play_card_from_discard` — eligible only while the US leads the
+    Space Race; take a non-scoring discard and fire its event now).
+  - *Free coup with a conditional repeat:* Che (`push_che_coup`/`begin_che_coup`
+    — a free USSR coup against a non-Battleground Central/South America/Africa
+    target; a second one against a different such country if the first removed
+    US Influence, capped at two via the `che` context on the `COUP_ROLL`).
+  - *Deferred per-turn conditions:* Cuban Missile Crisis (DEFCON→2; a coup by
+    the flagged side loses the game, checked in `_handle_coup_roll`; the at-risk
+    side may defuse by removing 2 Influence from Cuba/West Germany), We Will
+    Bury You (DEFCON −1; USSR +3 VP at end of turn unless the US plays UN
+    Intervention, which clears the `we_will_bury_you` turn effect).
+  - *Scoring-time modifiers / extra rounds (`_scoring_overrides`,
+    `_total_action_rounds`/`_side_for_play_index`):* Formosan Resolution (Taiwan
+    scores as an Asian Battleground while the US controls it; nullified once the
+    China Card is played), Shuttle Diplomacy (one USSR-controlled Battleground is
+    dropped at the next Middle East/Asia scoring, then consumed), North Sea Oil
+    (OPEC becomes ineligible game-long; the US plays one extra action round this
+    turn). `board.region_tier` gained optional `extra_battlegrounds`/`ignored`
+    sets so these scoring adjustments are additive and leave every other caller
+    unchanged.
 - **China Card bonus.** Playing the China Card for Ops grants its +1
   ("all Ops used in Asia") for influence (an all-or-nothing invariant in
   the placement step: the 5th point is offered only while nothing has
   gone outside Asia) and for coups (+1 Op and +1 military Op against an
   Asian target). The realignment case is not modeled (rare).
 - **Known limitations / remaining M3 work** (tracked here as the
-  contract): 77 of the deck's ~100 non-scoring events are implemented; the
+  contract): 85 of the deck's ~100 non-scoring events are implemented; the
   rest remain no-op discards in events mode because their text needs a
   subsystem the engine does not model yet. The forced-random-discard,
   per-turn coup/realign-modifier, reclaim-from-discard, region-Ops-bonus,
-  influence-then-free-operation, persistent-game-long-trigger, dice-contest
-  and hand-reveal subsystems now exist. The remaining cards, by what they
-  still need, are:
-  - *Taking the opponent's highest-Op card and playing it, then swapping:*
-    Missile Envy.
-  - *Taking a card from the discard pile and playing it immediately:* Star
-    Wars (the reclaim-to-hand primitive exists; the "play now" part does
-    not).
-  - *A free coup with a conditional repeat:* Che.
-  - *Deferred-conditional events:* Cuban Missile Crisis (per-turn "coup =
-    loss unless defused"), We Will Bury You (conditional VP unless UN
-    Intervention next round).
-  - *Scoring-time modifiers / extra rounds:* Formosan Resolution, Shuttle
-    Diplomacy, North Sea Oil.
-  - Plus a handful of smaller conditional/optional cards. Also unmodeled:
-    the Space Race headline-reveal perk and the region bonus for
-    realignment. Some implemented cards drop a minor optional clause (noted
-    in `events.py` docstrings, e.g. Ortega's free coup, Tear Down This
-    Wall's Operations, Junta's "single country") — the documented rough
+  influence-then-free-operation, persistent-game-long-trigger, dice-contest,
+  hand-reveal, take-and-play, free-coup-repeat, deferred-per-turn-condition
+  and scoring-time-modifier subsystems now exist. The cards still unimplemented
+  need one of a few remaining subsystems — a persistent scoring/legality hook
+  (Formosan-style) for cards such as NORAD, Special Relationship and Nixon
+  Plays the China Card; a "reveal/peek at a hand for the turn" for Our Man in
+  Tehran; and assorted one-off conditionals (Bear Trap, Quagmire, Arms Race,
+  De-Stalinization, Glasnost, and the smaller Late-War cards).
+  - Documented simplifications on the newly added cards (rough edges,
+    consistent with the rest of M3): Missile Envy does not force the opponent
+    to play the received Missile Envy card on their next action round (it is
+    simply added to their hand); Cuban Missile Crisis offers its defuse
+    immediately rather than at any later point in the turn; Shuttle Diplomacy is
+    filed to the discard when played rather than kept "in front of you" (only
+    the effect flag matters); Star Wars fires the taken card's event exactly like
+    a normal event play.
+  - Still unmodeled generally: the Space Race headline-reveal perk and the
+    region bonus for realignment. Some implemented cards drop a minor optional
+    clause (noted in `events.py` docstrings, e.g. Ortega's free coup, Tear Down
+    This Wall's Operations, Junta's "single country") — the documented rough
     edges.
 
 ## Testing strategy
