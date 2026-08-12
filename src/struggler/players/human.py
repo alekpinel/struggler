@@ -15,7 +15,9 @@ def _format_action(action: Action) -> str:
 def _format_event(event: Event) -> str:
     return (
         f"  {event.actor.value}: {_format_action(event.action)}"
-        f" (DEFCON {event.defcon}, VP {event.vp}, turn {event.turn}.{event.action_round})"
+        f" (DEFCON {event.defcon}, VP {event.vp}, turn {event.turn}.{event.action_round},"
+        f" space race US={event.space_race.get('US', 0)}/USSR={event.space_race.get('USSR', 0)},"
+        f" military ops US={event.military_ops.get('US', 0)}/USSR={event.military_ops.get('USSR', 0)})"
     )
 
 
@@ -69,11 +71,23 @@ class HumanPlayer:
 
 
 def _print_board(observation: Observation) -> None:
-    print(f"\nBoard (DEFCON {observation.defcon}, VP {observation.vp}):")
+    print(f"\nBoard (DEFCON {observation.defcon}, VP {observation.vp}, phase {observation.phase}):")
     for country, infl in sorted(observation.influence.items()):
         us, ussr = infl.get("US", 0), infl.get("USSR", 0)
         if us or ussr:
             print(f"  {country}: US={us} USSR={ussr}")
+    print(
+        f"Space race: US={observation.space_race.get('US', 0)} "
+        f"USSR={observation.space_race.get('USSR', 0)}"
+    )
+    print(
+        f"Military ops: US={observation.military_ops.get('US', 0)} "
+        f"USSR={observation.military_ops.get('USSR', 0)}"
+    )
+    if observation.turn_effects:
+        print(f"Turn effects: {dict(observation.turn_effects)}")
+    if observation.game_effects:
+        print(f"Game effects: {dict(observation.game_effects)}")
     print(
         f"Hand: {list(observation.hand)} "
         f"(opponent holds {observation.opponent_hand_size} card(s))"

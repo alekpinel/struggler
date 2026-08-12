@@ -126,6 +126,50 @@ def test_random_full_game_terminates_with_invariants(seed, driver_seed):
     assert engine.winner in (Side.US, Side.USSR, None)
 
 
+def test_observe_exposes_public_track_state():
+    # Military ops, phase, and the M3 modifier maps are all public board
+    # state; a player needs them to reason about the game, not just the
+    # bare minimum required to stay legal.
+    engine = Engine.new_game(seed=1)
+    engine.military_ops["US"] = 3
+    engine.turn_effects["containment"] = True
+    engine.game_effects["nato"] = True
+
+    obs = engine.observe(Side.US)
+
+    assert obs.phase == engine.phase
+    assert obs.military_ops == {"US": 3, "USSR": 0}
+    assert obs.turn_effects == {"containment": True}
+    assert obs.game_effects == {"nato": True}
+    # Mutating the engine's live dicts after the fact must not retroactively
+    # change an already-taken snapshot (same discipline as `influence`).
+    engine.military_ops["US"] = 99
+    assert obs.military_ops == {"US": 3, "USSR": 0}
+
+
+def test_observe_does_not_leak_in_progress_secret_headline_pick():
+    # Headline is a simultaneous, secret reveal: while USSR has picked but
+    # US hasn't, US's Observation must not carry USSR's pick anywhere.
+    engine = Engine.new_game(seed=1)
+    while engine.pending_decision.context.get("setup"):
+        engine.step(engine.legal_actions()[0])
+    assert engine.pending_decision.kind is DecisionKind.HEADLINE_PLAY
+    assert engine.pending_decision.actor is Side.USSR
+    ussr_pick = engine.pending_decision.options[0]
+    engine.step(ussr_pick)  # USSR has now secretly picked; US has not
+    assert engine._headline["USSR"] is not None
+    assert engine._headline["US"] is None
+
+    obs = engine.observe(Side.US)
+
+    assert not hasattr(obs, "headline")
+    picked_card = ussr_pick.payload["card"]
+    assert picked_card not in obs.turn_effects.values()
+    assert picked_card not in obs.game_effects.values()
+    assert picked_card not in obs.hand
+    assert picked_card not in obs.discard_pile
+
+
 @settings(max_examples=15, deadline=None)
 @given(seed=st.integers(min_value=0, max_value=MAX_INT32),
        driver_seed=st.integers(min_value=0, max_value=MAX_INT32))

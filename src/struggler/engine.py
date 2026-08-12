@@ -198,6 +198,7 @@ class Engine:
         opponent = player.opponent
         return Observation(
             side=player,
+            phase=self.phase,
             defcon=self.defcon,
             vp=self.vp,
             turn=self.turn,
@@ -214,6 +215,12 @@ class Engine:
             china_card_owner=Side(self.china_card_owner),
             china_card_available=self.china_card_available,
             space_race=dict(self.space_race),
+            military_ops=dict(self.military_ops),
+            # Public M3 modifiers only (e.g. NATO, Containment) — the
+            # in-progress secret headline pick lives on `self._headline`
+            # and is never surfaced here.
+            turn_effects=copy.deepcopy(self.turn_effects),
+            game_effects=copy.deepcopy(self.game_effects),
         )
 
     @property

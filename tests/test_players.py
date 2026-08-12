@@ -66,6 +66,23 @@ def test_play_game_builds_history_of_every_resolved_decision() -> None:
     assert lengths[-1] > 0
 
 
+def test_play_game_records_space_race_and_military_ops_results() -> None:
+    engine = Engine.new_game(seed=1)
+    history: list[Event] = []
+
+    class _RecordingPlayer:
+        def choose_action(self, observation: Observation, hist: Sequence[Event]) -> Action:
+            history[:] = hist
+            return FirstLegalPlayer().choose_action(observation, hist)
+
+    play_game(engine, {Side.US: _RecordingPlayer(), Side.USSR: _RecordingPlayer()})
+
+    assert history
+    for event in history:
+        assert set(event.space_race) == {"US", "USSR"}
+        assert set(event.military_ops) == {"US", "USSR"}
+
+
 def test_human_player_returns_selected_option(monkeypatch) -> None:
     engine = Engine.new_game(seed=1)
     observation = engine.observe(engine.pending_decision.actor)

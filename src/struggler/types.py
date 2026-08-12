@@ -141,9 +141,19 @@ class Observation:
     piles are public in Twilight Struggle, so they appear in full.
     `observe(US)` and `observe(USSR)` are therefore genuinely different
     objects, not one object with a redaction flag.
+
+    `military_ops`, `turn_effects`, and `game_effects` are public board
+    state (the Military Operations track, and the M3 event modifiers
+    currently in force, e.g. NATO or Containment) — every value ever
+    stored in them is a fact both players already know once the event
+    that set it has resolved, so surfacing them here is not a leak. The
+    one exception, `Engine._headline` (each side's secret headline pick
+    before both are revealed), is deliberately never exposed and stays
+    off this dataclass.
     """
 
     side: Side
+    phase: str
     defcon: int
     vp: int
     turn: int
@@ -158,3 +168,6 @@ class Observation:
     china_card_owner: Side
     china_card_available: bool
     space_race: Mapping[str, int]
+    military_ops: Mapping[str, int]
+    turn_effects: Mapping[str, Any]
+    game_effects: Mapping[str, Any]
