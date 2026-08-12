@@ -1032,6 +1032,48 @@ class Engine:
         if ops > 0:
             self._push_ops_type(side, ops)
 
+    def set_defcon(self, level: int, caused_by: Side) -> None:
+        """Set DEFCON to `level` (How I Learned to Stop Worrying, ...). Routed
+        through _change_defcon so the DEFCON-1 loss condition still fires and
+        the caller is blamed for it."""
+        self._change_defcon(level - self.defcon, caused_by=caused_by)
+
+    # -- M3: forced random discard from a hidden hand (a CHANCE decision) ----
+    #
+    # The discard is drawn from the seeded RNG and exposed as a CHANCE decision
+    # with a *single* option — the drawn card (which is about to become public
+    # in the discard pile). The rest of the hand is never enumerated, so no
+    # hidden card leaks (mandate #4), and the log stays replayable (mandate #3).
+
+    def push_random_discard(self, owner: Side, purpose: str, count: int = 1) -> None:
+        hand = self.hands[owner.value]
+        if count <= 0 or not hand:
+            return
+        card = hand[self._rng.randrange(len(hand))]
+        self._push(
+            Side.CHANCE,
+            DecisionKind.RANDOM_DISCARD,
+            (Action(DecisionKind.RANDOM_DISCARD, {"card": card}),),
+            {"owner": owner.value, "purpose": purpose, "count": count},
+        )
+
+    def _handle_random_discard(self, decision: Decision, action: Action) -> None:
+        ctx = decision.context
+        owner = Side(ctx["owner"])
+        card = action.payload["card"]
+        if ctx["purpose"] == "five_year_plan":
+            # A discarded USSR-associated event fires (even against the USSR's
+            # own interest); anything else is just discarded.
+            info = self.cards[card]
+            if not info.scoring and info.side.value == owner.value and self._has_event(card):
+                self._file_card(owner, card, fired=True)
+                self._fire_event(owner, card)
+            else:
+                self._file_card(owner, card, fired=False)
+        else:  # plain forced discard (Terrorism), possibly repeated
+            self._file_card(owner, card, fired=False)
+            self.push_random_discard(owner, ctx["purpose"], ctx["count"] - 1)
+
     # -- M3: the "war" family (seeded CHANCE roll) --------------------------
 
     def push_war_target_choice(
@@ -1226,6 +1268,7 @@ class Engine:
             DecisionKind.WAR_TARGET: self._handle_war_target,
             DecisionKind.EVENT_INFLUENCE: self._handle_event_influence,
             DecisionKind.EVENT_CHOICE: self._handle_event_choice,
+            DecisionKind.RANDOM_DISCARD: self._handle_random_discard,
         }[decision.kind]
         handler(decision, action)
 
@@ -1367,7 +1410,7 @@ class Engine:
         roll = action.payload["value"]
         info = self.board.countries[country]
 
-        margin = roll + ops - 2 * info.stability
+        margin = roll + ops - 2 * info.stability + self._coup_roll_modifier(side, info)
         if margin > 0:
             opponent = side.opponent
             removed = min(margin, self.board.influence[country][opponent.value])
@@ -1375,9 +1418,23 @@ class Engine:
             leftover = margin - removed
             self.board.influence[country][side.value] += leftover
 
-        # Every coup attempt, anywhere, degrades DEFCON by 1 regardless of
-        # region or success.
-        self._change_defcon(-1, caused_by=side)
+        # Every coup attempt degrades DEFCON by 1 — except a US coup in a
+        # Battleground while Nuclear Subs is in effect this turn.
+        nuclear_subs = (
+            side is Side.US
+            and info.battleground
+            and self.turn_effects.get("nuclear_subs")
+        )
+        if not nuclear_subs:
+            self._change_defcon(-1, caused_by=side)
+
+    def _coup_roll_modifier(self, side: Side, info) -> int:
+        """Per-turn additive modifiers to a coup roll (Latin American Death
+        Squads: +1 for its player, -1 for the opponent, in the Americas)."""
+        lads = self.turn_effects.get("la_death_squads")
+        if lads and info.region in (Region.CENTRAL_AMERICA, Region.SOUTH_AMERICA):
+            return 1 if side.value == lads else -1
+        return 0
 
     # -- realignment ---------------------------------------------------------
 

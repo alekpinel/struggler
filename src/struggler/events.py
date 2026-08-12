@@ -372,6 +372,7 @@ def _camp_david(engine: "Engine", side: Side) -> None:
 def _iranian_hostage(engine: "Engine", side: Side) -> None:
     engine.remove_all_influence("Iran", Side.US)
     engine.add_influence("Iran", Side.USSR, 2)
+    engine.game_effects["iranian_hostage"] = True  # makes Terrorism hit the US twice
 
 
 @event("The_Iron_Lady")
@@ -664,6 +665,56 @@ def _independent_reds_choice(engine: "Engine", side: Side, choice: str) -> None:
         engine.board.influence[choice]["US"] = ussr
 
 
+# -- forced-random-discard events (a seeded CHANCE decision) ----------------
+
+
+@event("Five_Year_Plan")
+def _five_year_plan(engine: "Engine", side: Side) -> None:
+    # The USSR randomly discards a card; if it is a USSR event, that event fires.
+    engine.push_random_discard(Side.USSR, "five_year_plan")
+
+
+@event("Terrorism")
+def _terrorism(engine: "Engine", side: Side) -> None:
+    # The opponent randomly discards a card (two if the USSR plays it after the
+    # Iranian Hostage Crisis).
+    count = 2 if (side is Side.USSR and engine.game_effects.get("iranian_hostage")) else 1
+    engine.push_random_discard(side.opponent, "terrorism", count)
+
+
+# -- per-turn coup modifiers (turn_effects, cleared at end of turn) ----------
+
+
+@event("Nuclear_Subs")
+def _nuclear_subs(engine: "Engine", side: Side) -> None:
+    # US coups in Battleground countries do not degrade DEFCON this turn.
+    engine.turn_effects["nuclear_subs"] = True
+
+
+@event("Latin_American_Death_Squads")
+def _latin_american_death_squads(engine: "Engine", side: Side) -> None:
+    # +1 to the player's coup rolls (and -1 to the opponent's) in Central and
+    # South America for the rest of the turn.
+    engine.turn_effects["la_death_squads"] = side.value
+
+
+# -- set-DEFCON branch -------------------------------------------------------
+
+
+@event("How_I_Learned_to_Stop_Worrying")
+def _how_i_learned(engine: "Engine", side: Side) -> None:
+    # Set DEFCON to any level, then add 5 to the Military Operations track.
+    engine.push_event_choice(
+        "How_I_Learned_to_Stop_Worrying", side, ("1", "2", "3", "4", "5")
+    )
+
+
+def _how_i_learned_choice(engine: "Engine", side: Side, choice: str) -> None:
+    engine.set_defcon(int(choice), caused_by=side)
+    if not engine.is_terminal:
+        engine.military_ops[side.value] += 5
+
+
 # -- shared helpers ---------------------------------------------------------
 
 
@@ -681,4 +732,5 @@ def _controlled_battlegrounds(engine: "Engine", side: Side) -> int:
 CHOICE_ROUTERS: dict[str, Callable[["Engine", Side, str], None]] = {
     "Warsaw_Pact_Formed": _warsaw_pact_choice,
     "Independent_Reds": _independent_reds_choice,
+    "How_I_Learned_to_Stop_Worrying": _how_i_learned_choice,
 }

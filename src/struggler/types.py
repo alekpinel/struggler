@@ -83,6 +83,7 @@ class DecisionKind(Enum):
     WAR_TARGET = "war_target"              # a "war" event where the attacker picks the target
     EVENT_INFLUENCE = "event_influence"    # a player-choice event's targeted place/remove step
     EVENT_CHOICE = "event_choice"          # a player-choice event's branch (pick a sub-option)
+    RANDOM_DISCARD = "random_discard"      # CHANCE: a forced random discard from a hand
 
 
 class ScoringTier(Enum):

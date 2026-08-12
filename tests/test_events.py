@@ -500,6 +500,116 @@ def test_puppet_governments_only_targets_empty_countries():
     assert "Angola" not in offered and "Chile" not in offered
 
 
+# -- forced random discard subsystem (CHANCE) -------------------------------
+
+
+def test_five_year_plan_fires_a_discarded_ussr_event():
+    engine = _bare(seed=2)
+    engine.hands["USSR"] = ["Fidel"]  # single card -> deterministic draw
+    engine.board.influence["Cuba"] = {"US": 2, "USSR": 0}
+    engine._fire_event(Side.US, "Five_Year_Plan")
+    d = engine.pending_decision
+    assert d.kind is DecisionKind.RANDOM_DISCARD and d.actor is Side.CHANCE
+    assert len(d.options) == 1  # only the drawn card, never the rest of the hand
+    engine.step(d.options[0])
+    assert engine.board.control("Cuba") is Side.USSR  # Fidel fired
+    assert "Fidel" in engine.removed_cards
+
+
+def test_five_year_plan_just_discards_a_non_ussr_card():
+    engine = _bare(seed=2)
+    engine.hands["USSR"] = ["Duck_and_Cover"]  # a US event: discarded, not fired
+    engine.defcon = 5
+    engine._fire_event(Side.US, "Five_Year_Plan")
+    engine.step(engine.pending_decision.options[0])
+    assert engine.defcon == 5  # Duck and Cover did NOT fire
+    assert "Duck_and_Cover" in engine.discard_pile
+
+
+def test_random_discard_leaks_only_the_drawn_card():
+    engine = _bare(seed=3)
+    engine.hands["USSR"] = ["Fidel", "Nasser", "Allende", "COMECON"]
+    engine._fire_event(Side.US, "Five_Year_Plan")
+    visible = {a.payload["card"] for a in engine.observe(Side.US).pending_decision.options}
+    assert len(visible) == 1  # the other three hidden cards never appear
+
+
+def test_terrorism_discards_twice_after_iranian_hostage_crisis():
+    engine = _bare(seed=5)
+    engine.game_effects["iranian_hostage"] = True
+    engine.hands["US"] = ["Duck_and_Cover", "NATO", "Containment"]
+    engine._fire_event(Side.USSR, "Terrorism")  # USSR vs US -> two discards
+    discards = 0
+    while (engine.pending_decision is not None
+           and engine.pending_decision.kind is DecisionKind.RANDOM_DISCARD):
+        engine.step(engine.pending_decision.options[0])
+        discards += 1
+    assert discards == 2
+    assert len(engine.hands["US"]) == 1
+
+
+# -- per-turn coup modifiers -------------------------------------------------
+
+
+def test_nuclear_subs_spares_defcon_on_us_battleground_coup():
+    engine = _bare(seed=1)
+    engine.defcon = 5
+    engine.turn_effects["nuclear_subs"] = True
+    engine.board.influence["Italy"] = {"US": 0, "USSR": 1}  # Italy is a battleground
+    engine._push(Side.US, DecisionKind.COUP_TARGET,
+                 (Action(DecisionKind.COUP_TARGET, {"country": "Italy"}),),
+                 {"ops": 4, "china": False})
+    engine.step(Action(DecisionKind.COUP_TARGET, {"country": "Italy"}))
+    engine.step(engine.pending_decision.options[0])  # coup roll
+    assert engine.defcon == 5  # DEFCON untouched
+    # A non-battleground US coup still degrades DEFCON.
+    engine.board.influence["Lebanon"] = {"US": 0, "USSR": 1}  # not a battleground
+    engine._push(Side.US, DecisionKind.COUP_TARGET,
+                 (Action(DecisionKind.COUP_TARGET, {"country": "Lebanon"}),),
+                 {"ops": 4, "china": False})
+    engine.step(Action(DecisionKind.COUP_TARGET, {"country": "Lebanon"}))
+    engine.step(engine.pending_decision.options[0])
+    assert engine.defcon == 4
+
+
+def _resolve_coup_roll(engine: Engine, side: Side, country: str, ops: int, value: int):
+    """Drive a coup on `country` with a fixed die `value` (bypassing the RNG)."""
+    engine._push(Side.CHANCE, DecisionKind.COUP_ROLL,
+                 (Action(DecisionKind.COUP_ROLL, {"value": value}),),
+                 {"side": side.value, "country": country, "ops": ops})
+    engine.step(Action(DecisionKind.COUP_ROLL, {"value": value}))
+
+
+def test_latin_american_death_squads_shifts_coup_margins():
+    # Cuba (stability 3): a die of 3 with ops 3 gives margin 0 (a miss) normally,
+    # but +1 from Death Squads for its player makes it a hit.
+    plain = _bare(seed=1)
+    plain.board.influence["Cuba"] = {"US": 1, "USSR": 0}
+    _resolve_coup_roll(plain, Side.USSR, "Cuba", ops=3, value=3)
+    assert plain.board.influence["Cuba"]["US"] == 1  # margin 0: no removal
+
+    boosted = _bare(seed=1)
+    boosted.turn_effects["la_death_squads"] = Side.USSR.value
+    boosted.board.influence["Cuba"] = {"US": 1, "USSR": 0}
+    _resolve_coup_roll(boosted, Side.USSR, "Cuba", ops=3, value=3)
+    assert boosted.board.influence["Cuba"]["US"] == 0  # +1 margin: removed
+
+
+# -- set-DEFCON branch -------------------------------------------------------
+
+
+def test_how_i_learned_sets_defcon_and_adds_military_ops():
+    engine = _bare(seed=1)
+    engine.defcon = 5
+    engine._fire_event(Side.US, "How_I_Learned_to_Stop_Worrying")
+    assert {a.payload["choice"] for a in engine.pending_decision.options} == {
+        "1", "2", "3", "4", "5"
+    }
+    engine.step(Action(DecisionKind.EVENT_CHOICE, {"choice": "3"}))
+    assert engine.defcon == 3
+    assert engine.military_ops["US"] == 5
+
+
 # -- the "opponent event fires when played for Ops" rule --------------------
 
 

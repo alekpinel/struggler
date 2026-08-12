@@ -251,7 +251,7 @@ historical "Ops-only" toggle.
   the stack stores only the event id and the chosen option — never a
   function). These steps live on the same decision stack, so they are
   hosted correctly inside a headline or an opponent's Ops play.
-- **Implemented so far** (58 card events registered; the trickier ones have
+- **Implemented so far** (63 card events registered; the trickier ones have
   a dedicated unit test, and the loop is covered by a property test and the
   `m3_events.json` golden). Grouped by the primitive they reuse:
   - *Immediate fixed board/VP/DEFCON/Space effects:* Duck and Cover, Fidel,
@@ -267,6 +267,14 @@ historical "Ops-only" toggle.
     Brush War (attacker picks the target via `WAR_TARGET`).
   - *Events that conduct Operations (`push_event_operations`):* CIA Created,
     Lone Gunman, ABM Treaty.
+  - *Forced random discard (`RANDOM_DISCARD`, a seeded CHANCE decision that
+    reveals only the drawn card):* Five Year Plan (a discarded USSR event
+    fires), Terrorism (opponent discards, twice after Iranian Hostage
+    Crisis).
+  - *Per-turn coup modifiers (`turn_effects`, consulted in the coup roll):*
+    Nuclear Subs (US Battleground coups skip the DEFCON degrade), Latin
+    American Death Squads (±1 to Americas coup rolls). Set-DEFCON branch:
+    How I Learned to Stop Worrying (`set_defcon` + 5 military Ops).
   - *Player-choice influence (`EVENT_INFLUENCE`):* COMECON, Marshall Plan,
     Decolonization, Suez Crisis, Truman Doctrine, Warsaw Pact Formed
     (branch), Socialist Governments, Muslim Revolution, Colonial Rear
@@ -293,17 +301,18 @@ historical "Ops-only" toggle.
   gone outside Asia) and for coups (+1 Op and +1 military Op against an
   Asian target). The realignment case is not modeled (rare).
 - **Known limitations / remaining M3 work** (tracked here as the
-  contract): 58 of the deck's ~100 non-scoring events are implemented; the
+  contract): 63 of the deck's ~100 non-scoring events are implemented; the
   rest remain no-op discards in events mode because their text needs a
-  subsystem the engine does not model yet. Those subsystems (and the cards
-  waiting on them) are:
-  - *Random discard from a hidden hand:* Five Year Plan, Terrorism.
+  subsystem the engine does not model yet. The forced-random-discard and
+  per-turn-coup-modifier subsystems now exist (unlocking Five Year Plan,
+  Terrorism, Nuclear Subs, Latin American Death Squads, How I Learned).
+  The subsystems still to build, and the cards waiting on them, are:
   - *Revealing/taking cards from the opponent's hand:* Grain Sales to
     Soviets, Aldrich Ames Remix, Ask Not…, The Cambridge Five.
   - *Taking a card from the discard pile:* Star Wars, SALT Negotiations.
-  - *Per-turn regional/conditional Ops or coup modifiers:* Vietnam Revolts,
-    Latin American Death Squads, Nuclear Subs, Iran-Contra Scandal,
-    Chernobyl (region lock), Che, Yuri and Samantha.
+  - *Per-turn regional Ops bonuses / other coup-and-realign modifiers:*
+    Vietnam Revolts (all-Ops-in-SE-Asia +1), Iran-Contra Scandal, Chernobyl
+    (region influence lock), Che, Yuri and Samantha.
   - *Dice/branch events not yet built:* Olympic Games, Summit, Junta,
     Cuban Missile Crisis, Wargames, We Will Bury You, Missile Envy.
   - *Scoring-time modifiers / extra rounds:* Formosan Resolution, Shuttle
