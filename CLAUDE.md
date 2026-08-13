@@ -436,8 +436,14 @@ historical "Ops-only" toggle.
     the China Card's exact wording. Re-verifying these against the physical
     cards (or GMT's published card list) and correcting `events.py` if they're
     off is the concrete next step, not new subsystem work.
-  - Still unmodeled generally: the Space Race headline-reveal perk and the
-    region bonus for realignment.
+  - Still unmodeled generally: the Space Race box 4 headline-reveal-order
+    perk (requiring the opponent to select their Headline Event first), and
+    the region bonus for realignment. Box 6 (may discard the Held Card at
+    end of turn) and box 8 (an extra Action Round) are implemented, granted
+    only to the first side to reach the box and cancelled outright — not
+    transferred — the instant the second side also reaches it (6.4.4), via
+    `Engine._update_space_race_ability` and the `game_effects` keys
+    `space_race_discard_holder` / `space_race_extra_round_holder`.
 
 ## Testing strategy
 

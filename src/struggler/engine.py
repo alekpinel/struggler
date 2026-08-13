@@ -96,9 +96,9 @@ SETUP_ADDITIONAL = {
 # VERIFY: these numeric constants are best-effort from knowledge of the
 # physical Space Race track and have NOT been reconfirmed line-by-line. The
 # *mechanism* around them (attempt -> seeded CHANCE roll -> advance -> award)
-# is the part M2 proves; only the numbers here are provisional. The
-# functional perks some boxes grant (extra action round, headline-reveal
-# advantage, opponent-must-discard) are deferred to a later increment.
+# is the part M2 proves; only the numbers here are provisional. Box 4's
+# headline-reveal-order perk (6.4.4) remains unmodeled; boxes 2, 6 and 8's
+# perks are implemented below.
 SPACE_RACE_BOXES: dict[int, dict[str, int]] = {
     1: {"ops": 2, "roll_max": 3, "vp_first": 2, "vp_second": 1},
     2: {"ops": 2, "roll_max": 4, "vp_first": 0, "vp_second": 0},
@@ -113,6 +113,13 @@ SPACE_RACE_MAX_BOX = 8
 # A side that has reached this box may make two Space Race attempts per turn
 # instead of one. VERIFY exact box.
 SPACE_RACE_TWO_ATTEMPTS_FROM_BOX = 2
+# Space Race boxes whose special ability (6.4.3-6.4.4) is modeled as a
+# granted/cancelled game_effects flag rather than a direct position check;
+# see Engine._update_space_race_ability.
+SPACE_RACE_ABILITY_KEYS: dict[int, str] = {
+    6: "space_race_discard_holder",       # may discard the Held Card at end of turn
+    8: "space_race_extra_round_holder",   # +1 Action Round per turn
+}
 
 
 class Engine:
@@ -472,11 +479,39 @@ class Engine:
         # only "for the remainder of the turn"; they lapse here.
         self.turn_effects = {}
 
+        if self._push_held_card_discard():
+            return  # HELD_CARD_DISCARD pending; _advance_past_turn_boundary resumes it
+        self._advance_past_turn_boundary()
+
+    def _advance_past_turn_boundary(self) -> None:
         if self.turn >= 10:
             self._finish_game()
             return
         self.turn += 1
         self._start_turn()
+
+    def _push_held_card_discard(self) -> bool:
+        """Space Race box 6 (Eagle/Bear has Landed): its sole holder may
+        discard their Held Card before the next deal, instead of carrying it
+        into next turn. Returns True iff a decision was pushed."""
+        holder = self.game_effects.get("space_race_discard_holder")
+        if holder is None:
+            return False
+        side = Side(holder)
+        hand = self.hands[side.value]
+        if not hand:
+            return False
+        options = tuple(
+            Action(DecisionKind.HELD_CARD_DISCARD, {"card": cid}) for cid in hand
+        ) + (Action(DecisionKind.HELD_CARD_DISCARD, {"card": "none"}),)
+        self._push(side, DecisionKind.HELD_CARD_DISCARD, options, {})
+        return True
+
+    def _handle_held_card_discard(self, decision: Decision, action: Action) -> None:
+        cid = action.payload["card"]
+        if cid != "none":
+            self._file_card(decision.actor, cid, fired=False)
+        self._advance_past_turn_boundary()
 
     def _finish_game(self) -> None:
         """End the game after turn 10: final-score every region, then decide
@@ -502,20 +537,33 @@ class Engine:
         self._ars_played = 0
         self.action_round = 1
 
+    def _extra_action_round_sides(self) -> tuple[Side, ...]:
+        """Sides granted an extra Action Round this turn, beyond the normal
+        alternating rounds, in the order those rounds are played: North Sea
+        Oil grants the US one for this turn only; Space Race box 8 (Space
+        Station) grants its sole holder one every turn for as long as it
+        holds the ability (6.4.3-6.4.4)."""
+        extra: list[Side] = []
+        if self.turn_effects.get("north_sea_oil_extra"):
+            extra.append(Side.US)
+        holder = self.game_effects.get("space_race_extra_round_holder")
+        if holder is not None:
+            extra.append(Side(holder))
+        return tuple(extra)
+
     def _total_action_rounds(self) -> int:
-        """Total card plays this turn across both sides. Normally 2*N (N per
-        side); North Sea Oil grants the US one extra action round this turn."""
-        base = 2 * action_rounds(self.turn)
-        return base + (1 if self.turn_effects.get("north_sea_oil_extra") else 0)
+        """Total card plays this turn across both sides: normally 2*N (N per
+        side), plus one per currently-held extra-round source."""
+        return 2 * action_rounds(self.turn) + len(self._extra_action_round_sides())
 
     def _side_for_play_index(self, idx: int) -> Side:
-        """Whose play the 0-based `idx` is. The base rounds alternate USSR, US,
-        USSR, ...; any extra rounds beyond the base belong to the US (North Sea
-        Oil is the only extra-round source so far)."""
+        """Whose play the 0-based `idx` is. The base rounds alternate USSR,
+        US, USSR, ...; any extra rounds beyond the base go to
+        _extra_action_round_sides(), in order."""
         base = 2 * action_rounds(self.turn)
         if idx < base:
             return Side.USSR if idx % 2 == 0 else Side.US
-        return Side.US
+        return self._extra_action_round_sides()[idx - base]
 
     # -- M2: opening setup --------------------------------------------------
 
@@ -894,6 +942,23 @@ class Engine:
         vp = box["vp_first"] if first else box["vp_second"]
         if vp:
             self._award_vp(side, vp)
+        self._update_space_race_ability(side, next_box, first)
+
+    def _update_space_race_ability(self, side: Side, box: int, first: bool) -> None:
+        """6.4.4: a Space Race special ability is granted only to the first
+        side to reach its box, and is cancelled outright (not transferred)
+        the instant the second side also reaches it. Only the abilities
+        modeled as a held flag are keyed here: box 6 (may discard the Held
+        Card) and box 8 (an extra Action Round). Box 2's double-attempt
+        ability is instead a direct position check (_space_attempts_allowed)
+        and box 4's headline-order perk remains unmodeled."""
+        key = SPACE_RACE_ABILITY_KEYS.get(box)
+        if key is None:
+            return
+        if first:
+            self.game_effects[key] = side.value
+        else:
+            self.game_effects.pop(key, None)
 
     # -- M3: card events ----------------------------------------------------
 
@@ -1515,6 +1580,7 @@ class Engine:
             DecisionKind.CONTEST_ROLL: self._handle_contest_roll,
             DecisionKind.QUAGMIRE_DISCARD: self._handle_quagmire_discard,
             DecisionKind.QUAGMIRE_ROLL: self._handle_quagmire_roll,
+            DecisionKind.HELD_CARD_DISCARD: self._handle_held_card_discard,
         }[decision.kind]
         handler(decision, action)
 
