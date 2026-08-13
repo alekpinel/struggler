@@ -77,9 +77,7 @@ def test_region_tier_presence_domination_control():
     ca = board.countries_in(Region.CENTRAL_AMERICA)
     assert board.region_tier(Side.US, Region.CENTRAL_AMERICA) is ScoringTier.NONE
 
-    # Give US control of exactly one non-battleground country -> presence
-    # only (controlling a lone battleground would already satisfy
-    # Domination: more countries AND more battlegrounds than the opponent).
+    # Give US control of exactly one non-battleground country -> presence only.
     one = next(cid for cid in ca if not board.countries[cid].battleground)
     board.influence[one]["US"] = board.countries[one].stability
     assert board.region_tier(Side.US, Region.CENTRAL_AMERICA) is ScoringTier.PRESENCE
@@ -90,6 +88,22 @@ def test_region_tier_presence_domination_control():
     assert board.region_tier(Side.US, Region.CENTRAL_AMERICA) is ScoringTier.CONTROL
 
 
+def test_region_tier_domination_requires_a_controlled_non_battleground():
+    # Rule 10.1.1: Domination requires controlling more countries AND more
+    # Battlegrounds than the opponent, *and* at least one non-Battleground
+    # country. Controlling a single lone Battleground (with the opponent
+    # controlling nothing) satisfies the first two conditions but not the
+    # third, so it must stay at PRESENCE, not DOMINATION.
+    board = Board()
+    board.influence["Mexico"]["US"] = board.countries["Mexico"].stability  # Battleground
+    assert board.countries["Mexico"].battleground
+    assert board.region_tier(Side.US, Region.CENTRAL_AMERICA) is ScoringTier.PRESENCE
+
+    # Add a controlled non-Battleground country -> now DOMINATION.
+    board.influence["Guatemala"]["US"] = board.countries["Guatemala"].stability
+    assert board.region_tier(Side.US, Region.CENTRAL_AMERICA) is ScoringTier.DOMINATION
+
+
 def test_score_region_net_swing_favors_us_positive():
     board = Board()
     ca = board.countries_in(Region.CENTRAL_AMERICA)
@@ -97,6 +111,23 @@ def test_score_region_net_swing_favors_us_positive():
         board.influence[cid]["US"] = board.countries[cid].stability
     swing = board.score_region(Region.CENTRAL_AMERICA)
     assert swing > 0  # US controls the whole region, VP swing favors US
+
+
+def test_score_region_rulebook_worked_example_10_1_2():
+    # 10.1.2's own worked example: USSR Controls Cuba (Battleground, adjacent
+    # to the US), Haiti and the Dominican Republic in Central America; the US
+    # Controls only Guatemala. USSR: Domination (3) + 1 VP (Battleground Cuba)
+    # + 1 VP (Cuba adjacent to the US) = 5. US: Presence only = 1. Net = -4.
+    board = Board()
+    board.influence["Cuba"]["USSR"] = board.countries["Cuba"].stability
+    board.influence["Haiti"]["USSR"] = board.countries["Haiti"].stability
+    board.influence["Dominican_Republic"]["USSR"] = board.countries["Dominican_Republic"].stability
+    board.influence["Guatemala"]["US"] = board.countries["Guatemala"].stability
+
+    assert board.region_tier(Side.USSR, Region.CENTRAL_AMERICA) is ScoringTier.DOMINATION
+    assert board.region_bonus_vp(Side.USSR, Region.CENTRAL_AMERICA) == 2  # Battleground + adjacency
+    assert board.region_bonus_vp(Side.US, Region.CENTRAL_AMERICA) == 0
+    assert board.score_region(Region.CENTRAL_AMERICA) == 1 - 5
 
 
 def test_score_region_europe_control_raises_instead_of_guessing():

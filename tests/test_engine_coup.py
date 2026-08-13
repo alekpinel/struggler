@@ -34,6 +34,7 @@ def test_coup_pushes_chance_decision_then_resolves_by_formula():
 def test_every_coup_degrades_defcon_regardless_of_region_or_success():
     for country in ("France", "Guatemala"):  # Europe and non-Europe
         engine = Engine(seed=3)
+        engine.board.influence[country]["USSR"] = 1  # opponent Influence required to coup
         before = engine.defcon
         engine.begin_coup(Side.US, ops=5)
         target = next(a for a in engine.legal_actions() if a.payload["country"] == country)
@@ -45,6 +46,8 @@ def test_every_coup_degrades_defcon_regardless_of_region_or_success():
 def test_coup_region_restrictions_by_defcon_threshold():
     # Europe needs DEFCON 5, Asia needs DEFCON 4, Middle East needs DEFCON 3.
     engine = Engine(seed=1)
+    for country in ("France", "Japan", "Egypt", "Guatemala"):
+        engine.board.influence[country]["USSR"] = 1  # opponent Influence required to coup
     engine.defcon = 4
     offered = {a.payload["country"] for a in engine._coup_target_options(Side.US)}
     assert "France" not in offered  # Europe: requires DEFCON 5
@@ -94,5 +97,18 @@ def test_full_control_of_europe_does_not_auto_win():
     engine.step(action)
 
     assert engine.board.controls_all_of_europe() is Side.US
+
+
+def test_coup_requires_opponent_influence_in_target():
+    # Rule 6.3.1: a Coup may only be attempted where the opponent holds at
+    # least 1 Influence.
+    engine = Engine(seed=1)
+    assert engine.board.influence["Guatemala"]["USSR"] == 0
+    offered = {a.payload["country"] for a in engine._coup_target_options(Side.US)}
+    assert "Guatemala" not in offered
+
+    engine.board.influence["Guatemala"]["USSR"] = 1
+    offered = {a.payload["country"] for a in engine._coup_target_options(Side.US)}
+    assert "Guatemala" in offered
     assert not engine.is_terminal
     assert engine.winner is None

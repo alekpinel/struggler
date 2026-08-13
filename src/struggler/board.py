@@ -204,16 +204,45 @@ class Board:
 
         if total_bg > 0 and side_bg == total_bg and side_count > opp_count:
             return ScoringTier.CONTROL
-        if side_count > opp_count and side_bg > opp_bg:
+        if (
+            side_count > opp_count
+            and side_bg > opp_bg
+            and side_count > side_bg  # must also Control >=1 non-Battleground (10.1.1)
+        ):
             return ScoringTier.DOMINATION
         if side_count > 0:
             return ScoringTier.PRESENCE
         return ScoringTier.NONE
 
+    def region_bonus_vp(
+        self,
+        side: Side,
+        region: Region,
+        extra_battlegrounds: frozenset[str] = frozenset(),
+        ignored: frozenset[str] = frozenset(),
+    ) -> int:
+        """Additional VP `side` scores in `region` on top of its Presence/
+        Domination/Control tier (10.1.2): +1 VP per Battleground country it
+        Controls there, plus +1 VP per country it Controls there that is
+        adjacent to the enemy superpower. `extra_battlegrounds`/`ignored`
+        mirror region_tier's scoring overrides."""
+        bonus = 0
+        for cid in self.countries_in(region):
+            if cid in ignored:
+                continue
+            if self.control(cid) is not side:
+                continue
+            if self.countries[cid].battleground or cid in extra_battlegrounds:
+                bonus += 1
+            if self.is_adjacent(side.opponent.value, cid):
+                bonus += 1
+        return bonus
+
     def score_region(self, region: Region) -> int:
         """Net VP swing from scoring `region` now (positive favors US,
-        negative favors USSR), per the standalone Presence/Domination/
-        Control tier each side independently achieves."""
+        negative favors USSR): each side's Presence/Domination/Control tier
+        value, plus its 10.1.2 bonuses (+1 VP per Battleground Controlled,
+        +1 VP per country Controlled adjacent to the enemy superpower)."""
         presence_vp, domination_vp, control_vp = SCORING[region]
         tier_value = {
             ScoringTier.NONE: 0,
@@ -230,8 +259,10 @@ class Board:
                         "value defined (Europe's full control is an immediate win, not "
                         "a scoring-card outcome — see Board.controls_all_of_europe)."
                     )
-                return control_vp
-            return tier_value[tier]
+                base = control_vp
+            else:
+                base = tier_value[tier]
+            return base + self.region_bonus_vp(side, region)
 
         return value_for(Side.US) - value_for(Side.USSR)
 

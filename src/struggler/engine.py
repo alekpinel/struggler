@@ -48,9 +48,9 @@ COUP_MIN_DEFCON: dict[Region, int] = {
 _DEFAULT_MIN_DEFCON = 1
 
 # Every coup attempt, in any region, degrades DEFCON by 1, regardless of
-# success. Confirmed against the physical game. Realignment is NOT subject
-# to the COUP_MIN_DEFCON restriction above (only coups are) — this remains
-# an unconfirmed assumption.
+# success. Confirmed against the physical game. Realignment is subject to
+# the same COUP_MIN_DEFCON restriction above (8.1.5 restricts "Coup or
+# Realignment rolls" identically) — enforced in _usable_coup_realign_target.
 
 # VP required to win outright; the track runs to 20 in either direction.
 VP_TO_WIN = 20
@@ -96,9 +96,9 @@ SETUP_ADDITIONAL = {
 # VERIFY: these numeric constants are best-effort from knowledge of the
 # physical Space Race track and have NOT been reconfirmed line-by-line. The
 # *mechanism* around them (attempt -> seeded CHANCE roll -> advance -> award)
-# is the part M2 proves; only the numbers here are provisional. The
-# functional perks some boxes grant (extra action round, headline-reveal
-# advantage, opponent-must-discard) are deferred to a later increment.
+# is the part M2 proves; only the numbers here are provisional. Box 4's
+# headline-reveal-order perk (6.4.4) remains unmodeled; boxes 2, 6 and 8's
+# perks are implemented below.
 SPACE_RACE_BOXES: dict[int, dict[str, int]] = {
     1: {"ops": 2, "roll_max": 3, "vp_first": 2, "vp_second": 1},
     2: {"ops": 2, "roll_max": 4, "vp_first": 0, "vp_second": 0},
@@ -113,6 +113,13 @@ SPACE_RACE_MAX_BOX = 8
 # A side that has reached this box may make two Space Race attempts per turn
 # instead of one. VERIFY exact box.
 SPACE_RACE_TWO_ATTEMPTS_FROM_BOX = 2
+# Space Race boxes whose special ability (6.4.3-6.4.4) is modeled as a
+# granted/cancelled game_effects flag rather than a direct position check;
+# see Engine._update_space_race_ability.
+SPACE_RACE_ABILITY_KEYS: dict[int, str] = {
+    6: "space_race_discard_holder",       # may discard the Held Card at end of turn
+    8: "space_race_extra_round_holder",   # +1 Action Round per turn
+}
 
 
 class Engine:
@@ -472,11 +479,39 @@ class Engine:
         # only "for the remainder of the turn"; they lapse here.
         self.turn_effects = {}
 
+        if self._push_held_card_discard():
+            return  # HELD_CARD_DISCARD pending; _advance_past_turn_boundary resumes it
+        self._advance_past_turn_boundary()
+
+    def _advance_past_turn_boundary(self) -> None:
         if self.turn >= 10:
             self._finish_game()
             return
         self.turn += 1
         self._start_turn()
+
+    def _push_held_card_discard(self) -> bool:
+        """Space Race box 6 (Eagle/Bear has Landed): its sole holder may
+        discard their Held Card before the next deal, instead of carrying it
+        into next turn. Returns True iff a decision was pushed."""
+        holder = self.game_effects.get("space_race_discard_holder")
+        if holder is None:
+            return False
+        side = Side(holder)
+        hand = self.hands[side.value]
+        if not hand:
+            return False
+        options = tuple(
+            Action(DecisionKind.HELD_CARD_DISCARD, {"card": cid}) for cid in hand
+        ) + (Action(DecisionKind.HELD_CARD_DISCARD, {"card": "none"}),)
+        self._push(side, DecisionKind.HELD_CARD_DISCARD, options, {})
+        return True
+
+    def _handle_held_card_discard(self, decision: Decision, action: Action) -> None:
+        cid = action.payload["card"]
+        if cid != "none":
+            self._file_card(decision.actor, cid, fired=False)
+        self._advance_past_turn_boundary()
 
     def _finish_game(self) -> None:
         """End the game after turn 10: final-score every region, then decide
@@ -502,20 +537,33 @@ class Engine:
         self._ars_played = 0
         self.action_round = 1
 
+    def _extra_action_round_sides(self) -> tuple[Side, ...]:
+        """Sides granted an extra Action Round this turn, beyond the normal
+        alternating rounds, in the order those rounds are played: North Sea
+        Oil grants the US one for this turn only; Space Race box 8 (Space
+        Station) grants its sole holder one every turn for as long as it
+        holds the ability (6.4.3-6.4.4)."""
+        extra: list[Side] = []
+        if self.turn_effects.get("north_sea_oil_extra"):
+            extra.append(Side.US)
+        holder = self.game_effects.get("space_race_extra_round_holder")
+        if holder is not None:
+            extra.append(Side(holder))
+        return tuple(extra)
+
     def _total_action_rounds(self) -> int:
-        """Total card plays this turn across both sides. Normally 2*N (N per
-        side); North Sea Oil grants the US one extra action round this turn."""
-        base = 2 * action_rounds(self.turn)
-        return base + (1 if self.turn_effects.get("north_sea_oil_extra") else 0)
+        """Total card plays this turn across both sides: normally 2*N (N per
+        side), plus one per currently-held extra-round source."""
+        return 2 * action_rounds(self.turn) + len(self._extra_action_round_sides())
 
     def _side_for_play_index(self, idx: int) -> Side:
-        """Whose play the 0-based `idx` is. The base rounds alternate USSR, US,
-        USSR, ...; any extra rounds beyond the base belong to the US (North Sea
-        Oil is the only extra-round source so far)."""
+        """Whose play the 0-based `idx` is. The base rounds alternate USSR,
+        US, USSR, ...; any extra rounds beyond the base go to
+        _extra_action_round_sides(), in order."""
         base = 2 * action_rounds(self.turn)
         if idx < base:
             return Side.USSR if idx % 2 == 0 else Side.US
-        return Side.US
+        return self._extra_action_round_sides()[idx - base]
 
     # -- M2: opening setup --------------------------------------------------
 
@@ -894,6 +942,23 @@ class Engine:
         vp = box["vp_first"] if first else box["vp_second"]
         if vp:
             self._award_vp(side, vp)
+        self._update_space_race_ability(side, next_box, first)
+
+    def _update_space_race_ability(self, side: Side, box: int, first: bool) -> None:
+        """6.4.4: a Space Race special ability is granted only to the first
+        side to reach its box, and is cancelled outright (not transferred)
+        the instant the second side also reaches it. Only the abilities
+        modeled as a held flag are keyed here: box 6 (may discard the Held
+        Card) and box 8 (an extra Action Round). Box 2's double-attempt
+        ability is instead a direct position check (_space_attempts_allowed)
+        and box 4's headline-order perk remains unmodeled."""
+        key = SPACE_RACE_ABILITY_KEYS.get(box)
+        if key is None:
+            return
+        if first:
+            self.game_effects[key] = side.value
+        else:
+            self.game_effects.pop(key, None)
 
     # -- M3: card events ----------------------------------------------------
 
@@ -931,15 +996,25 @@ class Engine:
     def _usable_coup_realign_target(
         self, attacker: Side, cid: str, for_coup: bool = True
     ) -> bool:
-        """Whether `attacker` may coup/realign `cid` given persistent effects.
-        Only the USSR is ever locked out (NATO protects US-controlled Europe;
-        the US/Japan pact protects Japan; The Reformer bars USSR *coups* in
-        Europe). NATO's lock is lifted per-country by De Gaulle (France) and
-        Willy Brandt (West Germany)."""
+        """Whether `attacker` may attempt a Coup/Realignment against `cid`.
+
+        Requires the opponent to hold at least 1 Influence there (6.2.1 /
+        6.3.1) and the current DEFCON to allow it in that region (8.1.5,
+        which restricts Coup *and* Realignment alike). Beyond that,
+        persistent effects may lock the USSR out further (NATO protects
+        US-controlled Europe; the US/Japan pact protects Japan; The Reformer
+        bars USSR *coups* in Europe). NATO's lock is lifted per-country by
+        De Gaulle (France) and Willy Brandt (West Germany)."""
+        info = self.board.countries[cid]
+        if self.board.influence[cid][attacker.opponent.value] <= 0:
+            return False
+        min_defcon = COUP_MIN_DEFCON.get(info.region, _DEFAULT_MIN_DEFCON)
+        if self.defcon < min_defcon:
+            return False
         if attacker is not Side.USSR:
             return True
         ge = self.game_effects
-        region = self.board.countries[cid].region
+        region = info.region
         if ge.get("us_japan_pact") and cid == "Japan":
             return False
         if for_coup and ge.get("reformer") and region is Region.EUROPE:
@@ -1421,8 +1496,12 @@ class Engine:
             if tier is ScoringTier.CONTROL:
                 # Europe leaves its Control value undefined (full control is
                 # the win handled above); approximate as Domination. VERIFY.
-                return control if control is not None else domination
-            return tier_value[tier]
+                base = control if control is not None else domination
+            else:
+                base = tier_value[tier]
+            # 10.1.2: +1 VP per Battleground Controlled in the region, +1 VP
+            # per country Controlled there adjacent to the enemy superpower.
+            return base + self.board.region_bonus_vp(s, region, extra_bg, ignored)
 
         return value_for(Side.US) - value_for(Side.USSR)
 
@@ -1501,6 +1580,7 @@ class Engine:
             DecisionKind.CONTEST_ROLL: self._handle_contest_roll,
             DecisionKind.QUAGMIRE_DISCARD: self._handle_quagmire_discard,
             DecisionKind.QUAGMIRE_ROLL: self._handle_quagmire_roll,
+            DecisionKind.HELD_CARD_DISCARD: self._handle_held_card_discard,
         }[decision.kind]
         handler(decision, action)
 
@@ -1623,15 +1703,11 @@ class Engine:
     # -- coup --------------------------------------------------------------
 
     def _coup_target_options(self, side: Side) -> tuple[Action, ...]:
-        options = []
-        for cid, info in self.board.countries.items():
-            min_defcon = COUP_MIN_DEFCON.get(info.region, _DEFAULT_MIN_DEFCON)
-            if self.defcon < min_defcon:
-                continue
-            if not self._usable_coup_realign_target(side, cid):
-                continue
-            options.append(Action(DecisionKind.COUP_TARGET, {"country": cid}))
-        return tuple(options)
+        return tuple(
+            Action(DecisionKind.COUP_TARGET, {"country": cid})
+            for cid in self.board.countries
+            if self._usable_coup_realign_target(side, cid)
+        )
 
     def _handle_coup_target(self, decision: Decision, action: Action) -> None:
         side = decision.actor
@@ -1727,7 +1803,7 @@ class Engine:
         choices = ["none"]
         coupable = [
             cid for cid in countries
-            if self._coup_defcon_ok(cid) and self._usable_coup_realign_target(side, cid)
+            if self._usable_coup_realign_target(side, cid)
         ]
         realignable = [
             cid for cid in countries
@@ -1746,20 +1822,18 @@ class Engine:
              "ops": ops, "countries": list(countries)},
         )
 
-    def _coup_defcon_ok(self, cid: str) -> bool:
-        info = self.board.countries[cid]
-        return self.defcon >= COUP_MIN_DEFCON.get(info.region, _DEFAULT_MIN_DEFCON)
-
     def resolve_free_op_choice(
         self, side: Side, choice: str, ops: int, countries: list[str]
     ) -> None:
-        """Continue a push_free_coup_or_realign branch once the player picks."""
+        """Continue a push_free_coup_or_realign branch once the player picks.
+
+        A free Coup roll granted by an event does not count towards required
+        Military Operations (8.2.5), so it never touches military_ops."""
         if choice == "coup":
-            self.military_ops[side.value] += ops
             options = tuple(
                 Action(DecisionKind.COUP_TARGET, {"country": cid})
                 for cid in countries
-                if self._coup_defcon_ok(cid) and self._usable_coup_realign_target(side, cid)
+                if self._usable_coup_realign_target(side, cid)
             )
             if options:
                 self._push(side, DecisionKind.COUP_TARGET, options, {"ops": ops, "bonus": None})
@@ -1818,7 +1892,6 @@ class Engine:
             cid
             for cid in candidates
             if cid not in used
-            and self._coup_defcon_ok(cid)
             and self._usable_coup_realign_target(side, cid)
         ]
         if not targets:
@@ -1831,11 +1904,10 @@ class Engine:
     def begin_che_coup(
         self, side: Side, country: str, ops: int, candidates: list[str], used: list[str]
     ) -> None:
-        """Resolve a chosen Che coup: it counts as military Ops, then a logged
-        CHANCE roll decides it. The COUP_ROLL context carries the `che` state so
-        _handle_coup_roll can offer the second attempt if this one removes US
-        Influence."""
-        self.military_ops[side.value] += ops
+        """Resolve a chosen Che coup: a free Coup roll (8.2.5), so it does not
+        move the Military Ops track. A logged CHANCE roll decides it; the
+        COUP_ROLL context carries the `che` state so _handle_coup_roll can
+        offer the second attempt if this one removes US Influence."""
         used = list(used) + [country]
         roll = self._roll_d6()
         self._push(
@@ -2007,8 +2079,10 @@ class Engine:
         actor_roll = decision.context["actor_roll"]
         opp_roll = action.payload["value"]
 
+        # 6.2.2: the die roll is not modified by the Operations value of the
+        # card spent — Ops only buys attempts (1 per point), unlike a Coup.
         actor_total = (
-            actor_roll + card_ops + self._realignment_bonus(side, country)
+            actor_roll + self._realignment_bonus(side, country)
             + self._realignment_modifier(side)
         )
         opp_total = opp_roll + self._realignment_bonus(opponent, country)
