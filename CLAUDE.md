@@ -445,6 +445,164 @@ historical "Ops-only" toggle.
     `Engine._update_space_race_ability` and the `game_effects` keys
     `space_race_discard_holder` / `space_race_extra_round_holder`.
 
+## Bot framework
+
+The engine's job is to be a fair arbiter, not to know who's playing. Every
+seat — human or bot — plugs in through the same interface, so human-vs-human,
+human-vs-bot, and bot-vs-bot are one code path, and adding a new bot never
+touches the engine.
+
+### The `Player` interface
+
+`struggler.players.base.Player` is a structural `Protocol`, not a base
+class: any object with a matching `choose_action` method is a `Player`, no
+inheritance required (mandate-consistent with the rest of this file's
+API-surface philosophy — the contract is a shape, not a class hierarchy).
+
+```python
+class Player(Protocol):
+    def choose_action(self, observation: Observation, history: Sequence[Event]) -> Action:
+        """Pick one action from `observation.pending_decision.options`."""
+```
+
+- A player only ever sees `observe(side)` (mandate #4) and returns one
+  `Action` drawn verbatim from `pending_decision.options` (mandate #2) —
+  the same constraints a human at the console has.
+- `history` is every resolved `(Decision, Action)` pair since this player
+  was last consulted (opponent moves and CHANCE rolls included), as a
+  `players.base.Event` list. Bots are free to ignore it; it exists so a
+  player *can* condition on what just happened without re-deriving it from
+  `Observation` alone.
+- `Side.CHANCE` decisions (coup/realignment/space-race rolls, ...) never
+  reach a `Player` at all — `struggler.runner.play_game` resolves them
+  directly from the pre-drawn single option `Decision.options` already
+  carries (mandate #3: the roll already happened via the engine's seeded
+  RNG; there is nothing left to decide).
+- `struggler.runner.play_game(engine, {Side.US: ..., Side.USSR: ...})` runs
+  a game to completion, building the shared `Event` history and dispatching
+  each non-CHANCE decision to the registered `Player` for that decision's
+  `actor`.
+
+### Bot registry
+
+`struggler.players.registry.PLAYER_REGISTRY` maps a name to a zero/one-arg
+factory (`seed` for the ones that need it); `build_player(name, seed=...)`
+is the lookup. `src/main.py --us <name> --ussr <name>` reads its `--us`/
+`--ussr` choices directly from the registry, so a new bot is usable from the
+CLI the moment it's registered — no other code changes. This is the
+"simple to configure, easy to extend" requirement: writing a new bot means
+implementing `Player` and adding one line to the registry, nothing else.
+
+### Roadmap
+
+Four tiers, in the order they're worth building — each one a strictly
+bigger investment than the last, and each fully usable on its own once
+built:
+
+1. **Trivial baselines** (done): `FirstLegalPlayer` (deterministic, always
+   the first legal option) and `RandomPlayer` (uniform over legal options,
+   using its own seeded RNG — never the engine's, so a bot's choices never
+   perturb or depend on the engine's own dice sequence, keeping replay logs
+   reproducible regardless of which bots produced them). These exist mainly
+   as a floor to measure every later bot against.
+2. **Greedy / rule-based** (current — `players/greedy.py`): observe the
+   state, score every legal action of the *current* decision with
+   hand-crafted heuristics, take the top score. No lookahead, no search, no
+   opponent modeling — see "Greedy bot design" below.
+3. **LLM reasoning layer** (future): craft a prompt carrying the
+   `Observation`, the `Event` history (or a summarized form of it), and the
+   model's own prior reasoning for this game, and let the model pick an
+   action each decision. The natural-language reasoning trace is itself
+   useful output (an explainable "why"), unlike Greedy or RL. Implementing
+   this is "only" prompt engineering plus response parsing into a legal
+   `Action` — it needs nothing new from the engine, since `Player` already
+   receives everything an LLM prompt would need and returns everything
+   `step()` needs to advance. The one new plumbing question — do the
+   model's reasoning turns count as "moves" in a replay log, or stay
+   external to it — is deferred until this tier is actually built.
+4. **Self-play reinforcement learning** (future, most promising long-term,
+   most expensive to build): train a model by having it play itself
+   repeatedly via `play_game`, using `Engine.winner` as the terminal reward.
+   The most future-relevant reason `GreedyPlayer` is built as weighted
+   features over `board_value()` rather than an if/elif cascade: a linear
+   (or larger) model over the same feature set, with *learned* instead of
+   hand-set weights, is a structurally compatible next step — swap
+   `GreedyWeights` for trained parameters, or replace `board_value()` with
+   a learned value function outright, without redesigning how a `Player`
+   plugs into the engine. `Engine.serialize()`/`deserialize()` (mandate #5)
+   are what make self-play cheap: cloning state for search/training doesn't
+   need a bespoke copy path.
+
+### Greedy bot design: the decision space, and how it's scored
+
+The hard part of a Twilight Struggle bot is not "evaluate a board" — it's
+that a turn is never one decision. `pending_decision.kind` (see
+`DecisionKind`) ranges over ~20 shapes: place one Influence point, pick a
+Coup or Realignment target, choose Influence vs. Coup vs. Realignment for
+this Ops spend, choose which card to headline or play this round, choose
+Ops vs. Event vs. Space Race for a played card, and (once M3's event layer
+is on) another ~13 event-specific shapes (WAR_TARGET, EVENT_CHOICE,
+EVENT_INFLUENCE, EVENT_OPS_ORDER, QUAGMIRE_DISCARD, HELD_CARD_DISCARD,
+EVENT_RESUME, ...). Mandate #2 (atomic actions) is exactly what makes this
+tractable for a greedy bot: every one of those decisions offers **tens** of
+options, never thousands, so "score every legal option, take the best" is
+cheap even without any pruning.
+
+`GreedyPlayer` (`players/greedy.py`) handles this with one scorer function
+per `DecisionKind`, dispatched from a `_SCORERS` table, all funneling
+through a single static evaluator:
+
+```python
+def board_value(weights: GreedyWeights, board: Board, side: Side) -> float:
+    """Regional Presence/Domination/Control tiers, plus a flat bonus per
+    country Controlled (extra for Battlegrounds). Higher is better for `side`."""
+```
+
+- **Influence placement**: score = the `board_value` swing from adding
+  that one point (a real, cheap simulation on a scratch `Board` — not a
+  multi-turn lookahead, just "what does this single atomic action change
+  right now").
+- **Coup / Realignment targets**: the outcome is a die roll, so the score
+  is the *expectation* (average roll = 3.5) of the same `board_value`
+  swing, not a real simulated outcome — realignment's dice cancel neatly in
+  expectation (`own_bonus - opp_bonus`), since both sides roll.
+- **Ops type** (Influence vs. Coup vs. Realignment): reuses the same
+  per-target scorers over a proxy target list built from public board data
+  (`Board.is_reachable`, `Board.influence_cost`, the `COUP_MIN_DEFCON`
+  table) — not a duplicate of the engine's exact legality (NATO-style locks
+  aren't replicated here), since a wrong guess here only costs a slightly
+  worse **choice**, never an illegal `Action` (the engine's real
+  `legal_actions()` is always what's actually offered downstream).
+- **DEFCON safety** (CLAUDE.md's worked example, priority #1): any Coup
+  attempt drops DEFCON by 1 for the *acting* side (Nuclear Subs excepted);
+  if DEFCON is already 2, that is the acting side's own loss. This is
+  checked at the OPS_TYPE decision (refusing "coup" outright, so the
+  suicidal choice is never made in the first place) and again defensively
+  at COUP_TARGET (in case OPS_TYPE's cheaper proxy legality missed a lock
+  the real engine enforces) — `defcon_self_kill_penalty` in `GreedyWeights`
+  is orders of magnitude above every other weight specifically so this
+  never gets outweighed by board value.
+- **Which card, and how to spend it** (headline pick, action-round card
+  pick, Ops vs. Event vs. Space Race mode): a card not worth its Ops value
+  right now is worth more sent to the Space Race track instead (its
+  expected VP, computed from `SPACE_RACE_BOXES`' roll odds, against the
+  Ops-point value forfeited) — the concrete form of "send bad cards to the
+  Space Race." A scoring card's headline/play value is its `score_region()`
+  net VP, signed favorably or unfavorably for the acting side.
+
+**Known limitation, by design** (approved scope for v1 — see the milestone
+note in `players/greedy.py`'s module docstring): only the 7 core M1/M2
+decision kinds get real heuristics (`PLACE_INFLUENCE`, `COUP_TARGET`,
+`REALIGNMENT_TARGET`, `OPS_TYPE`, `HEADLINE_PLAY`, `ACTION_ROUND_PLAY`,
+`PLAY_MODE`). Every M3 event-specific decision kind falls back to the first
+legal option — the same incremental, card-by-card growth pattern M3 itself
+used; extend `_SCORERS` as each one earns a heuristic worth writing, rather
+than guessing at all ~13 up front. `tests/test_greedy.py` covers the DEFCON
+safety rule, the fallback behavior, and a win-rate sanity check
+(`GreedyPlayer` vs. `RandomPlayer` over many seeds, both seat assignments) —
+a regression net for "the heuristics still actually help," not a claim of
+strategic strength.
+
 ## Testing strategy
 
 Testing is first-class, not an afterthought — this is a rules engine;

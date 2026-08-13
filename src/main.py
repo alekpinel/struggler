@@ -1,9 +1,12 @@
 """CLI entry point: play a game with any mix of human/bot seats.
 
 Examples:
-    python src/main.py                                   # human vs human
-    python src/main.py --us random --ussr first --seed 1  # bot vs bot
-    python src/main.py --ussr random                      # human (US) vs bot (USSR)
+    python src/main.py                                    # human vs human
+    python src/main.py --us greedy --ussr random --seed 1  # bot vs bot
+    python src/main.py --ussr greedy                       # human (US) vs bot (USSR)
+
+Bots are looked up by name in `struggler.players.PLAYER_REGISTRY`; adding a
+new one there (see registry.py) makes it available here for free.
 """
 
 from __future__ import annotations
@@ -11,25 +14,15 @@ from __future__ import annotations
 import argparse
 
 from struggler.engine import Engine
-from struggler.players import FirstLegalPlayer, HumanPlayer, Player, RandomPlayer
+from struggler.players import PLAYER_REGISTRY, Player, build_player
 from struggler.runner import play_game
 from struggler.types import Side
 
 
-def build_player(kind: str, seed: int) -> Player:
-    if kind == "human":
-        return HumanPlayer()
-    if kind == "random":
-        return RandomPlayer(seed=seed)
-    if kind == "first":
-        return FirstLegalPlayer()
-    raise ValueError(f"unknown player kind: {kind!r}")
-
-
 def main() -> None:
     parser = argparse.ArgumentParser(description="Play a Twilight Struggle game.")
-    parser.add_argument("--us", choices=["human", "random", "first"], default="human")
-    parser.add_argument("--ussr", choices=["human", "random", "first"], default="human")
+    parser.add_argument("--us", choices=sorted(PLAYER_REGISTRY), default="human")
+    parser.add_argument("--ussr", choices=sorted(PLAYER_REGISTRY), default="human")
     parser.add_argument("--seed", type=int, default=12345)
     parser.add_argument("--events", action="store_true", help="enable M3 card events")
     args = parser.parse_args()
