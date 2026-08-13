@@ -213,7 +213,7 @@ class Board:
         negative favors USSR): each side's Presence/Domination/Control tier
         value, plus its 10.1.2 bonuses (+1 VP per Battleground Controlled,
         +1 VP per country Controlled adjacent to the enemy superpower)."""
-        presence_vp, domination_vp, control_vp = RULES["scoring"][region]
+        presence_vp, domination_vp, control_vp = RULES["scoring"][region.name]
         tier_value = {
             ScoringTier.NONE: 0,
             ScoringTier.PRESENCE: presence_vp,

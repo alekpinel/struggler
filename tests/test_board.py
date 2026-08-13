@@ -7,9 +7,9 @@ from struggler.engine.rules import RULES
 
 def test_scoring_table_matches_confirmed_values():
     # Regression guard for the numbers confirmed against the physical game.
-    assert RULES["scoring"][Region.MIDDLE_EAST] == (3, 5, 7)
-    assert RULES["scoring"][Region.AFRICA] == (1, 4, 6)
-    assert RULES["scoring"][Region.SOUTH_AMERICA] == (2, 5, 6)
+    assert RULES["scoring"][Region.MIDDLE_EAST.name] == [3, 5, 7]
+    assert RULES["scoring"][Region.AFRICA.name] == [1, 4, 6]
+    assert RULES["scoring"][Region.SOUTH_AMERICA.name] == [2, 5, 6]
 
 
 def test_all_countries_reciprocal_adjacency_loaded_without_error():

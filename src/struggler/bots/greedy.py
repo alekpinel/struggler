@@ -217,7 +217,7 @@ def _space_race_expected_vp(observation: Observation, side: Side) -> float:
     if pos >= RULES["space_race_max_box"]:
         return 0.0
     next_box = pos + 1
-    box = RULES["space_race_boxes"][next_box]
+    box = RULES["space_race_boxes"][str(next_box)]
     probability = box["roll_max"] / 6.0
     first = observation.space_race.get(side.opponent.value, 0) < next_box
     vp = box["vp_first"] if first else box["vp_second"]
@@ -314,7 +314,7 @@ def _best_coup_value(
     for cid, info in board.countries.items():
         if board.influence[cid][opponent.value] <= 0:
             continue
-        if observation.defcon < RULES["coup_min_defcon"].get(info.region, 1):
+        if observation.defcon < RULES["coup_min_defcon"].get(info.region.name, 1):
             continue
         if observation.defcon <= 2 and not _nuclear_subs_exempt(observation, side, info):
             continue
@@ -331,7 +331,7 @@ def _best_realignment_value(weights: GreedyWeights, board: Board, observation: O
     for cid, info in board.countries.items():
         if board.influence[cid][opponent.value] <= 0:
             continue
-        if observation.defcon < RULES["coup_min_defcon"].get(info.region, 1):
+        if observation.defcon < RULES["coup_min_defcon"].get(info.region.name, 1):
             continue
         own_bonus = _realignment_bonus(board, side, cid)
         opp_bonus = _realignment_bonus(board, opponent, cid)

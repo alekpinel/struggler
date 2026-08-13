@@ -515,7 +515,7 @@ class Engine:
         self._push_setup_influence(Side.USSR, Subregion.EASTERN_EUROPE)
 
     def _push_setup_influence(self, side: Side, subregion: Subregion) -> None:
-        remaining = RULES["setup_additional"][subregion][1]
+        remaining = RULES["setup_additional"][subregion.name]["amount"]
         self._push_setup_influence_remaining(side, subregion, remaining)
 
     def _push_setup_influence_remaining(
@@ -855,7 +855,7 @@ class Engine:
         pos = self.space_race[side.value]
         if pos >= RULES["space_race_max_box"]:
             return False
-        if self._effective_ops(side, card) < RULES["space_race_boxes"][pos + 1]["ops"]:
+        if self._effective_ops(side, card) < RULES["space_race_boxes"][str(pos + 1)]["ops"]:
             return False
         return self.space_race_attempts[side.value] < self._space_attempts_allowed(side)
 
@@ -863,7 +863,7 @@ class Engine:
         side = Side(decision.context["side"])
         roll = action.payload["value"]
         next_box = self.space_race[side.value] + 1
-        if roll <= RULES["space_race_boxes"][next_box]["roll_max"]:
+        if roll <= RULES["space_race_boxes"][str(next_box)]["roll_max"]:
             self.advance_space_race_box(side)
 
     def advance_space_race_box(self, side: Side) -> None:
@@ -874,7 +874,7 @@ class Engine:
         if self.space_race[side.value] >= RULES["space_race_max_box"]:
             return
         next_box = self.space_race[side.value] + 1
-        box = RULES["space_race_boxes"][next_box]
+        box = RULES["space_race_boxes"][str(next_box)]
         first = self.space_race[side.opponent.value] < next_box
         self.space_race[side.value] = next_box
         vp = box["vp_first"] if first else box["vp_second"]
@@ -890,7 +890,7 @@ class Engine:
         Card) and box 8 (an extra Action Round). Box 2's double-attempt
         ability is instead a direct position check (_space_attempts_allowed)
         and box 4's headline-order perk remains unmodeled."""
-        key = RULES["space_race_ability_keys"].get(box)
+        key = RULES["space_race_ability_keys"].get(str(box))
         if key is None:
             return
         if first:
@@ -946,7 +946,7 @@ class Engine:
         info = self.board.countries[cid]
         if self.board.influence[cid][attacker.opponent.value] <= 0:
             return False
-        min_defcon = RULES["coup_min_defcon"].get(info.region, _DEFAULT_MIN_DEFCON)
+        min_defcon = RULES["coup_min_defcon"].get(info.region.name, _DEFAULT_MIN_DEFCON)
         if self.defcon < min_defcon:
             return False
         if attacker is not Side.USSR:
@@ -1422,7 +1422,7 @@ class Engine:
                 self._win(controller, "europe_control")
                 return 0
         extra_bg, ignored = self._scoring_overrides(region)
-        presence, domination, control = RULES["scoring"][region]
+        presence, domination, control = RULES["scoring"][region.name]
         tier_value = {
             ScoringTier.NONE: 0,
             ScoringTier.PRESENCE: presence,
