@@ -36,6 +36,8 @@ def play_game(engine: Engine, players: Mapping[Side, Player]) -> Side | None:
                 vp=engine.vp,
                 turn=engine.turn,
                 action_round=engine.action_round,
+                space_race=dict(engine.space_race),
+                military_ops=dict(engine.military_ops),
             )
         )
     return engine.winner

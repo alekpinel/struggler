@@ -13,8 +13,8 @@ ever returns one `Action` drawn from `observation.pending_decision.options`
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Protocol, Sequence
+from dataclasses import dataclass, field
+from typing import Any, Mapping, Protocol, Sequence
 
 from struggler.types import Action, Decision, Observation, Side
 
@@ -22,8 +22,11 @@ from struggler.types import Action, Decision, Observation, Side
 @dataclass(frozen=True)
 class Event:
     """One resolved decision: what was decided, by whom, and its public
-    aftermath (DEFCON/VP/turn track). Only public state — safe to show to
-    either player regardless of whose decision it was.
+    aftermath (DEFCON/VP/turn track, the space race and military ops
+    tracks). Only public state — safe to show to either player regardless
+    of whose decision it was. Tracks are recorded as their totals right
+    after the decision resolved, not as deltas, so a player can read a
+    result off a single `Event` without diffing against the previous one.
     """
 
     actor: Side
@@ -33,6 +36,8 @@ class Event:
     vp: int
     turn: int
     action_round: int
+    space_race: Mapping[str, int] = field(default_factory=dict)
+    military_ops: Mapping[str, int] = field(default_factory=dict)
 
 
 class Player(Protocol):
