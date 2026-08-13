@@ -26,10 +26,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Callable
 
-from .types import Region, Side, Subregion
+from struggler.engine.types import Region, Side, Subregion
 
 if TYPE_CHECKING:  # avoid a circular import at module load; engine imports us.
-    from .core import Engine
+    from struggler.engine.core import Engine
 
 
 @dataclass(frozen=True)
@@ -945,7 +945,7 @@ def _ask_not_choice(engine: "Engine", side: Side, choice: str, context: dict) ->
 
 
 def _scoring_card_countries(engine: "Engine", scoring_id: str) -> list[str]:
-    from .core import SCORING_CARD_REGION
+    from struggler.engine.core import SCORING_CARD_REGION
 
     if scoring_id == "Southeast_Asia_Scoring":
         return _in_subregion(engine, Subregion.SOUTHEAST_ASIA)

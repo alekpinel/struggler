@@ -17,8 +17,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from .core import Engine
-from .types import Action, DecisionKind, Side
+from struggler.engine.core import Engine
+from struggler.engine.types import Action, DecisionKind, Side
 
 _SETUP_KINDS = {
     "begin_influence_operations": Engine.begin_influence_operations,

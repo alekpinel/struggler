@@ -7,8 +7,8 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
-from .rules import SCORING
-from .types import Region, ScoringTier, Side, Subregion
+from struggler.engine.rules import SCORING
+from struggler.engine.types import Region, ScoringTier, Side, Subregion
 
 DEFAULT_DATA_PATH = Path(__file__).resolve().parent.parent / "data" / "countries.json"
 

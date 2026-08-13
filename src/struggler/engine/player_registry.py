@@ -18,8 +18,8 @@ from __future__ import annotations
 
 from typing import Callable
 
-from .human import HumanPlayer
-from .player import Player
+from struggler.engine.human import HumanPlayer
+from struggler.engine.player import Player
 
 PlayerFactory = Callable[..., Player]
 

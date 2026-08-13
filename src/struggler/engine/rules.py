@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from .types import Region, Side, Subregion
+from struggler.engine.types import Region, Side, Subregion
 
 DEFAULT_RULES_PATH = Path(__file__).resolve().parent.parent / "data" / "rules.json"
 

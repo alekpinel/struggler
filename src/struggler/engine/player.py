@@ -16,7 +16,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Mapping, Protocol, Sequence
 
-from .types import Action, Decision, Observation, Side
+from struggler.engine.types import Action, Decision, Observation, Side
 
 
 @dataclass(frozen=True)

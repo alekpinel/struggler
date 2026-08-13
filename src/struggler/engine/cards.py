@@ -20,8 +20,13 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from .rules import ACTION_ROUNDS_EARLY, ACTION_ROUNDS_MID_LATE, HAND_LIMIT_EARLY, HAND_LIMIT_MID_LATE
-from .types import Card, CardSide, Period
+from struggler.engine.rules import (
+    ACTION_ROUNDS_EARLY,
+    ACTION_ROUNDS_MID_LATE,
+    HAND_LIMIT_EARLY,
+    HAND_LIMIT_MID_LATE,
+)
+from struggler.engine.types import Card, CardSide, Period
 
 DEFAULT_DATA_PATH = Path(__file__).resolve().parent.parent / "data" / "cards.json"
 

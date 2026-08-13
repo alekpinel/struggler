@@ -8,8 +8,8 @@ directly by anything that needs them.
 
 from __future__ import annotations
 
-from .core import Engine
-from .types import (
+from struggler.engine.core import Engine
+from struggler.engine.types import (
     Action,
     Card,
     CardSide,

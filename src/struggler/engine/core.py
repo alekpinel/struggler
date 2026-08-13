@@ -22,10 +22,10 @@ from __future__ import annotations
 import copy
 import random
 
-from .board import Board
-from .cards import action_rounds, cards_entering, hand_limit, load_cards
-from .events import EVENTS
-from .rules import (
+from struggler.engine.board import Board
+from struggler.engine.cards import action_rounds, cards_entering, hand_limit, load_cards
+from struggler.engine.events import EVENTS
+from struggler.engine.rules import (
     CHINA_CARD_ID,
     COUP_MIN_DEFCON,
     SCORING,
@@ -38,7 +38,7 @@ from .rules import (
     VP_TO_WIN,
     WAR_CARDS,
 )
-from .types import (
+from struggler.engine.types import (
     Action,
     Card,
     Decision,
@@ -1145,7 +1145,7 @@ class Engine:
         self._push(choose_side, DecisionKind.EVENT_CHOICE, options, context)
 
     def _handle_event_choice(self, decision: Decision, action: Action) -> None:
-        from .events import CHOICE_ROUTERS
+        from struggler.engine.events import CHOICE_ROUTERS
 
         event = decision.context["event"]
         side = Side(decision.context["choose_side"])
@@ -1256,7 +1256,7 @@ class Engine:
         )
 
     def _handle_contest_roll(self, decision: Decision, action: Action) -> None:
-        from .events import CONTEST_RESOLVERS
+        from struggler.engine.events import CONTEST_RESOLVERS
 
         ctx = decision.context
         sponsor = Side(ctx["sponsor"])
