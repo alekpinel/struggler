@@ -22,10 +22,23 @@ from __future__ import annotations
 import copy
 import random
 
-from struggler.board import SCORING, Board
-from struggler.cards import action_rounds, cards_entering, hand_limit, load_cards
-from struggler.events import EVENTS
-from struggler.types import (
+from .board import Board
+from .cards import action_rounds, cards_entering, hand_limit, load_cards
+from .events import EVENTS
+from .rules import (
+    CHINA_CARD_ID,
+    COUP_MIN_DEFCON,
+    SCORING,
+    SETUP_ADDITIONAL,
+    SPACE_RACE_ABILITY_KEYS,
+    SPACE_RACE_BOXES,
+    SPACE_RACE_MAX_BOX,
+    SPACE_RACE_TWO_ATTEMPTS_FROM_BOX,
+    UN_INTERVENTION_ID,
+    VP_TO_WIN,
+    WAR_CARDS,
+)
+from .types import (
     Action,
     Card,
     Decision,
@@ -38,22 +51,12 @@ from struggler.types import (
     Subregion,
 )
 
-# Minimum DEFCON level required to attempt a coup in a region; regions not
-# listed have no restriction. Confirmed against the physical game.
-COUP_MIN_DEFCON: dict[Region, int] = {
-    Region.EUROPE: 5,
-    Region.ASIA: 4,
-    Region.MIDDLE_EAST: 3,
-}
 _DEFAULT_MIN_DEFCON = 1
 
 # Every coup attempt, in any region, degrades DEFCON by 1, regardless of
 # success. Confirmed against the physical game. Realignment is subject to
 # the same COUP_MIN_DEFCON restriction above (8.1.5 restricts "Coup or
 # Realignment rolls" identically) — enforced in _usable_coup_realign_target.
-
-# VP required to win outright; the track runs to 20 in either direction.
-VP_TO_WIN = 20
 
 # Each regional scoring card maps to the region score_region() already
 # computes (mandate: scoring is a board mechanic reused from M1, not a card
@@ -66,59 +69,6 @@ SCORING_CARD_REGION: dict[str, Region] = {
     "Central_America_Scoring": Region.CENTRAL_AMERICA,
     "Africa_Scoring": Region.AFRICA,
     "South_America_Scoring": Region.SOUTH_AMERICA,
-}
-
-# The China Card starts face-up with the USSR.
-CHINA_CARD_ID = "The_China_Card"
-
-# UN Intervention (a Tier 4 rule-modifier): held in hand, it lets its player use
-# an *opponent's* card for Ops while cancelling that card's event.
-UN_INTERVENTION_ID = "UN_Intervention"
-
-# The "war" cards, tracked so Flower Power can score the USSR each time the US
-# plays one (for its Event or Operations).
-WAR_CARDS = frozenset(
-    {"Korean_War", "Arab_Israeli_War", "Indo_Pakistani_War", "Brush_War", "Iran_Iraq_War"}
-)
-
-# Additional influence each side places by choice during setup, after the
-# printed at-start influence: the USSR into Eastern Europe, the US into
-# Western Europe. VERIFY the exact counts against the rulebook.
-SETUP_ADDITIONAL = {
-    Subregion.EASTERN_EUROPE: (Side.USSR, 6),
-    Subregion.WESTERN_EUROPE: (Side.US, 7),
-}
-
-# Space Race track, boxes 1..8. Per box: minimum Ops the played card must be
-# worth to attempt entry, the die roll needed (success iff d6 <= roll_max),
-# and the VP awarded to the first / second superpower to reach the box.
-#
-# VERIFY: these numeric constants are best-effort from knowledge of the
-# physical Space Race track and have NOT been reconfirmed line-by-line. The
-# *mechanism* around them (attempt -> seeded CHANCE roll -> advance -> award)
-# is the part M2 proves; only the numbers here are provisional. Box 4's
-# headline-reveal-order perk (6.4.4) remains unmodeled; boxes 2, 6 and 8's
-# perks are implemented below.
-SPACE_RACE_BOXES: dict[int, dict[str, int]] = {
-    1: {"ops": 2, "roll_max": 3, "vp_first": 2, "vp_second": 1},
-    2: {"ops": 2, "roll_max": 4, "vp_first": 0, "vp_second": 0},
-    3: {"ops": 2, "roll_max": 3, "vp_first": 2, "vp_second": 0},
-    4: {"ops": 2, "roll_max": 4, "vp_first": 0, "vp_second": 0},
-    5: {"ops": 3, "roll_max": 3, "vp_first": 3, "vp_second": 1},
-    6: {"ops": 3, "roll_max": 4, "vp_first": 0, "vp_second": 0},
-    7: {"ops": 3, "roll_max": 3, "vp_first": 4, "vp_second": 2},
-    8: {"ops": 4, "roll_max": 2, "vp_first": 2, "vp_second": 0},
-}
-SPACE_RACE_MAX_BOX = 8
-# A side that has reached this box may make two Space Race attempts per turn
-# instead of one. VERIFY exact box.
-SPACE_RACE_TWO_ATTEMPTS_FROM_BOX = 2
-# Space Race boxes whose special ability (6.4.3-6.4.4) is modeled as a
-# granted/cancelled game_effects flag rather than a direct position check;
-# see Engine._update_space_race_ability.
-SPACE_RACE_ABILITY_KEYS: dict[int, str] = {
-    6: "space_race_discard_holder",       # may discard the Held Card at end of turn
-    8: "space_race_extra_round_holder",   # +1 Action Round per turn
 }
 
 
@@ -1195,7 +1145,7 @@ class Engine:
         self._push(choose_side, DecisionKind.EVENT_CHOICE, options, context)
 
     def _handle_event_choice(self, decision: Decision, action: Action) -> None:
-        from struggler.events import CHOICE_ROUTERS
+        from .events import CHOICE_ROUTERS
 
         event = decision.context["event"]
         side = Side(decision.context["choose_side"])
@@ -1306,7 +1256,7 @@ class Engine:
         )
 
     def _handle_contest_roll(self, decision: Decision, action: Action) -> None:
-        from struggler.events import CONTEST_RESOLVERS
+        from .events import CONTEST_RESOLVERS
 
         ctx = decision.context
         sponsor = Side(ctx["sponsor"])

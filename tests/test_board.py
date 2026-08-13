@@ -1,7 +1,8 @@
 """Board mechanics: adjacency, control, region scoring."""
 
-from struggler.board import SCORING, Board
-from struggler.types import Region, ScoringTier, Side
+from struggler.engine import Region, ScoringTier, Side
+from struggler.engine.board import Board
+from struggler.engine.rules import SCORING
 
 
 def test_scoring_table_matches_confirmed_values():

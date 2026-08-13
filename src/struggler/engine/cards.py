@@ -20,21 +20,10 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from struggler.types import Card, CardSide, Period
+from .rules import ACTION_ROUNDS_EARLY, ACTION_ROUNDS_MID_LATE, HAND_LIMIT_EARLY, HAND_LIMIT_MID_LATE
+from .types import Card, CardSide, Period
 
-DEFAULT_DATA_PATH = Path(__file__).resolve().parents[2] / "data" / "cards.json"
-
-# Hand size each player is dealt up to at the start of a turn. 8 in the Early
-# War, 9 once the Mid War begins. The China Card never counts toward this.
-# VERIFY against the printed rulebook before relying on these beyond the
-# structural full-game proof M2 is about.
-HAND_LIMIT_EARLY = 8
-HAND_LIMIT_MID_LATE = 9
-
-# Action rounds per turn: 6 in the Early War (turns 1-3), 7 from the Mid War
-# on (turns 4-10). VERIFY before relying on these beyond structural testing.
-ACTION_ROUNDS_EARLY = 6
-ACTION_ROUNDS_MID_LATE = 7
+DEFAULT_DATA_PATH = Path(__file__).resolve().parent.parent / "data" / "cards.json"
 
 
 def load_cards(data_path: Path | None = None) -> dict[str, Card]:

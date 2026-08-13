@@ -5,24 +5,28 @@ Examples:
     python src/main.py --us greedy --ussr random --seed 1  # bot vs bot
     python src/main.py --ussr greedy                       # human (US) vs bot (USSR)
 
-Bots are looked up by name in `struggler.players.PLAYER_REGISTRY`; adding a
-new one there (see registry.py) makes it available here for free.
+Bots register themselves with `struggler.engine.player_registry` when their
+module is imported (see player_registry.py); importing them below is what
+makes them available here, and is the only place that needs editing to
+offer a new one on this CLI.
 """
 
 from __future__ import annotations
 
 import argparse
 
-from struggler.engine import Engine
-from struggler.players import PLAYER_REGISTRY, Player, build_player
+import struggler.bots.greedy  # noqa: F401  (registers "greedy")
+import struggler.bots.naive  # noqa: F401  (registers "random", "first")
+from struggler.engine import Engine, Side
+from struggler.engine.player import Player
+from struggler.engine.player_registry import available, build_player
 from struggler.runner import play_game
-from struggler.types import Side
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Play a Twilight Struggle game.")
-    parser.add_argument("--us", choices=sorted(PLAYER_REGISTRY), default="human")
-    parser.add_argument("--ussr", choices=sorted(PLAYER_REGISTRY), default="human")
+    parser.add_argument("--us", choices=available(), default="human")
+    parser.add_argument("--ussr", choices=available(), default="human")
     parser.add_argument("--seed", type=int, default=12345)
     parser.add_argument("--events", action="store_true", help="enable M3 card events")
     args = parser.parse_args()

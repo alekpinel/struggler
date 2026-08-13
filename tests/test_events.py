@@ -21,11 +21,11 @@ from pathlib import Path
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from struggler.cards import action_rounds, cards_entering
-from struggler.engine import CHINA_CARD_ID, Engine
-from struggler.events import EVENTS
-from struggler.replay import run_with_checkpoints
-from struggler.types import Action, DecisionKind, Period, Region, Side
+from struggler.engine import Action, DecisionKind, Engine, Period, Region, Side
+from struggler.engine.cards import action_rounds, cards_entering
+from struggler.engine.events import EVENTS
+from struggler.engine.replay import run_with_checkpoints
+from struggler.engine.rules import CHINA_CARD_ID
 
 MAX_INT32 = 2**31 - 1
 REPLAY_DIR = Path(__file__).parent / "replays"
@@ -618,7 +618,7 @@ def test_salt_negotiations_defcon_coup_penalty_and_reclaim():
 def test_salt_coup_penalty_applies_to_both_sides():
     engine = _bare(seed=1)
     engine.turn_effects["salt"] = True
-    from struggler.board import CountryInfo  # info object carries region/battleground
+    from struggler.engine.board import CountryInfo  # info object carries region/battleground
     info = engine.board.countries["Cuba"]
     assert engine._coup_roll_modifier(Side.US, info) == -1
     assert engine._coup_roll_modifier(Side.USSR, info) == -1

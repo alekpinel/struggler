@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from typing import Sequence
 
-from struggler.players.base import Event
-from struggler.types import Action, Observation
+from .player import Event
+from .types import Action, Observation
 
 
 def _format_action(action: Action) -> str:

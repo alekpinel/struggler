@@ -15,10 +15,10 @@ from pathlib import Path
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from struggler.cards import cards_entering
-from struggler.engine import CHINA_CARD_ID, Engine
-from struggler.replay import run_with_checkpoints
-from struggler.types import DecisionKind, Period, Side
+from struggler.engine import DecisionKind, Engine, Period, Side
+from struggler.engine.cards import cards_entering
+from struggler.engine.replay import run_with_checkpoints
+from struggler.engine.rules import CHINA_CARD_ID
 
 MAX_INT32 = 2**31 - 1
 REPLAY_DIR = Path(__file__).parent / "replays"

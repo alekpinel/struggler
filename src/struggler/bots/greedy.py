@@ -42,16 +42,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Callable, Sequence
 
-from struggler.board import Board, CountryInfo
-from struggler.cards import load_cards
-from struggler.engine import (
-    COUP_MIN_DEFCON,
-    SCORING_CARD_REGION,
-    SPACE_RACE_BOXES,
-    SPACE_RACE_MAX_BOX,
-)
-from struggler.players.base import Event
-from struggler.types import Action, Decision, DecisionKind, Observation, Region, ScoringTier, Side
+from struggler.engine import Action, Decision, DecisionKind, Observation, Region, ScoringTier, Side
+from struggler.engine.board import Board, CountryInfo
+from struggler.engine.cards import load_cards
+from struggler.engine.core import SCORING_CARD_REGION
+from struggler.engine.player import Event
+from struggler.engine.player_registry import register
+from struggler.engine.rules import COUP_MIN_DEFCON, SPACE_RACE_BOXES, SPACE_RACE_MAX_BOX
 
 _CARDS = load_cards()
 
@@ -442,3 +439,8 @@ class GreedyPlayer:
             decision.options,
             key=lambda action: scorer(self.weights, self._board, observation, action),
         )
+
+
+@register("greedy")
+def _build_greedy(seed: int = 0) -> GreedyPlayer:
+    return GreedyPlayer()

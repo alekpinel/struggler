@@ -1,12 +1,12 @@
 """Card data loading and deck-composition tests (M2 foundation)."""
 
-from struggler.cards import (
+from struggler.engine import CardSide, Period
+from struggler.engine.cards import (
     action_rounds,
     cards_entering,
     hand_limit,
     load_cards,
 )
-from struggler.types import CardSide, Period
 
 
 def test_loads_all_110_cards_with_complete_numbering():

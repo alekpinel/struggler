@@ -1,7 +1,6 @@
 """Engine: Space Race track mechanics, including the box 6/8 perks (6.4.3-6.4.4)."""
 
-from struggler.engine import Engine
-from struggler.types import DecisionKind, Side
+from struggler.engine import DecisionKind, Engine, Side
 
 
 def test_advance_space_race_box_awards_first_then_second_vp():

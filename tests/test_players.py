@@ -6,10 +6,11 @@ from typing import Sequence
 
 import pytest
 
-from struggler.engine import Engine
-from struggler.players import Event, FirstLegalPlayer, HumanPlayer, RandomPlayer
+from struggler.bots.naive import FirstLegalPlayer, RandomPlayer
+from struggler.engine import Action, Engine, Observation, Side
+from struggler.engine.human import HumanPlayer
+from struggler.engine.player import Event
 from struggler.runner import play_game
-from struggler.types import Action, Observation, Side
 
 
 class _SpyPlayer:

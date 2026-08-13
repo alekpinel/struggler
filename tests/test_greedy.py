@@ -7,12 +7,12 @@ import dataclasses
 
 import pytest
 
-from struggler.board import Board
-from struggler.engine import Engine
-from struggler.players import GreedyPlayer, GreedyWeights, RandomPlayer, board_value
-from struggler.players.registry import PLAYER_REGISTRY, build_player
+from struggler.bots.greedy import GreedyPlayer, GreedyWeights, board_value
+from struggler.bots.naive import RandomPlayer
+from struggler.engine import Action, Decision, DecisionKind, Engine, Side
+from struggler.engine.board import Board
+from struggler.engine.player_registry import available, build_player
 from struggler.runner import play_game
-from struggler.types import Action, Decision, DecisionKind, Side
 
 
 def test_board_value_zero_with_no_influence_anywhere():
@@ -76,7 +76,7 @@ def test_greedy_falls_back_to_first_option_for_unmapped_decision_kinds():
 
 
 def test_registry_has_all_baseline_bots_and_greedy():
-    assert set(PLAYER_REGISTRY) == {"human", "random", "first", "greedy"}
+    assert set(available()) == {"human", "random", "first", "greedy"}
     assert isinstance(build_player("greedy"), GreedyPlayer)
 
 

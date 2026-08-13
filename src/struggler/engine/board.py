@@ -7,31 +7,10 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
-from struggler.types import Region, ScoringTier, Side, Subregion
+from .rules import SCORING
+from .types import Region, ScoringTier, Side, Subregion
 
-DEFAULT_DATA_PATH = Path(__file__).resolve().parents[2] / "data" / "countries.json"
-
-# Regional scoring VP table: (presence, domination, control).
-#
-# Confirmed against the physical game for Middle East, Africa, and South
-# America. Europe, Asia, and Central America are still UNCONFIRMED (best
-# guess, not yet checked against the rulebook/board) — verify before
-# trusting them beyond structural testing.
-#
-# Europe's control value is intentionally None: controlling every country
-# in Europe does not win immediately — it wins when the Europe Scoring
-# card is played while that control holds (see Board.controls_all_of_europe,
-# and the M2/M3 note there). No M1 code path should ever hit CONTROL tier
-# for Europe, since nothing in M1 scores a region; score_region() raises
-# rather than silently return a made-up number if it ever does.
-SCORING: dict[Region, tuple[int, int, int | None]] = {
-    Region.EUROPE: (3, 7, None),
-    Region.ASIA: (3, 7, 9),
-    Region.MIDDLE_EAST: (3, 5, 7),
-    Region.AFRICA: (1, 4, 6),
-    Region.CENTRAL_AMERICA: (1, 3, 5),
-    Region.SOUTH_AMERICA: (2, 5, 6),
-}
+DEFAULT_DATA_PATH = Path(__file__).resolve().parent.parent / "data" / "countries.json"
 
 
 @dataclass(frozen=True)

@@ -163,8 +163,8 @@ remove-after-event flag — are facts about the published board game
 itself, not that repo's expression of them. Re-enter this data
 independently (source of truth: the physical card text / GMT's
 published card list), store it as our own data file (e.g.
-`data/cards.json`), and cite the physical game as the source in
-comments/docs, not the reference repo.
+`src/struggler/data/cards.json`), and cite the physical game as the
+source in comments/docs, not the reference repo.
 
 Card *mechanics* (event text implementation) are out of scope until
 M3, and when implemented, must be designed against mandates #1–#2
@@ -431,7 +431,7 @@ historical "Ops-only" toggle.
     pattern.
   - *VERIFY: reconstructed from memory, not independently reconfirmed against
     the physical card text here* (flagged in `events.py` at the card, the same
-    convention `board.py`/`engine.py` already use for unconfirmed numeric
+    convention `engine/rules.py` already uses for unconfirmed numeric
     constants like `SPACE_RACE_BOXES`): Special Relationship's and Nixon Plays
     the China Card's exact wording. Re-verifying these against the physical
     cards (or GMT's published card list) and correcting `events.py` if they're
@@ -454,7 +454,7 @@ touches the engine.
 
 ### The `Player` interface
 
-`struggler.players.base.Player` is a structural `Protocol`, not a base
+`struggler.engine.player.Player` is a structural `Protocol`, not a base
 class: any object with a matching `choose_action` method is a `Player`, no
 inheritance required (mandate-consistent with the rest of this file's
 API-surface philosophy — the contract is a shape, not a class hierarchy).
@@ -470,7 +470,7 @@ class Player(Protocol):
   the same constraints a human at the console has.
 - `history` is every resolved `(Decision, Action)` pair since this player
   was last consulted (opponent moves and CHANCE rolls included), as a
-  `players.base.Event` list. Bots are free to ignore it; it exists so a
+  `engine.player.Event` list. Bots are free to ignore it; it exists so a
   player *can* condition on what just happened without re-deriving it from
   `Observation` alone.
 - `Side.CHANCE` decisions (coup/realignment/space-race rolls, ...) never
@@ -485,13 +485,27 @@ class Player(Protocol):
 
 ### Bot registry
 
-`struggler.players.registry.PLAYER_REGISTRY` maps a name to a zero/one-arg
-factory (`seed` for the ones that need it); `build_player(name, seed=...)`
-is the lookup. `src/main.py --us <name> --ussr <name>` reads its `--us`/
-`--ussr` choices directly from the registry, so a new bot is usable from the
-CLI the moment it's registered — no other code changes. This is the
-"simple to configure, easy to extend" requirement: writing a new bot means
-implementing `Player` and adding one line to the registry, nothing else.
+`struggler.engine.player_registry` is a dynamic, self-registering lookup,
+not a hardcoded table: each bot module decorates its own zero/one-arg
+factory (`seed` for the ones that need it) with `@register("name")` — see
+`bots/greedy.py`, `bots/naive.py`. `player_registry.build_player(name,
+seed=...)` resolves a name to a `Player`; `player_registry.available()`
+lists the names registered *so far*, which reflects only the bot modules
+that have actually been imported (importing `struggler.bots` alone
+registers nothing — it's an empty package on purpose). `"human"` is the
+one exception: it's registered inside `player_registry` itself, next to
+`HumanPlayer`, so the engine stays usable for a human-vs-human game with
+no dependency on `struggler.bots` at all.
+
+Whoever builds players is responsible for importing the bot modules it
+wants available first — `src/main.py` does this explicitly
+(`import struggler.bots.greedy`, `import struggler.bots.naive`) before
+reading `player_registry.available()` for its `--us`/`--ussr` argparse
+choices. This is the "simple to configure, easy to extend" requirement:
+writing a new bot means implementing `Player` and decorating one factory
+with `@register(...)` in its own module — the registry itself never needs
+touching, and a caller opts a bot into a given CLI/script by adding one
+import line.
 
 ### Roadmap
 
@@ -505,7 +519,7 @@ built:
    perturb or depend on the engine's own dice sequence, keeping replay logs
    reproducible regardless of which bots produced them). These exist mainly
    as a floor to measure every later bot against.
-2. **Greedy / rule-based** (current — `players/greedy.py`): observe the
+2. **Greedy / rule-based** (current — `bots/greedy.py`): observe the
    state, score every legal action of the *current* decision with
    hand-crafted heuristics, take the top score. No lookahead, no search, no
    opponent modeling — see "Greedy bot design" below.
@@ -548,7 +562,7 @@ tractable for a greedy bot: every one of those decisions offers **tens** of
 options, never thousands, so "score every legal option, take the best" is
 cheap even without any pruning.
 
-`GreedyPlayer` (`players/greedy.py`) handles this with one scorer function
+`GreedyPlayer` (`bots/greedy.py`) handles this with one scorer function
 per `DecisionKind`, dispatched from a `_SCORERS` table, all funneling
 through a single static evaluator:
 
@@ -591,7 +605,7 @@ def board_value(weights: GreedyWeights, board: Board, side: Side) -> float:
   net VP, signed favorably or unfavorably for the acting side.
 
 **Known limitation, by design** (approved scope for v1 — see the milestone
-note in `players/greedy.py`'s module docstring): only the 7 core M1/M2
+note in `bots/greedy.py`'s module docstring): only the 7 core M1/M2
 decision kinds get real heuristics (`PLACE_INFLUENCE`, `COUP_TARGET`,
 `REALIGNMENT_TARGET`, `OPS_TYPE`, `HEADLINE_PLAY`, `ACTION_ROUND_PLAY`,
 `PLAY_MODE`). Every M3 event-specific decision kind falls back to the first
@@ -653,6 +667,11 @@ board mechanics and each M3 card individually.
 - **Language**: all code, comments, docstrings, and commit messages in
   English.
 - **Layout**: `src/struggler/` package (src-layout to avoid accidental
-  implicit imports of the working directory during tests); tests under
-  `tests/`, golden replay logs under `tests/replays/`, card data under
-  `data/`.
+  implicit imports of the working directory during tests), split by
+  concern: `engine/` is the rules engine itself (state, board, cards,
+  events, replay, and the `Player`/`HumanPlayer`/registry contract that
+  bots plug into), `bots/` holds the automated `Player` implementations
+  (each self-registering with `engine.player_registry` when its module is
+  imported), and `data/` (inside the package) holds the game's JSON facts
+  (`cards.json`, `countries.json`, `rules.json`). Tests live under
+  `tests/`, golden replay logs under `tests/replays/`.

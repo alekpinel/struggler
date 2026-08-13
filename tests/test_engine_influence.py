@@ -2,8 +2,7 @@
 
 import pytest
 
-from struggler.engine import Engine
-from struggler.types import DecisionKind, Side
+from struggler.engine import DecisionKind, Engine, Side
 
 
 def test_begin_influence_operations_pushes_one_decision_per_point():
@@ -27,7 +26,7 @@ def test_legal_options_stay_in_the_tens_not_thousands():
 
 
 def test_step_rejects_illegal_action():
-    from struggler.types import Action
+    from struggler.engine import Action
 
     engine = Engine(seed=1)
     engine.begin_influence_operations(Side.USSR, 4)
