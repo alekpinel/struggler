@@ -48,7 +48,7 @@ from struggler.engine.cards import load_cards
 from struggler.engine.core import SCORING_CARD_REGION
 from struggler.engine.player import Event
 from struggler.engine.player_registry import register
-from struggler.engine.rules import COUP_MIN_DEFCON, SPACE_RACE_BOXES, SPACE_RACE_MAX_BOX
+from struggler.engine.rules import RULES
 
 _CARDS = load_cards()
 
@@ -214,10 +214,10 @@ def _effective_ops_estimate(card, observation: Observation, side: Side) -> int:
 
 def _space_race_expected_vp(observation: Observation, side: Side) -> float:
     pos = observation.space_race.get(side.value, 0)
-    if pos >= SPACE_RACE_MAX_BOX:
+    if pos >= RULES["space_race_max_box"]:
         return 0.0
     next_box = pos + 1
-    box = SPACE_RACE_BOXES[next_box]
+    box = RULES["space_race_boxes"][next_box]
     probability = box["roll_max"] / 6.0
     first = observation.space_race.get(side.opponent.value, 0) < next_box
     vp = box["vp_first"] if first else box["vp_second"]
@@ -314,7 +314,7 @@ def _best_coup_value(
     for cid, info in board.countries.items():
         if board.influence[cid][opponent.value] <= 0:
             continue
-        if observation.defcon < COUP_MIN_DEFCON.get(info.region, 1):
+        if observation.defcon < RULES["coup_min_defcon"].get(info.region, 1):
             continue
         if observation.defcon <= 2 and not _nuclear_subs_exempt(observation, side, info):
             continue
@@ -331,7 +331,7 @@ def _best_realignment_value(weights: GreedyWeights, board: Board, observation: O
     for cid, info in board.countries.items():
         if board.influence[cid][opponent.value] <= 0:
             continue
-        if observation.defcon < COUP_MIN_DEFCON.get(info.region, 1):
+        if observation.defcon < RULES["coup_min_defcon"].get(info.region, 1):
             continue
         own_bonus = _realignment_bonus(board, side, cid)
         opp_bonus = _realignment_bonus(board, opponent, cid)

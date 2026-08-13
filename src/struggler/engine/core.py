@@ -25,19 +25,7 @@ import random
 from struggler.engine.board import Board
 from struggler.engine.cards import action_rounds, cards_entering, hand_limit, load_cards
 from struggler.engine.events import EVENTS
-from struggler.engine.rules import (
-    CHINA_CARD_ID,
-    COUP_MIN_DEFCON,
-    SCORING,
-    SETUP_ADDITIONAL,
-    SPACE_RACE_ABILITY_KEYS,
-    SPACE_RACE_BOXES,
-    SPACE_RACE_MAX_BOX,
-    SPACE_RACE_TWO_ATTEMPTS_FROM_BOX,
-    UN_INTERVENTION_ID,
-    VP_TO_WIN,
-    WAR_CARDS,
-)
+from struggler.engine.rules import RULES
 from struggler.engine.types import (
     Action,
     Card,
@@ -527,7 +515,7 @@ class Engine:
         self._push_setup_influence(Side.USSR, Subregion.EASTERN_EUROPE)
 
     def _push_setup_influence(self, side: Side, subregion: Subregion) -> None:
-        remaining = SETUP_ADDITIONAL[subregion][1]
+        remaining = RULES["setup_additional"][subregion][1]
         self._push_setup_influence_remaining(side, subregion, remaining)
 
     def _push_setup_influence_remaining(
@@ -634,7 +622,7 @@ class Engine:
     def _maybe_flower_power(self, side: Side, cid: str) -> None:
         """Flower Power: the USSR scores 2 VP each time the US plays a war card
         (for its Event or Operations), until An Evil Empire cancels it."""
-        if side is Side.US and cid in WAR_CARDS and self.game_effects.get("flower_power"):
+        if side is Side.US and cid in RULES["war_cards"] and self.game_effects.get("flower_power"):
             self._award_vp(Side.USSR, 2)
 
     def _resolve_headline_card(self, side: Side, cid: str) -> None:
@@ -675,7 +663,7 @@ class Engine:
             and side.value == self.china_card_owner
             and self.china_card_available
         ):
-            options.append(Action(DecisionKind.ACTION_ROUND_PLAY, {"card": CHINA_CARD_ID}))
+            options.append(Action(DecisionKind.ACTION_ROUND_PLAY, {"card": RULES["china_card_id"]}))
         if options:
             self._push(side, DecisionKind.ACTION_ROUND_PLAY, tuple(options), {})
 
@@ -706,7 +694,7 @@ class Engine:
         # The event-vs-ops choice is enumerated per the M2 spec even though no
         # non-scoring event fires yet (choosing it is a no-op discard). The
         # China Card has no event, so it is Ops-only.
-        if cid != CHINA_CARD_ID:
+        if cid != RULES["china_card_id"]:
             modes.append("event")
         if self._can_space_race(side, card):
             modes.append("space_race")
@@ -715,11 +703,11 @@ class Engine:
         # for Ops with its event cancelled (discarding UN Intervention).
         if (
             self.events_enabled
-            and cid != UN_INTERVENTION_ID
+            and cid != RULES["un_intervention_id"]
             and self._is_opponent_event(side, card)
             and self._has_event(cid)
             and EVENTS[cid].eligible(self, side)
-            and UN_INTERVENTION_ID in self.hands[side.value]
+            and RULES["un_intervention_id"] in self.hands[side.value]
         ):
             modes.append("un_intervention")
         return tuple(modes)
@@ -755,8 +743,8 @@ class Engine:
             # defuses We Will Bury You's end-of-turn VP for the US.
             if side is Side.US:
                 self.turn_effects.pop("we_will_bury_you", None)
-            self.hands[side.value].remove(UN_INTERVENTION_ID)
-            self.discard_pile.append(UN_INTERVENTION_ID)
+            self.hands[side.value].remove(RULES["un_intervention_id"])
+            self.discard_pile.append(RULES["un_intervention_id"])
             self._file_card(side, cid, fired=False)  # event cancelled: normal discard
             self._push_ops_type(side, self._effective_ops(side, card))
             return
@@ -795,7 +783,7 @@ class Engine:
             )
             return
         self._file_card(side, cid, fired=False)  # China Card passes here
-        self._push_ops_type(side, ops, china=(cid == CHINA_CARD_ID))
+        self._push_ops_type(side, ops, china=(cid == RULES["china_card_id"]))
 
     def _push_ops_type(self, side: Side, ops: int, china: bool = False) -> None:
         self._push(
@@ -859,15 +847,15 @@ class Engine:
     # -- M2: space race -----------------------------------------------------
 
     def _space_attempts_allowed(self, side: Side) -> int:
-        if self.space_race[side.value] >= SPACE_RACE_TWO_ATTEMPTS_FROM_BOX:
+        if self.space_race[side.value] >= RULES["space_race_two_attempts_from_box"]:
             return 2
         return 1
 
     def _can_space_race(self, side: Side, card: Card) -> bool:
         pos = self.space_race[side.value]
-        if pos >= SPACE_RACE_MAX_BOX:
+        if pos >= RULES["space_race_max_box"]:
             return False
-        if self._effective_ops(side, card) < SPACE_RACE_BOXES[pos + 1]["ops"]:
+        if self._effective_ops(side, card) < RULES["space_race_boxes"][pos + 1]["ops"]:
             return False
         return self.space_race_attempts[side.value] < self._space_attempts_allowed(side)
 
@@ -875,7 +863,7 @@ class Engine:
         side = Side(decision.context["side"])
         roll = action.payload["value"]
         next_box = self.space_race[side.value] + 1
-        if roll <= SPACE_RACE_BOXES[next_box]["roll_max"]:
+        if roll <= RULES["space_race_boxes"][next_box]["roll_max"]:
             self.advance_space_race_box(side)
 
     def advance_space_race_box(self, side: Side) -> None:
@@ -883,10 +871,10 @@ class Engine:
         (first vs second to reach it). Shared by a successful attempt roll and
         by events that advance the marker directly (e.g. Captured Nazi
         Scientist). No-op at the top of the track."""
-        if self.space_race[side.value] >= SPACE_RACE_MAX_BOX:
+        if self.space_race[side.value] >= RULES["space_race_max_box"]:
             return
         next_box = self.space_race[side.value] + 1
-        box = SPACE_RACE_BOXES[next_box]
+        box = RULES["space_race_boxes"][next_box]
         first = self.space_race[side.opponent.value] < next_box
         self.space_race[side.value] = next_box
         vp = box["vp_first"] if first else box["vp_second"]
@@ -902,7 +890,7 @@ class Engine:
         Card) and box 8 (an extra Action Round). Box 2's double-attempt
         ability is instead a direct position check (_space_attempts_allowed)
         and box 4's headline-order perk remains unmodeled."""
-        key = SPACE_RACE_ABILITY_KEYS.get(box)
+        key = RULES["space_race_ability_keys"].get(box)
         if key is None:
             return
         if first:
@@ -958,7 +946,7 @@ class Engine:
         info = self.board.countries[cid]
         if self.board.influence[cid][attacker.opponent.value] <= 0:
             return False
-        min_defcon = COUP_MIN_DEFCON.get(info.region, _DEFAULT_MIN_DEFCON)
+        min_defcon = RULES["coup_min_defcon"].get(info.region, _DEFAULT_MIN_DEFCON)
         if self.defcon < min_defcon:
             return False
         if attacker is not Side.USSR:
@@ -1434,7 +1422,7 @@ class Engine:
                 self._win(controller, "europe_control")
                 return 0
         extra_bg, ignored = self._scoring_overrides(region)
-        presence, domination, control = SCORING[region]
+        presence, domination, control = RULES["scoring"][region]
         tier_value = {
             ScoringTier.NONE: 0,
             ScoringTier.PRESENCE: presence,
@@ -1473,9 +1461,9 @@ class Engine:
 
     def _change_vp_by(self, net: int) -> None:
         self.vp += net
-        if self.vp >= VP_TO_WIN:
+        if self.vp >= RULES["vp_to_win"]:
             self._win(Side.US, "vp")
-        elif self.vp <= -VP_TO_WIN:
+        elif self.vp <= -RULES["vp_to_win"]:
             self._win(Side.USSR, "vp")
 
     def _win(self, side: Side, reason: str) -> None:
@@ -1490,7 +1478,7 @@ class Engine:
             self._decision_stack.clear()
 
     def _file_card(self, side: Side, cid: str, fired: bool) -> None:
-        if cid == CHINA_CARD_ID:
+        if cid == RULES["china_card_id"]:
             # The China Card is never discarded: it passes to the opponent
             # face-down and becomes available to them next turn. Playing it also
             # nullifies Formosan Resolution for the rest of the game.

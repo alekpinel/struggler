@@ -2,14 +2,14 @@
 
 from struggler.engine import Region, ScoringTier, Side
 from struggler.engine.board import Board
-from struggler.engine.rules import SCORING
+from struggler.engine.rules import RULES
 
 
 def test_scoring_table_matches_confirmed_values():
     # Regression guard for the numbers confirmed against the physical game.
-    assert SCORING[Region.MIDDLE_EAST] == (3, 5, 7)
-    assert SCORING[Region.AFRICA] == (1, 4, 6)
-    assert SCORING[Region.SOUTH_AMERICA] == (2, 5, 6)
+    assert RULES["scoring"][Region.MIDDLE_EAST] == (3, 5, 7)
+    assert RULES["scoring"][Region.AFRICA] == (1, 4, 6)
+    assert RULES["scoring"][Region.SOUTH_AMERICA] == (2, 5, 6)
 
 
 def test_all_countries_reciprocal_adjacency_loaded_without_error():

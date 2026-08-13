@@ -3,14 +3,11 @@
 from __future__ import annotations
 
 import copy
-import json
 from dataclasses import dataclass
-from pathlib import Path
 
-from struggler.engine.rules import SCORING
+from struggler.engine.data_loader import load_json
+from struggler.engine.rules import RULES
 from struggler.engine.types import Region, ScoringTier, Side, Subregion
-
-DEFAULT_DATA_PATH = Path(__file__).resolve().parent.parent / "data" / "countries.json"
 
 
 @dataclass(frozen=True)
@@ -32,8 +29,8 @@ class Board:
     bug.
     """
 
-    def __init__(self, data_path: Path | None = None) -> None:
-        raw = _load_raw(data_path or DEFAULT_DATA_PATH)
+    def __init__(self) -> None:
+        raw = load_json("countries.json")
 
         self.countries: dict[str, CountryInfo] = {}
         self._adjacency: dict[str, set[str]] = {"US": set(), "USSR": set()}
@@ -134,12 +131,6 @@ class Board:
 
     def controls_all_of_europe(self) -> Side | None:
         """Whether one side currently controls every country in Europe.
-
-        Confirmed: this does NOT win the game by itself. The win happens
-        when the Europe Scoring card is played while a side holds this
-        condition — a card event, out of scope until M2/M3. This method
-        is a pure query for that future check to use; nothing in M1 calls
-        it to end the game.
         """
         europe = self.countries_in(Region.EUROPE)
         if all(self.control(cid) is Side.US for cid in europe):
@@ -222,7 +213,7 @@ class Board:
         negative favors USSR): each side's Presence/Domination/Control tier
         value, plus its 10.1.2 bonuses (+1 VP per Battleground Controlled,
         +1 VP per country Controlled adjacent to the enemy superpower)."""
-        presence_vp, domination_vp, control_vp = SCORING[region]
+        presence_vp, domination_vp, control_vp = RULES["scoring"][region]
         tier_value = {
             ScoringTier.NONE: 0,
             ScoringTier.PRESENCE: presence_vp,
@@ -254,8 +245,3 @@ class Board:
         for cid, values in data["influence"].items():
             self.influence[cid]["US"] = values["US"]
             self.influence[cid]["USSR"] = values["USSR"]
-
-
-def _load_raw(path: Path) -> dict:
-    with path.open("r", encoding="utf-8") as f:
-        return json.load(f)

@@ -17,25 +17,14 @@ order; the engine shuffles the result.
 
 from __future__ import annotations
 
-import json
-from pathlib import Path
-
-from struggler.engine.rules import (
-    ACTION_ROUNDS_EARLY,
-    ACTION_ROUNDS_MID_LATE,
-    HAND_LIMIT_EARLY,
-    HAND_LIMIT_MID_LATE,
-)
+from struggler.engine.data_loader import load_json
+from struggler.engine.rules import RULES
 from struggler.engine.types import Card, CardSide, Period
 
-DEFAULT_DATA_PATH = Path(__file__).resolve().parent.parent / "data" / "cards.json"
 
-
-def load_cards(data_path: Path | None = None) -> dict[str, Card]:
+def load_cards() -> dict[str, Card]:
     """Load every card from the data file into immutable `Card` objects."""
-    path = data_path or DEFAULT_DATA_PATH
-    with path.open("r", encoding="utf-8") as f:
-        raw = json.load(f)
+    raw = load_json("cards.json")
 
     cards: dict[str, Card] = {}
     for cid, entry in raw["cards"].items():
@@ -76,9 +65,9 @@ def cards_entering(
 
 def hand_limit(turn: int) -> int:
     """Cards each player is dealt up to at the start of `turn`."""
-    return HAND_LIMIT_EARLY if turn <= 3 else HAND_LIMIT_MID_LATE
+    return RULES["hand_limit_early"] if turn <= 3 else RULES["hand_limit_mid_late"]
 
 
 def action_rounds(turn: int) -> int:
     """Number of action rounds each player takes during `turn`."""
-    return ACTION_ROUNDS_EARLY if turn <= 3 else ACTION_ROUNDS_MID_LATE
+    return RULES["action_rounds_early"] if turn <= 3 else RULES["action_rounds_mid_late"]
