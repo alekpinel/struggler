@@ -48,9 +48,9 @@ COUP_MIN_DEFCON: dict[Region, int] = {
 _DEFAULT_MIN_DEFCON = 1
 
 # Every coup attempt, in any region, degrades DEFCON by 1, regardless of
-# success. Confirmed against the physical game. Realignment is NOT subject
-# to the COUP_MIN_DEFCON restriction above (only coups are) — this remains
-# an unconfirmed assumption.
+# success. Confirmed against the physical game. Realignment is subject to
+# the same COUP_MIN_DEFCON restriction above (8.1.5 restricts "Coup or
+# Realignment rolls" identically) — enforced in _usable_coup_realign_target.
 
 # VP required to win outright; the track runs to 20 in either direction.
 VP_TO_WIN = 20
@@ -931,15 +931,25 @@ class Engine:
     def _usable_coup_realign_target(
         self, attacker: Side, cid: str, for_coup: bool = True
     ) -> bool:
-        """Whether `attacker` may coup/realign `cid` given persistent effects.
-        Only the USSR is ever locked out (NATO protects US-controlled Europe;
-        the US/Japan pact protects Japan; The Reformer bars USSR *coups* in
-        Europe). NATO's lock is lifted per-country by De Gaulle (France) and
-        Willy Brandt (West Germany)."""
+        """Whether `attacker` may attempt a Coup/Realignment against `cid`.
+
+        Requires the opponent to hold at least 1 Influence there (6.2.1 /
+        6.3.1) and the current DEFCON to allow it in that region (8.1.5,
+        which restricts Coup *and* Realignment alike). Beyond that,
+        persistent effects may lock the USSR out further (NATO protects
+        US-controlled Europe; the US/Japan pact protects Japan; The Reformer
+        bars USSR *coups* in Europe). NATO's lock is lifted per-country by
+        De Gaulle (France) and Willy Brandt (West Germany)."""
+        info = self.board.countries[cid]
+        if self.board.influence[cid][attacker.opponent.value] <= 0:
+            return False
+        min_defcon = COUP_MIN_DEFCON.get(info.region, _DEFAULT_MIN_DEFCON)
+        if self.defcon < min_defcon:
+            return False
         if attacker is not Side.USSR:
             return True
         ge = self.game_effects
-        region = self.board.countries[cid].region
+        region = info.region
         if ge.get("us_japan_pact") and cid == "Japan":
             return False
         if for_coup and ge.get("reformer") and region is Region.EUROPE:
@@ -1421,8 +1431,12 @@ class Engine:
             if tier is ScoringTier.CONTROL:
                 # Europe leaves its Control value undefined (full control is
                 # the win handled above); approximate as Domination. VERIFY.
-                return control if control is not None else domination
-            return tier_value[tier]
+                base = control if control is not None else domination
+            else:
+                base = tier_value[tier]
+            # 10.1.2: +1 VP per Battleground Controlled in the region, +1 VP
+            # per country Controlled there adjacent to the enemy superpower.
+            return base + self.board.region_bonus_vp(s, region, extra_bg, ignored)
 
         return value_for(Side.US) - value_for(Side.USSR)
 
@@ -1623,15 +1637,11 @@ class Engine:
     # -- coup --------------------------------------------------------------
 
     def _coup_target_options(self, side: Side) -> tuple[Action, ...]:
-        options = []
-        for cid, info in self.board.countries.items():
-            min_defcon = COUP_MIN_DEFCON.get(info.region, _DEFAULT_MIN_DEFCON)
-            if self.defcon < min_defcon:
-                continue
-            if not self._usable_coup_realign_target(side, cid):
-                continue
-            options.append(Action(DecisionKind.COUP_TARGET, {"country": cid}))
-        return tuple(options)
+        return tuple(
+            Action(DecisionKind.COUP_TARGET, {"country": cid})
+            for cid in self.board.countries
+            if self._usable_coup_realign_target(side, cid)
+        )
 
     def _handle_coup_target(self, decision: Decision, action: Action) -> None:
         side = decision.actor
@@ -1727,7 +1737,7 @@ class Engine:
         choices = ["none"]
         coupable = [
             cid for cid in countries
-            if self._coup_defcon_ok(cid) and self._usable_coup_realign_target(side, cid)
+            if self._usable_coup_realign_target(side, cid)
         ]
         realignable = [
             cid for cid in countries
@@ -1746,20 +1756,18 @@ class Engine:
              "ops": ops, "countries": list(countries)},
         )
 
-    def _coup_defcon_ok(self, cid: str) -> bool:
-        info = self.board.countries[cid]
-        return self.defcon >= COUP_MIN_DEFCON.get(info.region, _DEFAULT_MIN_DEFCON)
-
     def resolve_free_op_choice(
         self, side: Side, choice: str, ops: int, countries: list[str]
     ) -> None:
-        """Continue a push_free_coup_or_realign branch once the player picks."""
+        """Continue a push_free_coup_or_realign branch once the player picks.
+
+        A free Coup roll granted by an event does not count towards required
+        Military Operations (8.2.5), so it never touches military_ops."""
         if choice == "coup":
-            self.military_ops[side.value] += ops
             options = tuple(
                 Action(DecisionKind.COUP_TARGET, {"country": cid})
                 for cid in countries
-                if self._coup_defcon_ok(cid) and self._usable_coup_realign_target(side, cid)
+                if self._usable_coup_realign_target(side, cid)
             )
             if options:
                 self._push(side, DecisionKind.COUP_TARGET, options, {"ops": ops, "bonus": None})
@@ -1818,7 +1826,6 @@ class Engine:
             cid
             for cid in candidates
             if cid not in used
-            and self._coup_defcon_ok(cid)
             and self._usable_coup_realign_target(side, cid)
         ]
         if not targets:
@@ -1831,11 +1838,10 @@ class Engine:
     def begin_che_coup(
         self, side: Side, country: str, ops: int, candidates: list[str], used: list[str]
     ) -> None:
-        """Resolve a chosen Che coup: it counts as military Ops, then a logged
-        CHANCE roll decides it. The COUP_ROLL context carries the `che` state so
-        _handle_coup_roll can offer the second attempt if this one removes US
-        Influence."""
-        self.military_ops[side.value] += ops
+        """Resolve a chosen Che coup: a free Coup roll (8.2.5), so it does not
+        move the Military Ops track. A logged CHANCE roll decides it; the
+        COUP_ROLL context carries the `che` state so _handle_coup_roll can
+        offer the second attempt if this one removes US Influence."""
         used = list(used) + [country]
         roll = self._roll_d6()
         self._push(
@@ -2007,8 +2013,10 @@ class Engine:
         actor_roll = decision.context["actor_roll"]
         opp_roll = action.payload["value"]
 
+        # 6.2.2: the die roll is not modified by the Operations value of the
+        # card spent — Ops only buys attempts (1 per point), unlike a Coup.
         actor_total = (
-            actor_roll + card_ops + self._realignment_bonus(side, country)
+            actor_roll + self._realignment_bonus(side, country)
             + self._realignment_modifier(side)
         )
         opp_total = opp_roll + self._realignment_bonus(opponent, country)

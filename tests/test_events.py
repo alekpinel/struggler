@@ -266,7 +266,7 @@ def test_nato_blocks_ussr_coup_and_realign_on_us_europe_only():
     engine = _bare()
     engine.game_effects["marshall_or_warsaw"] = True
     engine._fire_event(Side.US, "NATO")
-    engine.board.influence["West_Germany"] = {"US": 5, "USSR": 0}  # US-controlled
+    engine.board.influence["West_Germany"] = {"US": 5, "USSR": 1}  # US-controlled
     ussr_coup = {a.payload["country"] for a in engine._coup_target_options(Side.USSR)}
     ussr_realign = {
         a.payload["country"] for a in engine._realignment_target_options(Side.USSR)
@@ -456,6 +456,8 @@ def test_the_reformer_places_more_when_ussr_is_ahead():
 def test_reformer_bars_ussr_coups_in_europe_but_not_realignment():
     engine = _bare()
     engine.game_effects["reformer"] = True
+    engine.board.influence["France"]["US"] = 1  # opponent Influence required to target
+    engine.board.influence["Vietnam"]["US"] = 1
     coup = {a.payload["country"] for a in engine._coup_target_options(Side.USSR)}
     realign = {a.payload["country"] for a in engine._realignment_target_options(Side.USSR)}
     assert "France" not in coup       # Europe coups barred
@@ -676,6 +678,7 @@ def test_region_bonus_does_not_apply_to_us_or_outside_se_asia():
 def test_junta_places_two_then_offers_a_free_regional_operation():
     engine = _bare(seed=1)
     engine.defcon = 5
+    engine.board.influence["Guatemala"]["US"] = 1  # opponent Influence for the free op
     engine._fire_event(Side.USSR, "Junta")
     placed = 0
     while (engine.pending_decision is not None
@@ -701,11 +704,30 @@ def test_junta_places_two_then_offers_a_free_regional_operation():
 def test_junta_free_op_can_be_declined():
     engine = _bare(seed=1)
     engine.defcon = 5
+    engine.board.influence["Guatemala"]["USSR"] = 1  # opponent Influence for the free op
     engine._fire_event(Side.US, "Junta")
     while engine.pending_decision.kind is DecisionKind.EVENT_INFLUENCE:
         engine.step(engine.pending_decision.options[0])
     engine.step(Action(DecisionKind.EVENT_CHOICE, {"choice": "none"}))
     assert engine.pending_decision is None  # nothing further enqueued
+
+
+def test_junta_free_coup_does_not_count_towards_military_ops():
+    # Rule 8.2.5: a free Coup roll does not count towards required Military
+    # Operations, so it must not move the Military Ops track.
+    engine = _bare(seed=1)
+    engine.defcon = 5
+    engine.board.influence["Guatemala"]["US"] = 1  # opponent Influence for the free coup
+    engine._fire_event(Side.USSR, "Junta")
+    while engine.pending_decision.kind is DecisionKind.EVENT_INFLUENCE:
+        engine.step(engine.pending_decision.options[0])
+    engine.step(Action(DecisionKind.EVENT_CHOICE, {"choice": "coup"}))
+    target = next(
+        a for a in engine.pending_decision.options if a.payload["country"] == "Guatemala"
+    )
+    engine.step(target)
+    assert engine.pending_decision.kind is DecisionKind.COUP_ROLL
+    assert engine.military_ops["USSR"] == 0
 
 
 # -- more per-turn / game-long coup & realignment modifiers ------------------
@@ -1221,6 +1243,7 @@ def _americas_africa_non_bg(engine):
 def test_che_offers_a_free_coup_in_the_americas_and_africa():
     engine = _bare(seed=1)
     engine.defcon = 5
+    engine.board.influence["Nicaragua"]["US"] = 1  # opponent Influence for the free coup
     engine._fire_event(Side.USSR, "Che")
     d = engine.pending_decision
     assert d.kind is DecisionKind.EVENT_CHOICE and d.actor is Side.USSR
@@ -1236,11 +1259,12 @@ def test_che_second_coup_after_removing_us_influence_excludes_the_first():
     engine = _bare(seed=3)
     engine.defcon = 5
     engine.board.influence["Nicaragua"] = {"US": 2, "USSR": 0}  # stability 1, non-bg
+    engine.board.influence["Costa_Rica"]["US"] = 1  # opponent Influence for the second attempt
     engine._fire_event(Side.USSR, "Che")
     engine.step(Action(DecisionKind.EVENT_CHOICE, {"choice": "Nicaragua"}))
     roll = engine.pending_decision  # COUP_ROLL, che state attached
     assert roll.kind is DecisionKind.COUP_ROLL and "che" in roll.context
-    assert engine.military_ops["USSR"] == 3  # a free coup still counts as military Ops
+    assert engine.military_ops["USSR"] == 0  # a free coup does not count as military Ops (8.2.5)
     # Nicaragua has stability 1, so even the seeded roll here removes US Influence.
     engine.step(roll.options[0])
     assert engine.board.influence["Nicaragua"]["US"] == 0
@@ -1553,6 +1577,7 @@ def test_special_relationship_scores_and_grants_realignment_under_nato():
 
     nato = _bare()
     nato.board.influence["UK"] = {"US": 5, "USSR": 0}
+    nato.board.influence["France"]["USSR"] = 1  # opponent Influence for the free realignment
     nato.game_effects["nato"] = True
     nato._fire_event(Side.US, "Special_Relationship")
     assert nato.vp == 2

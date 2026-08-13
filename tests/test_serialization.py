@@ -8,6 +8,7 @@ from struggler.types import Side
 
 def test_serialize_is_json_native():
     engine = Engine(seed=1)
+    engine.board.influence["Poland"]["USSR"] = 3  # a coup needs opponent Influence there
     engine.begin_coup(Side.US, 2)
     engine.step(engine.legal_actions()[0])
     data = engine.serialize()
@@ -35,6 +36,8 @@ def test_round_trip_preserves_full_state_including_rng():
 
 def test_round_trip_through_a_chance_decision_preserves_rng_state():
     engine = Engine(seed=7)
+    engine.board.influence["Poland"]["USSR"] = 3  # opponent Influence for the US coup below
+    engine.board.influence["Guatemala"]["US"] = 3  # opponent Influence for the USSR coup below
     engine.begin_coup(Side.US, ops=2)
     engine.step(engine.legal_actions()[0])  # target -> pushes COUP_ROLL (draws from RNG)
 
