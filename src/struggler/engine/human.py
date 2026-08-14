@@ -13,12 +13,15 @@ def _format_action(action: Action) -> str:
 
 
 def _format_event(event: Event) -> str:
-    return (
-        f"  {event.actor.value}: {_format_action(event.action)}"
-        f" (DEFCON {event.defcon}, VP {event.vp}, turn {event.turn}.{event.action_round},"
-        f" space race US={event.space_race.get('US', 0)}/USSR={event.space_race.get('USSR', 0)},"
-        f" military ops US={event.military_ops.get('US', 0)}/USSR={event.military_ops.get('USSR', 0)})"
-    )
+    details = []
+    if event.country is not None:
+        us = event.country_influence.get("US", 0)
+        ussr = event.country_influence.get("USSR", 0)
+        details.append(f"{event.country} {us}/{ussr} Control={event.country_control or 'None'}")
+    details.append(f"DEFCON {event.defcon}")
+    details.append(f"VP {event.vp}")
+    details.append(f"turn {event.turn}.{event.action_round}")
+    return f"  {event.actor.value}: {_format_action(event.action)} ({', '.join(details)})"
 
 
 class HumanPlayer:
