@@ -1,0 +1,49 @@
+{
+  "scoring": {
+    "EUROPE": [3, 7, null],
+    "ASIA": [3, 7, 9],
+    "MIDDLE_EAST": [3, 5, 7],
+    "AFRICA": [1, 4, 6],
+    "CENTRAL_AMERICA": [1, 3, 5],
+    "SOUTH_AMERICA": [2, 5, 6]
+  },
+  "vp_to_win": 20,
+  "coup_min_defcon": {
+    "EUROPE": 5,
+    "ASIA": 4,
+    "MIDDLE_EAST": 3
+  },
+  "china_card_id": "The_China_Card",
+  "un_intervention_id": "UN_Intervention",
+  "war_cards": [
+    "Korean_War",
+    "Arab_Israeli_War",
+    "Indo_Pakistani_War",
+    "Brush_War",
+    "Iran_Iraq_War"
+  ],
+  "setup_additional": {
+    "EASTERN_EUROPE": { "side": "USSR", "amount": 6 },
+    "WESTERN_EUROPE": { "side": "US", "amount": 7 }
+  },
+  "space_race_boxes": {
+    "1": { "ops": 2, "roll_max": 3, "vp_first": 2, "vp_second": 1 },
+    "2": { "ops": 2, "roll_max": 4, "vp_first": 0, "vp_second": 0 },
+    "3": { "ops": 2, "roll_max": 3, "vp_first": 2, "vp_second": 0 },
+    "4": { "ops": 2, "roll_max": 4, "vp_first": 0, "vp_second": 0 },
+    "5": { "ops": 3, "roll_max": 3, "vp_first": 3, "vp_second": 1 },
+    "6": { "ops": 3, "roll_max": 4, "vp_first": 0, "vp_second": 0 },
+    "7": { "ops": 3, "roll_max": 3, "vp_first": 4, "vp_second": 2 },
+    "8": { "ops": 4, "roll_max": 2, "vp_first": 2, "vp_second": 0 }
+  },
+  "space_race_max_box": 8,
+  "space_race_two_attempts_from_box": 2,
+  "space_race_ability_keys": {
+    "6": "space_race_discard_holder",
+    "8": "space_race_extra_round_holder"
+  },
+  "hand_limit_early": 8,
+  "hand_limit_mid_late": 9,
+  "action_rounds_early": 6,
+  "action_rounds_mid_late": 7
+}

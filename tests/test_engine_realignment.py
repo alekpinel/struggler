@@ -1,7 +1,6 @@
 """Engine: realignment mechanics."""
 
-from struggler.engine import Engine
-from struggler.types import DecisionKind, Side
+from struggler.engine import DecisionKind, Engine, Side
 
 
 def test_realignment_pushes_actor_then_opponent_chance_rolls():

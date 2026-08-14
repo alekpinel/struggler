@@ -1,7 +1,6 @@
 """Engine: coup mechanics, DEFCON interaction, region restrictions."""
 
-from struggler.engine import Engine
-from struggler.types import DecisionKind, Region, Side
+from struggler.engine import DecisionKind, Engine, Region, Side
 
 
 def test_coup_pushes_chance_decision_then_resolves_by_formula():

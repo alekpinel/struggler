@@ -1,40 +1,36 @@
 """CLI entry point: play a game with any mix of human/bot seats.
 
 Examples:
-    python src/main.py                                   # human vs human
-    python src/main.py --us random --ussr first --seed 1  # bot vs bot
-    python src/main.py --ussr random                      # human (US) vs bot (USSR)
+    python src/main.py                                    # human vs human
+    python src/main.py --us greedy --ussr random --seed 1  # bot vs bot
+    python src/main.py --ussr greedy                       # human (US) vs bot (USSR)
+
+Bots register themselves with `struggler.engine.player_registry` when their
+module is imported (see player_registry.py); importing them below is what
+makes them available here, and is the only place that needs editing to
+offer a new one on this CLI.
 """
 
 from __future__ import annotations
 
 import argparse
 
-from struggler.engine import Engine
-from struggler.players import FirstLegalPlayer, HumanPlayer, Player, RandomPlayer
+import struggler.bots.greedy  # noqa: F401  (registers "greedy")
+import struggler.bots.naive  # noqa: F401  (registers "random", "first")
+from struggler.engine import Engine, Side
+from struggler.engine.player import Player
+from struggler.engine.player_registry import available, build_player
 from struggler.runner import play_game
-from struggler.types import Side
-
-
-def build_player(kind: str, seed: int) -> Player:
-    if kind == "human":
-        return HumanPlayer()
-    if kind == "random":
-        return RandomPlayer(seed=seed)
-    if kind == "first":
-        return FirstLegalPlayer()
-    raise ValueError(f"unknown player kind: {kind!r}")
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Play a Twilight Struggle game.")
-    parser.add_argument("--us", choices=["human", "random", "first"], default="human")
-    parser.add_argument("--ussr", choices=["human", "random", "first"], default="human")
+    parser.add_argument("--us", choices=available(), default="human")
+    parser.add_argument("--ussr", choices=available(), default="human")
     parser.add_argument("--seed", type=int, default=12345)
-    parser.add_argument("--events", action="store_true", help="enable M3 card events")
     args = parser.parse_args()
 
-    engine = Engine.new_game(seed=args.seed, events=args.events)
+    engine = Engine.new_game(seed=args.seed)
     players: dict[Side, Player] = {
         Side.US: build_player(args.us, seed=args.seed + 1),
         Side.USSR: build_player(args.ussr, seed=args.seed + 2),

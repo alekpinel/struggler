@@ -5,8 +5,9 @@ from __future__ import annotations
 import random
 from typing import Sequence
 
-from struggler.players.base import Event
-from struggler.types import Action, Observation
+from struggler.engine import Action, Observation
+from struggler.engine.player import Event
+from struggler.engine.player_registry import register
 
 
 class FirstLegalPlayer:
@@ -28,3 +29,13 @@ class RandomPlayer:
 
     def choose_action(self, observation: Observation, history: Sequence[Event]) -> Action:
         return self._rng.choice(observation.pending_decision.options)
+
+
+@register("first")
+def _build_first_legal(seed: int = 0) -> FirstLegalPlayer:
+    return FirstLegalPlayer()
+
+
+@register("random")
+def _build_random(seed: int = 0) -> RandomPlayer:
+    return RandomPlayer(seed=seed)

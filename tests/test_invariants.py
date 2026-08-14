@@ -5,8 +5,7 @@ import random
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from struggler.engine import Engine
-from struggler.types import Side
+from struggler.engine import Engine, Side
 
 MAX_INT32 = 2**31 - 1
 

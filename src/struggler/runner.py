@@ -9,9 +9,8 @@ from __future__ import annotations
 
 from typing import Mapping
 
-from struggler.engine import Engine
-from struggler.players.base import Event, Player
-from struggler.types import Side
+from struggler.engine import Engine, Side
+from struggler.engine.player import Event, Player
 
 
 def play_game(engine: Engine, players: Mapping[Side, Player]) -> Side | None:

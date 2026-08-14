@@ -3,9 +3,8 @@
 import json
 from pathlib import Path
 
-from struggler.engine import Engine
-from struggler.replay import run_replay, run_with_checkpoints
-from struggler.types import Side
+from struggler.engine import Engine, Side
+from struggler.engine.replay import run_replay, run_with_checkpoints
 
 REPLAY_DIR = Path(__file__).parent / "replays"
 

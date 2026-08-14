@@ -1,31 +1,13 @@
-"""The M1 engine: board mechanics only, no cards.
-
-Implements the pending-decision stack (mandate #1), atomic Ops actions
-(mandate #2), seeded RNG exposed as CHANCE decisions (mandate #3),
-per-player observation (mandate #4), and flat serialization (mandate #5)
-for: influence placement, control, region scoring, DEFCON, coups, and
-realignment.
-
-Since no cards exist yet, Ops points are granted directly via
-`begin_influence_operations` / `begin_coup` / `begin_realignment_operations`
-(per CLAUDE.md's M1 scope: "Ops-only actions are driven directly for
-testing"). M2 will replace direct calls to these with a legitimate
-PLAY_CARD decision that grants Ops through the card mechanism; the
-decision-stack handlers below don't change.
-
-Numeric constants below are confirmed against the physical game unless
-marked UNCONFIRMED.
-"""
-
 from __future__ import annotations
 
 import copy
 import random
 
-from struggler.board import SCORING, Board
-from struggler.cards import action_rounds, cards_entering, hand_limit, load_cards
-from struggler.events import EVENTS
-from struggler.types import (
+from struggler.engine.board import Board
+from struggler.engine.cards import action_rounds, cards_entering, hand_limit, load_cards
+from struggler.engine.events import EVENTS
+from struggler.engine.rules import RULES
+from struggler.engine.types import (
     Action,
     Card,
     Decision,
@@ -38,27 +20,11 @@ from struggler.types import (
     Subregion,
 )
 
-# Minimum DEFCON level required to attempt a coup in a region; regions not
-# listed have no restriction. Confirmed against the physical game.
-COUP_MIN_DEFCON: dict[Region, int] = {
-    Region.EUROPE: 5,
-    Region.ASIA: 4,
-    Region.MIDDLE_EAST: 3,
-}
 _DEFAULT_MIN_DEFCON = 1
 
 # Every coup attempt, in any region, degrades DEFCON by 1, regardless of
-# success. Confirmed against the physical game. Realignment is subject to
-# the same COUP_MIN_DEFCON restriction above (8.1.5 restricts "Coup or
+# success. Realignment is subject to the same COUP_MIN_DEFCON restriction above (8.1.5 restricts "Coup or
 # Realignment rolls" identically) — enforced in _usable_coup_realign_target.
-
-# VP required to win outright; the track runs to 20 in either direction.
-VP_TO_WIN = 20
-
-# Each regional scoring card maps to the region score_region() already
-# computes (mandate: scoring is a board mechanic reused from M1, not a card
-# "event"). Southeast Asia Scoring is a subregion-scoring card with different
-# rules and is handled separately.
 SCORING_CARD_REGION: dict[str, Region] = {
     "Asia_Scoring": Region.ASIA,
     "Europe_Scoring": Region.EUROPE,
@@ -66,59 +32,6 @@ SCORING_CARD_REGION: dict[str, Region] = {
     "Central_America_Scoring": Region.CENTRAL_AMERICA,
     "Africa_Scoring": Region.AFRICA,
     "South_America_Scoring": Region.SOUTH_AMERICA,
-}
-
-# The China Card starts face-up with the USSR.
-CHINA_CARD_ID = "The_China_Card"
-
-# UN Intervention (a Tier 4 rule-modifier): held in hand, it lets its player use
-# an *opponent's* card for Ops while cancelling that card's event.
-UN_INTERVENTION_ID = "UN_Intervention"
-
-# The "war" cards, tracked so Flower Power can score the USSR each time the US
-# plays one (for its Event or Operations).
-WAR_CARDS = frozenset(
-    {"Korean_War", "Arab_Israeli_War", "Indo_Pakistani_War", "Brush_War", "Iran_Iraq_War"}
-)
-
-# Additional influence each side places by choice during setup, after the
-# printed at-start influence: the USSR into Eastern Europe, the US into
-# Western Europe. VERIFY the exact counts against the rulebook.
-SETUP_ADDITIONAL = {
-    Subregion.EASTERN_EUROPE: (Side.USSR, 6),
-    Subregion.WESTERN_EUROPE: (Side.US, 7),
-}
-
-# Space Race track, boxes 1..8. Per box: minimum Ops the played card must be
-# worth to attempt entry, the die roll needed (success iff d6 <= roll_max),
-# and the VP awarded to the first / second superpower to reach the box.
-#
-# VERIFY: these numeric constants are best-effort from knowledge of the
-# physical Space Race track and have NOT been reconfirmed line-by-line. The
-# *mechanism* around them (attempt -> seeded CHANCE roll -> advance -> award)
-# is the part M2 proves; only the numbers here are provisional. Box 4's
-# headline-reveal-order perk (6.4.4) remains unmodeled; boxes 2, 6 and 8's
-# perks are implemented below.
-SPACE_RACE_BOXES: dict[int, dict[str, int]] = {
-    1: {"ops": 2, "roll_max": 3, "vp_first": 2, "vp_second": 1},
-    2: {"ops": 2, "roll_max": 4, "vp_first": 0, "vp_second": 0},
-    3: {"ops": 2, "roll_max": 3, "vp_first": 2, "vp_second": 0},
-    4: {"ops": 2, "roll_max": 4, "vp_first": 0, "vp_second": 0},
-    5: {"ops": 3, "roll_max": 3, "vp_first": 3, "vp_second": 1},
-    6: {"ops": 3, "roll_max": 4, "vp_first": 0, "vp_second": 0},
-    7: {"ops": 3, "roll_max": 3, "vp_first": 4, "vp_second": 2},
-    8: {"ops": 4, "roll_max": 2, "vp_first": 2, "vp_second": 0},
-}
-SPACE_RACE_MAX_BOX = 8
-# A side that has reached this box may make two Space Race attempts per turn
-# instead of one. VERIFY exact box.
-SPACE_RACE_TWO_ATTEMPTS_FROM_BOX = 2
-# Space Race boxes whose special ability (6.4.3-6.4.4) is modeled as a
-# granted/cancelled game_effects flag rather than a direct position check;
-# see Engine._update_space_race_ability.
-SPACE_RACE_ABILITY_KEYS: dict[int, str] = {
-    6: "space_race_discard_holder",       # may discard the Held Card at end of turn
-    8: "space_race_extra_round_holder",   # +1 Action Round per turn
 }
 
 
@@ -136,12 +49,6 @@ class Engine:
         self._next_decision_id = 0
         self._winner: Side | None = None
         self._game_over_reason: str | None = None
-
-        # -- M2 card / full-game state --------------------------------------
-        # Defaults leave the engine in the M1 "sandbox" (phase="idle"): no
-        # deck, no turn loop, begin_* entry points drive decisions directly.
-        # A full game is started via Engine.new_game(), which sets phase and
-        # populates the deck/hands below.
         self.cards: dict[str, Card] = load_cards()
         self.phase = "idle"  # idle | headline | action_rounds | complete
         self.include_optional = False
@@ -164,7 +71,7 @@ class Engine:
         self._headline_resolving = False
         self._headline_pending: list[list[str]] = []
 
-        # -- M3 card-event state --------------------------------------------
+        # -- Card-event state --------------------------------------------
         # `events_enabled` gates the whole event layer: False reproduces M2
         # (every card is Ops-only, no event ever fires). `turn_effects` holds
         # persistent per-turn modifiers set by events (e.g. Containment) and is
@@ -348,9 +255,9 @@ class Engine:
     def new_game(
         cls,
         seed: int,
-        include_optional: bool = False,
+        include_optional: bool = True,
         board: Board | None = None,
-        events: bool = False,
+        events: bool = True,
     ) -> "Engine":
         """Start a complete game: build the Early War deck, deal opening
         hands, and push the first (USSR) headline decision.
@@ -359,10 +266,6 @@ class Engine:
         the USSR places 6 additional Influence in Eastern Europe and the US 7
         in Western Europe (as ordinary placement decisions), before the turn-1
         headline.
-
-        `events=False` (the default) runs the M2 game: every card is Ops-only
-        and no event ever fires. `events=True` turns on the M3 event layer —
-        cards with an implemented event (see events.EVENTS) now fire it.
         """
         engine = cls(seed=seed, board=board)
         engine.include_optional = include_optional
@@ -577,7 +480,7 @@ class Engine:
         self._push_setup_influence(Side.USSR, Subregion.EASTERN_EUROPE)
 
     def _push_setup_influence(self, side: Side, subregion: Subregion) -> None:
-        remaining = SETUP_ADDITIONAL[subregion][1]
+        remaining = RULES["setup_additional"][subregion.name]["amount"]
         self._push_setup_influence_remaining(side, subregion, remaining)
 
     def _push_setup_influence_remaining(
@@ -684,7 +587,7 @@ class Engine:
     def _maybe_flower_power(self, side: Side, cid: str) -> None:
         """Flower Power: the USSR scores 2 VP each time the US plays a war card
         (for its Event or Operations), until An Evil Empire cancels it."""
-        if side is Side.US and cid in WAR_CARDS and self.game_effects.get("flower_power"):
+        if side is Side.US and cid in RULES["war_cards"] and self.game_effects.get("flower_power"):
             self._award_vp(Side.USSR, 2)
 
     def _resolve_headline_card(self, side: Side, cid: str) -> None:
@@ -725,7 +628,7 @@ class Engine:
             and side.value == self.china_card_owner
             and self.china_card_available
         ):
-            options.append(Action(DecisionKind.ACTION_ROUND_PLAY, {"card": CHINA_CARD_ID}))
+            options.append(Action(DecisionKind.ACTION_ROUND_PLAY, {"card": RULES["china_card_id"]}))
         if options:
             self._push(side, DecisionKind.ACTION_ROUND_PLAY, tuple(options), {})
 
@@ -756,7 +659,7 @@ class Engine:
         # The event-vs-ops choice is enumerated per the M2 spec even though no
         # non-scoring event fires yet (choosing it is a no-op discard). The
         # China Card has no event, so it is Ops-only.
-        if cid != CHINA_CARD_ID:
+        if cid != RULES["china_card_id"]:
             modes.append("event")
         if self._can_space_race(side, card):
             modes.append("space_race")
@@ -765,11 +668,11 @@ class Engine:
         # for Ops with its event cancelled (discarding UN Intervention).
         if (
             self.events_enabled
-            and cid != UN_INTERVENTION_ID
+            and cid != RULES["un_intervention_id"]
             and self._is_opponent_event(side, card)
             and self._has_event(cid)
             and EVENTS[cid].eligible(self, side)
-            and UN_INTERVENTION_ID in self.hands[side.value]
+            and RULES["un_intervention_id"] in self.hands[side.value]
         ):
             modes.append("un_intervention")
         return tuple(modes)
@@ -805,8 +708,8 @@ class Engine:
             # defuses We Will Bury You's end-of-turn VP for the US.
             if side is Side.US:
                 self.turn_effects.pop("we_will_bury_you", None)
-            self.hands[side.value].remove(UN_INTERVENTION_ID)
-            self.discard_pile.append(UN_INTERVENTION_ID)
+            self.hands[side.value].remove(RULES["un_intervention_id"])
+            self.discard_pile.append(RULES["un_intervention_id"])
             self._file_card(side, cid, fired=False)  # event cancelled: normal discard
             self._push_ops_type(side, self._effective_ops(side, card))
             return
@@ -845,7 +748,7 @@ class Engine:
             )
             return
         self._file_card(side, cid, fired=False)  # China Card passes here
-        self._push_ops_type(side, ops, china=(cid == CHINA_CARD_ID))
+        self._push_ops_type(side, ops, china=(cid == RULES["china_card_id"]))
 
     def _push_ops_type(self, side: Side, ops: int, china: bool = False) -> None:
         self._push(
@@ -909,15 +812,15 @@ class Engine:
     # -- M2: space race -----------------------------------------------------
 
     def _space_attempts_allowed(self, side: Side) -> int:
-        if self.space_race[side.value] >= SPACE_RACE_TWO_ATTEMPTS_FROM_BOX:
+        if self.space_race[side.value] >= RULES["space_race_two_attempts_from_box"]:
             return 2
         return 1
 
     def _can_space_race(self, side: Side, card: Card) -> bool:
         pos = self.space_race[side.value]
-        if pos >= SPACE_RACE_MAX_BOX:
+        if pos >= RULES["space_race_max_box"]:
             return False
-        if self._effective_ops(side, card) < SPACE_RACE_BOXES[pos + 1]["ops"]:
+        if self._effective_ops(side, card) < RULES["space_race_boxes"][str(pos + 1)]["ops"]:
             return False
         return self.space_race_attempts[side.value] < self._space_attempts_allowed(side)
 
@@ -925,7 +828,7 @@ class Engine:
         side = Side(decision.context["side"])
         roll = action.payload["value"]
         next_box = self.space_race[side.value] + 1
-        if roll <= SPACE_RACE_BOXES[next_box]["roll_max"]:
+        if roll <= RULES["space_race_boxes"][str(next_box)]["roll_max"]:
             self.advance_space_race_box(side)
 
     def advance_space_race_box(self, side: Side) -> None:
@@ -933,10 +836,10 @@ class Engine:
         (first vs second to reach it). Shared by a successful attempt roll and
         by events that advance the marker directly (e.g. Captured Nazi
         Scientist). No-op at the top of the track."""
-        if self.space_race[side.value] >= SPACE_RACE_MAX_BOX:
+        if self.space_race[side.value] >= RULES["space_race_max_box"]:
             return
         next_box = self.space_race[side.value] + 1
-        box = SPACE_RACE_BOXES[next_box]
+        box = RULES["space_race_boxes"][str(next_box)]
         first = self.space_race[side.opponent.value] < next_box
         self.space_race[side.value] = next_box
         vp = box["vp_first"] if first else box["vp_second"]
@@ -952,7 +855,7 @@ class Engine:
         Card) and box 8 (an extra Action Round). Box 2's double-attempt
         ability is instead a direct position check (_space_attempts_allowed)
         and box 4's headline-order perk remains unmodeled."""
-        key = SPACE_RACE_ABILITY_KEYS.get(box)
+        key = RULES["space_race_ability_keys"].get(str(box))
         if key is None:
             return
         if first:
@@ -1008,7 +911,7 @@ class Engine:
         info = self.board.countries[cid]
         if self.board.influence[cid][attacker.opponent.value] <= 0:
             return False
-        min_defcon = COUP_MIN_DEFCON.get(info.region, _DEFAULT_MIN_DEFCON)
+        min_defcon = RULES["coup_min_defcon"].get(info.region.name, _DEFAULT_MIN_DEFCON)
         if self.defcon < min_defcon:
             return False
         if attacker is not Side.USSR:
@@ -1195,7 +1098,7 @@ class Engine:
         self._push(choose_side, DecisionKind.EVENT_CHOICE, options, context)
 
     def _handle_event_choice(self, decision: Decision, action: Action) -> None:
-        from struggler.events import CHOICE_ROUTERS
+        from struggler.engine.events import CHOICE_ROUTERS
 
         event = decision.context["event"]
         side = Side(decision.context["choose_side"])
@@ -1306,7 +1209,7 @@ class Engine:
         )
 
     def _handle_contest_roll(self, decision: Decision, action: Action) -> None:
-        from struggler.events import CONTEST_RESOLVERS
+        from struggler.engine.events import CONTEST_RESOLVERS
 
         ctx = decision.context
         sponsor = Side(ctx["sponsor"])
@@ -1484,7 +1387,7 @@ class Engine:
                 self._win(controller, "europe_control")
                 return 0
         extra_bg, ignored = self._scoring_overrides(region)
-        presence, domination, control = SCORING[region]
+        presence, domination, control = RULES["scoring"][region.name]
         tier_value = {
             ScoringTier.NONE: 0,
             ScoringTier.PRESENCE: presence,
@@ -1523,9 +1426,9 @@ class Engine:
 
     def _change_vp_by(self, net: int) -> None:
         self.vp += net
-        if self.vp >= VP_TO_WIN:
+        if self.vp >= RULES["vp_to_win"]:
             self._win(Side.US, "vp")
-        elif self.vp <= -VP_TO_WIN:
+        elif self.vp <= -RULES["vp_to_win"]:
             self._win(Side.USSR, "vp")
 
     def _win(self, side: Side, reason: str) -> None:
@@ -1540,7 +1443,7 @@ class Engine:
             self._decision_stack.clear()
 
     def _file_card(self, side: Side, cid: str, fired: bool) -> None:
-        if cid == CHINA_CARD_ID:
+        if cid == RULES["china_card_id"]:
             # The China Card is never discarded: it passes to the opponent
             # face-down and becomes available to them next turn. Playing it also
             # nullifies Formosan Resolution for the rest of the game.

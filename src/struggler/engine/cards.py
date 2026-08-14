@@ -17,31 +17,14 @@ order; the engine shuffles the result.
 
 from __future__ import annotations
 
-import json
-from pathlib import Path
-
-from struggler.types import Card, CardSide, Period
-
-DEFAULT_DATA_PATH = Path(__file__).resolve().parents[2] / "data" / "cards.json"
-
-# Hand size each player is dealt up to at the start of a turn. 8 in the Early
-# War, 9 once the Mid War begins. The China Card never counts toward this.
-# VERIFY against the printed rulebook before relying on these beyond the
-# structural full-game proof M2 is about.
-HAND_LIMIT_EARLY = 8
-HAND_LIMIT_MID_LATE = 9
-
-# Action rounds per turn: 6 in the Early War (turns 1-3), 7 from the Mid War
-# on (turns 4-10). VERIFY before relying on these beyond structural testing.
-ACTION_ROUNDS_EARLY = 6
-ACTION_ROUNDS_MID_LATE = 7
+from struggler.engine.data_loader import load_json
+from struggler.engine.rules import RULES
+from struggler.engine.types import Card, CardSide, Period
 
 
-def load_cards(data_path: Path | None = None) -> dict[str, Card]:
+def load_cards() -> dict[str, Card]:
     """Load every card from the data file into immutable `Card` objects."""
-    path = data_path or DEFAULT_DATA_PATH
-    with path.open("r", encoding="utf-8") as f:
-        raw = json.load(f)
+    raw = load_json("cards.json")
 
     cards: dict[str, Card] = {}
     for cid, entry in raw["cards"].items():
@@ -82,9 +65,9 @@ def cards_entering(
 
 def hand_limit(turn: int) -> int:
     """Cards each player is dealt up to at the start of `turn`."""
-    return HAND_LIMIT_EARLY if turn <= 3 else HAND_LIMIT_MID_LATE
+    return RULES["hand_limit_early"] if turn <= 3 else RULES["hand_limit_mid_late"]
 
 
 def action_rounds(turn: int) -> int:
     """Number of action rounds each player takes during `turn`."""
-    return ACTION_ROUNDS_EARLY if turn <= 3 else ACTION_ROUNDS_MID_LATE
+    return RULES["action_rounds_early"] if turn <= 3 else RULES["action_rounds_mid_late"]

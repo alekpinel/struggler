@@ -2,8 +2,7 @@
 
 import json
 
-from struggler.engine import Engine
-from struggler.types import Side
+from struggler.engine import Engine, Side
 
 
 def test_serialize_is_json_native():

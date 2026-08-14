@@ -3,35 +3,11 @@
 from __future__ import annotations
 
 import copy
-import json
 from dataclasses import dataclass
-from pathlib import Path
 
-from struggler.types import Region, ScoringTier, Side, Subregion
-
-DEFAULT_DATA_PATH = Path(__file__).resolve().parents[2] / "data" / "countries.json"
-
-# Regional scoring VP table: (presence, domination, control).
-#
-# Confirmed against the physical game for Middle East, Africa, and South
-# America. Europe, Asia, and Central America are still UNCONFIRMED (best
-# guess, not yet checked against the rulebook/board) — verify before
-# trusting them beyond structural testing.
-#
-# Europe's control value is intentionally None: controlling every country
-# in Europe does not win immediately — it wins when the Europe Scoring
-# card is played while that control holds (see Board.controls_all_of_europe,
-# and the M2/M3 note there). No M1 code path should ever hit CONTROL tier
-# for Europe, since nothing in M1 scores a region; score_region() raises
-# rather than silently return a made-up number if it ever does.
-SCORING: dict[Region, tuple[int, int, int | None]] = {
-    Region.EUROPE: (3, 7, None),
-    Region.ASIA: (3, 7, 9),
-    Region.MIDDLE_EAST: (3, 5, 7),
-    Region.AFRICA: (1, 4, 6),
-    Region.CENTRAL_AMERICA: (1, 3, 5),
-    Region.SOUTH_AMERICA: (2, 5, 6),
-}
+from struggler.engine.data_loader import load_json
+from struggler.engine.rules import RULES
+from struggler.engine.types import Region, ScoringTier, Side, Subregion
 
 
 @dataclass(frozen=True)
@@ -53,8 +29,8 @@ class Board:
     bug.
     """
 
-    def __init__(self, data_path: Path | None = None) -> None:
-        raw = _load_raw(data_path or DEFAULT_DATA_PATH)
+    def __init__(self) -> None:
+        raw = load_json("countries.json")
 
         self.countries: dict[str, CountryInfo] = {}
         self._adjacency: dict[str, set[str]] = {"US": set(), "USSR": set()}
@@ -155,12 +131,6 @@ class Board:
 
     def controls_all_of_europe(self) -> Side | None:
         """Whether one side currently controls every country in Europe.
-
-        Confirmed: this does NOT win the game by itself. The win happens
-        when the Europe Scoring card is played while a side holds this
-        condition — a card event, out of scope until M2/M3. This method
-        is a pure query for that future check to use; nothing in M1 calls
-        it to end the game.
         """
         europe = self.countries_in(Region.EUROPE)
         if all(self.control(cid) is Side.US for cid in europe):
@@ -243,7 +213,7 @@ class Board:
         negative favors USSR): each side's Presence/Domination/Control tier
         value, plus its 10.1.2 bonuses (+1 VP per Battleground Controlled,
         +1 VP per country Controlled adjacent to the enemy superpower)."""
-        presence_vp, domination_vp, control_vp = SCORING[region]
+        presence_vp, domination_vp, control_vp = RULES["scoring"][region.name]
         tier_value = {
             ScoringTier.NONE: 0,
             ScoringTier.PRESENCE: presence_vp,
@@ -275,8 +245,3 @@ class Board:
         for cid, values in data["influence"].items():
             self.influence[cid]["US"] = values["US"]
             self.influence[cid]["USSR"] = values["USSR"]
-
-
-def _load_raw(path: Path) -> dict:
-    with path.open("r", encoding="utf-8") as f:
-        return json.load(f)

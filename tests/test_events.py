@@ -21,11 +21,11 @@ from pathlib import Path
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from struggler.cards import action_rounds, cards_entering
-from struggler.engine import CHINA_CARD_ID, Engine
-from struggler.events import EVENTS
-from struggler.replay import run_with_checkpoints
-from struggler.types import Action, DecisionKind, Period, Region, Side
+from struggler.engine import Action, DecisionKind, Engine, Period, Region, Side
+from struggler.engine.cards import action_rounds, cards_entering
+from struggler.engine.events import EVENTS
+from struggler.engine.replay import run_with_checkpoints
+from struggler.engine.rules import RULES
 
 MAX_INT32 = 2**31 - 1
 REPLAY_DIR = Path(__file__).parent / "replays"
@@ -351,10 +351,10 @@ def test_un_intervention_not_offered_without_the_card_or_for_own_event():
 
 
 def _play_china_ops(engine: Engine, side: Side) -> None:
-    engine.hands[side.value] = [CHINA_CARD_ID]
+    engine.hands[side.value] = [RULES["china_card_id"]]
     engine.china_card_owner = side.value
     engine.china_card_available = True
-    _play_card_for(engine, side, CHINA_CARD_ID, "ops")
+    _play_card_for(engine, side, RULES["china_card_id"], "ops")
 
 
 def test_china_card_grants_five_ops_used_entirely_in_asia():
@@ -618,7 +618,7 @@ def test_salt_negotiations_defcon_coup_penalty_and_reclaim():
 def test_salt_coup_penalty_applies_to_both_sides():
     engine = _bare(seed=1)
     engine.turn_effects["salt"] = True
-    from struggler.board import CountryInfo  # info object carries region/battleground
+    from struggler.engine.board import CountryInfo  # info object carries region/battleground
     info = engine.board.countries["Cuba"]
     assert engine._coup_roll_modifier(Side.US, info) == -1
     assert engine._coup_roll_modifier(Side.USSR, info) == -1
@@ -1112,7 +1112,7 @@ def _assert_invariants(engine: Engine) -> None:
         assert len(engine.legal_actions()) > 0
     in_play = _cards_in_play(engine)
     assert all(count == 1 for count in in_play.values())
-    assert CHINA_CARD_ID not in in_play
+    assert RULES["china_card_id"] not in in_play
     assert set(in_play) == _expected_in_play(engine)
 
 
@@ -1343,7 +1343,7 @@ def test_formosan_resolution_nullified_by_the_china_card():
     engine = _bare()
     engine._fire_event(Side.US, "Formosan_Resolution")
     assert engine.game_effects.get("formosan_resolution") is True
-    engine._file_card(Side.USSR, CHINA_CARD_ID, fired=False)  # the China Card is played
+    engine._file_card(Side.USSR, RULES["china_card_id"], fired=False)  # the China Card is played
     assert "formosan_resolution" not in engine.game_effects
 
 

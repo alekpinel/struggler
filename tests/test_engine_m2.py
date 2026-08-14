@@ -15,10 +15,10 @@ from pathlib import Path
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from struggler.cards import cards_entering
-from struggler.engine import CHINA_CARD_ID, Engine
-from struggler.replay import run_with_checkpoints
-from struggler.types import DecisionKind, Period, Side
+from struggler.engine import DecisionKind, Engine, Period, Side
+from struggler.engine.cards import cards_entering
+from struggler.engine.replay import run_with_checkpoints
+from struggler.engine.rules import RULES
 
 MAX_INT32 = 2**31 - 1
 REPLAY_DIR = Path(__file__).parent / "replays"
@@ -58,7 +58,7 @@ def _assert_invariants(engine: Engine) -> None:
     # separately (never in a hand or pile).
     in_play = _cards_in_play(engine)
     assert all(count == 1 for count in in_play.values())
-    assert CHINA_CARD_ID not in in_play
+    assert RULES["china_card_id"] not in in_play
     assert set(in_play) == _expected_in_play(engine)
 
 
@@ -86,7 +86,7 @@ def test_new_game_opens_with_setup_and_full_hands():
     # not dealt into a hand.
     assert len(engine.hands["USSR"]) == 8
     assert len(engine.hands["US"]) == 8
-    assert CHINA_CARD_ID not in engine.hands["USSR"]
+    assert RULES["china_card_id"] not in engine.hands["USSR"]
 
 
 def test_setup_places_the_additional_influence_then_reaches_headline():
@@ -224,7 +224,7 @@ def test_non_scoring_card_offers_the_event_vs_ops_choice():
 def test_china_card_passes_to_the_opponent_when_played():
     engine = Engine.new_game(seed=5)
     assert engine.china_card_owner == "USSR"
-    engine._file_card(Side.USSR, CHINA_CARD_ID, fired=False)
+    engine._file_card(Side.USSR, RULES["china_card_id"], fired=False)
     assert engine.china_card_owner == "US"
     assert engine.china_card_available is False  # face-down until next turn
 
