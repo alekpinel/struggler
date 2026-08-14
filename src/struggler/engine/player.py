@@ -38,6 +38,13 @@ class Event:
     action_round: int
     space_race: Mapping[str, int] = field(default_factory=dict)
     military_ops: Mapping[str, int] = field(default_factory=dict)
+    # Populated only when `action.payload` names a country (place_influence,
+    # coup/realignment targets, ...): that country's influence and controller
+    # right after the decision resolved. Both are public board state, so
+    # carrying them here is safe regardless of which side acted.
+    country: str | None = None
+    country_influence: Mapping[str, int] = field(default_factory=dict)
+    country_control: str | None = None
 
 
 class Player(Protocol):
