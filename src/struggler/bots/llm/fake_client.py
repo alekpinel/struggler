@@ -17,9 +17,17 @@ class FakeLLMClient:
     made, or what the growing conversation looked like at call time).
     """
 
-    def __init__(self, responses: Sequence[LLMResponse | Exception]) -> None:
+    def __init__(
+        self,
+        responses: Sequence[LLMResponse | Exception],
+        *,
+        provider_name: str = "fake",
+        model_name: str = "fake-model",
+    ) -> None:
         self._responses = list(responses)
         self.requests: list[LLMRequest] = []
+        self.provider_name = provider_name
+        self.model_name = model_name
 
     def complete(self, request: LLMRequest) -> LLMResponse:
         self.requests.append(request)
@@ -32,7 +40,10 @@ class FakeLLMClient:
 
 
 def make_plan_response(
-    justification: str, steps: Sequence[tuple[DecisionKind, Mapping[str, object]]]
+    justification: str,
+    steps: Sequence[tuple[DecisionKind, Mapping[str, object]]],
+    *,
+    usage: Mapping[str, int] | None = None,
 ) -> LLMResponse:
     """Build a well-formed `LLMResponse` for `steps` -- test convenience
     matching exactly the shape `schema.parse_plan_response` expects back."""
@@ -42,4 +53,4 @@ def make_plan_response(
             {"kind": kind.value, "payload": dict(step_payload)} for kind, step_payload in steps
         ],
     }
-    return LLMResponse(structured=payload, raw_text=json.dumps(payload))
+    return LLMResponse(structured=payload, raw_text=json.dumps(payload), usage=dict(usage or {}))

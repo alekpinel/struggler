@@ -40,6 +40,8 @@ class AnthropicClient:
         self._client = anthropic.Anthropic(**({"api_key": api_key} if api_key else {}))
         self._model = model
         self._max_tokens = max_tokens
+        self.provider_name = "anthropic"
+        self.model_name = model
 
     def complete(self, request: LLMRequest) -> LLMResponse:
         try:
@@ -62,4 +64,13 @@ class AnthropicClient:
             structured = json.loads(text)
         except json.JSONDecodeError as exc:
             raise LLMClientError(f"unparseable structured output: {exc}") from exc
-        return LLMResponse(structured=structured, raw_text=text)
+
+        usage: dict[str, int] = {}
+        try:
+            usage = {
+                "input_tokens": response.usage.input_tokens,
+                "output_tokens": response.usage.output_tokens,
+            }
+        except AttributeError:
+            pass  # older SDK / shape drift -- usage is enrichment, never fatal
+        return LLMResponse(structured=structured, raw_text=text, usage=usage)

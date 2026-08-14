@@ -10,7 +10,7 @@ vendor SDK -- so adding a new provider means writing a new adapter module
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Mapping, Protocol, Sequence
 
 
@@ -51,6 +51,11 @@ class LLMRequest:
 class LLMResponse:
     structured: Mapping[str, Any]  # the response, already parsed from JSON
     raw_text: str  # verbatim text -- becomes the next LLMMessage(role="assistant", ...)
+    # Normalized token usage for this one call: {"input_tokens": int,
+    # "output_tokens": int}. Empty if the provider didn't report it --
+    # usage is enrichment for conversation_log.py's metadata, never
+    # correctness-critical, so a missing value is never an error.
+    usage: Mapping[str, int] = field(default_factory=dict)
 
 
 class LLMClientError(Exception):
@@ -63,5 +68,14 @@ class LLMClientError(Exception):
 
 
 class LLMClient(Protocol):
+    # Set by every adapter's __init__ (e.g. "anthropic"/"claude-sonnet-5") --
+    # the client is the one object that actually knows what it's talking to,
+    # so conversation_log.py's metadata reads these rather than LLMPlayer
+    # having to be told separately. LLMPlayer reads them defensively
+    # (`getattr(client, "provider_name", "unknown")`) so a minimal hand-rolled
+    # test double that doesn't set them still can't crash `choose_action`.
+    provider_name: str
+    model_name: str
+
     def complete(self, request: LLMRequest) -> LLMResponse:
         ...
