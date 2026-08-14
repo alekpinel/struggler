@@ -16,6 +16,7 @@ from __future__ import annotations
 import argparse
 
 import struggler.bots.greedy  # noqa: F401  (registers "greedy")
+import struggler.bots.llm.player  # noqa: F401  (registers "llm")
 import struggler.bots.naive  # noqa: F401  (registers "random", "first")
 from struggler.engine import Engine, Side
 from struggler.engine.player import Player

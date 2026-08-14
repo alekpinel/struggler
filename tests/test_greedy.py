@@ -76,7 +76,12 @@ def test_greedy_falls_back_to_first_option_for_unmapped_decision_kinds():
 
 
 def test_registry_has_all_baseline_bots_and_greedy():
-    assert set(available()) == {"human", "random", "first", "greedy"}
+    # "llm" only appears once struggler.bots.llm.player has been imported --
+    # which some test module in this session may or may not have done yet,
+    # since player_registry._FACTORIES is a process-global dict.
+    expected = {"human", "random", "first", "greedy"}
+    assert expected <= set(available())
+    assert set(available()) - expected <= {"llm"}
     assert isinstance(build_player("greedy"), GreedyPlayer)
 
 

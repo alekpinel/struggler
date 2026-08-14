@@ -12,6 +12,7 @@ license = { text = "MIT" }
 
 [project.optional-dependencies]
 test = ["pytest", "hypothesis"]
+llm = ["anthropic>=0.68"]
 
 [tool.setuptools.packages.find]
 where = ["src"]

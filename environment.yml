@@ -8,3 +8,4 @@ dependencies:
   - hypothesis
   - pip:
       - -e .
+      # LLM bot (optional): pip install -e ".[llm]"
