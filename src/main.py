@@ -28,10 +28,9 @@ def main() -> None:
     parser.add_argument("--us", choices=available(), default="human")
     parser.add_argument("--ussr", choices=available(), default="human")
     parser.add_argument("--seed", type=int, default=12345)
-    parser.add_argument("--events", action="store_true", help="enable M3 card events")
     args = parser.parse_args()
 
-    engine = Engine.new_game(seed=args.seed, events=args.events)
+    engine = Engine.new_game(seed=args.seed)
     players: dict[Side, Player] = {
         Side.US: build_player(args.us, seed=args.seed + 1),
         Side.USSR: build_player(args.ussr, seed=args.seed + 2),

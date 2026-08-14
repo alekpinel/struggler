@@ -1,22 +1,3 @@
-"""The M1 engine: board mechanics only, no cards.
-
-Implements the pending-decision stack (mandate #1), atomic Ops actions
-(mandate #2), seeded RNG exposed as CHANCE decisions (mandate #3),
-per-player observation (mandate #4), and flat serialization (mandate #5)
-for: influence placement, control, region scoring, DEFCON, coups, and
-realignment.
-
-Since no cards exist yet, Ops points are granted directly via
-`begin_influence_operations` / `begin_coup` / `begin_realignment_operations`
-(per CLAUDE.md's M1 scope: "Ops-only actions are driven directly for
-testing"). M2 will replace direct calls to these with a legitimate
-PLAY_CARD decision that grants Ops through the card mechanism; the
-decision-stack handlers below don't change.
-
-Numeric constants below are confirmed against the physical game unless
-marked UNCONFIRMED.
-"""
-
 from __future__ import annotations
 
 import copy
@@ -42,14 +23,8 @@ from struggler.engine.types import (
 _DEFAULT_MIN_DEFCON = 1
 
 # Every coup attempt, in any region, degrades DEFCON by 1, regardless of
-# success. Confirmed against the physical game. Realignment is subject to
-# the same COUP_MIN_DEFCON restriction above (8.1.5 restricts "Coup or
+# success. Realignment is subject to the same COUP_MIN_DEFCON restriction above (8.1.5 restricts "Coup or
 # Realignment rolls" identically) — enforced in _usable_coup_realign_target.
-
-# Each regional scoring card maps to the region score_region() already
-# computes (mandate: scoring is a board mechanic reused from M1, not a card
-# "event"). Southeast Asia Scoring is a subregion-scoring card with different
-# rules and is handled separately.
 SCORING_CARD_REGION: dict[str, Region] = {
     "Asia_Scoring": Region.ASIA,
     "Europe_Scoring": Region.EUROPE,
@@ -74,12 +49,6 @@ class Engine:
         self._next_decision_id = 0
         self._winner: Side | None = None
         self._game_over_reason: str | None = None
-
-        # -- M2 card / full-game state --------------------------------------
-        # Defaults leave the engine in the M1 "sandbox" (phase="idle"): no
-        # deck, no turn loop, begin_* entry points drive decisions directly.
-        # A full game is started via Engine.new_game(), which sets phase and
-        # populates the deck/hands below.
         self.cards: dict[str, Card] = load_cards()
         self.phase = "idle"  # idle | headline | action_rounds | complete
         self.include_optional = False
@@ -102,7 +71,7 @@ class Engine:
         self._headline_resolving = False
         self._headline_pending: list[list[str]] = []
 
-        # -- M3 card-event state --------------------------------------------
+        # -- Card-event state --------------------------------------------
         # `events_enabled` gates the whole event layer: False reproduces M2
         # (every card is Ops-only, no event ever fires). `turn_effects` holds
         # persistent per-turn modifiers set by events (e.g. Containment) and is
@@ -286,9 +255,9 @@ class Engine:
     def new_game(
         cls,
         seed: int,
-        include_optional: bool = False,
+        include_optional: bool = True,
         board: Board | None = None,
-        events: bool = False,
+        events: bool = True,
     ) -> "Engine":
         """Start a complete game: build the Early War deck, deal opening
         hands, and push the first (USSR) headline decision.
@@ -297,10 +266,6 @@ class Engine:
         the USSR places 6 additional Influence in Eastern Europe and the US 7
         in Western Europe (as ordinary placement decisions), before the turn-1
         headline.
-
-        `events=False` (the default) runs the M2 game: every card is Ops-only
-        and no event ever fires. `events=True` turns on the M3 event layer —
-        cards with an implemented event (see events.EVENTS) now fire it.
         """
         engine = cls(seed=seed, board=board)
         engine.include_optional = include_optional
