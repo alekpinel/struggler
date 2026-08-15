@@ -406,8 +406,10 @@ historical "Ops-only" toggle.
 - **China Card bonus.** Playing the China Card for Ops grants its +1
   ("all Ops used in Asia") for influence (an all-or-nothing invariant in
   the placement step: the 5th point is offered only while nothing has
-  gone outside Asia) and for coups (+1 Op and +1 military Op against an
-  Asian target). The realignment case is not modeled (rare).
+  gone outside Asia), for coups (+1 Op and +1 military Op against an Asian
+  target), and for realignment (one extra roll, offered only while every
+  attempt this Ops-spend has targeted Asia — the same all-or-nothing rule,
+  in `_maybe_push_realignment_target`).
 - **Known limitations** (tracked here as the contract): every non-scoring
   card in the deck now has an implemented event (or, for Defectors and UN
   Intervention, an equivalent mechanism outside the `EVENTS` registry — see
@@ -437,9 +439,9 @@ historical "Ops-only" toggle.
     cards (or GMT's published card list) and correcting `events.py` if they're
     off is the concrete next step, not new subsystem work.
   - Still unmodeled generally: the Space Race box 4 headline-reveal-order
-    perk (requiring the opponent to select their Headline Event first), and
-    the region bonus for realignment. Box 6 (may discard the Held Card at
-    end of turn) and box 8 (an extra Action Round) are implemented, granted
+    perk (requiring the opponent to select their Headline Event first).
+    Box 6 (may discard the Held Card at end of turn) and box 8 (an extra
+    Action Round) are implemented, granted
     only to the first side to reach the box and cancelled outright — not
     transferred — the instant the second side also reaches it (6.4.4), via
     `Engine._update_space_race_ability` and the `game_effects` keys

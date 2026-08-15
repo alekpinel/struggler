@@ -20,11 +20,6 @@ CLAUDE.md). The rulebook's Tournament Play, Chinese Civil War Variant, and
 Late War Scenario sections describe rules this engine does not implement
 and are deliberately omitted -- including them would mislead the model
 about what's actually in play.
-
-Known deviation from the printed rulebook: the Realignment roll modifier
-list below is the engine's real formula (`core.py:_realignment_bonus`),
-which omits the rulebook's third modifier ("+1 if you have more Influence
-in the target country than your opponent") -- not implemented here.
 """
 
 from __future__ import annotations
@@ -84,12 +79,15 @@ RULES_PRIMER = "\n".join(
         "Influence there; costs 1 Op per roll, and multiple rolls (even at "
         "the same country) may be bought with one card's Ops. Each side "
         "rolls a die and adds: +1 if their own superpower is adjacent to "
-        "the target, plus +1 for every country adjacent to the target that "
-        "they Control. The higher total wins; the margin is removed from "
-        "the LOSING side's Influence in that country -- meaning a losing "
-        "roll costs the acting side their own Influence, not just a "
-        "wasted attempt. Ties remove nothing. Realignment never adds "
-        "Influence to a country.",
+        "the target, +1 for every country adjacent to the target that they "
+        "Control, and +1 if they already hold more Influence in the target "
+        "than their opponent does. The higher total wins; the margin is "
+        "removed from the LOSING side's Influence in that country -- "
+        "meaning a losing roll costs the acting side their own Influence, "
+        "not just a wasted attempt. Ties remove nothing. Realignment never "
+        "adds Influence to a country. The region bonus below (China Card / "
+        "Vietnam Revolts) also applies here: one extra roll if every "
+        "attempt this Ops-spend stayed inside the bonus region.",
         "  - Space Race: discard the card to attempt to advance your "
         "marker one box, if the card's Ops value is at least the next "
         "box's requirement; roll the die and advance if it lands within "
@@ -137,8 +135,10 @@ RULES_PRIMER = "\n".join(
         "CHINA CARD: no Event, Ops-only. If every one of its Ops points is "
         "spent inside Asia (including Southeast Asia), it grants +1 extra "
         "Op; a Coup targeting an Asian country with this bonus active also "
-        "gets +1 Op and +1 Military Operations credit. Passed face-down to "
-        "the opponent after use; flips face up for them at end of turn.",
+        "gets +1 Op and +1 Military Operations credit; a Realignment spend "
+        "gets one extra attempt under the same all-or-nothing condition "
+        "(see the Realignment roll bullet above). Passed face-down to the "
+        "opponent after use; flips face up for them at end of turn.",
         "",
         "VICTORY: the game ends immediately, in favor of whichever side "
         "triggers it, the instant any of: (a) a side's VP total reaches "

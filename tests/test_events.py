@@ -352,6 +352,18 @@ def _play_china_ops(engine: Engine, side: Side) -> None:
     _play_card_for(engine, side, RULES["china_card_id"], "ops")
 
 
+def _play_china_realignment(engine: Engine, side: Side) -> None:
+    _play_china_ops(engine, side)
+    engine.step(Action(DecisionKind.OPS_TYPE, {"type": "realignment"}))
+
+
+def _resolve_one_realignment_attempt(engine: Engine, target: Action) -> None:
+    """Step a REALIGNMENT_TARGET choice through its two CHANCE rolls."""
+    engine.step(target)
+    engine.step(engine.pending_decision.options[0])  # actor roll
+    engine.step(engine.pending_decision.options[0])  # opponent roll
+
+
 def test_china_card_grants_five_ops_used_entirely_in_asia():
     engine = _bare()
     engine.board.influence["North_Korea"]["USSR"] = 1  # a reachable Asian foothold
@@ -389,6 +401,49 @@ def test_china_card_bonus_forfeited_by_leaving_asia():
         engine.step(non_asia[0] if non_asia else opts[0])
         steps += 1
     assert steps == 4  # leaving Asia forfeits the +1
+
+
+def test_china_card_grants_extra_realignment_attempt_used_entirely_in_asia():
+    asian_targets = ["North_Korea", "South_Korea", "Japan", "Taiwan", "Thailand"]
+    engine = _bare()
+    for cid in asian_targets:
+        engine.board.influence[cid]["US"] = 1
+    _play_china_realignment(engine, Side.USSR)
+
+    used: set[str] = set()
+    attempts = 0
+    while (engine.pending_decision is not None
+           and engine.pending_decision.kind is DecisionKind.REALIGNMENT_TARGET):
+        target = next(
+            a for a in engine.pending_decision.options
+            if a.payload["country"] in asian_targets and a.payload["country"] not in used
+        )
+        used.add(target.payload["country"])
+        _resolve_one_realignment_attempt(engine, target)
+        attempts += 1
+    assert attempts == 5  # 4 base + 1 Asia bonus
+
+
+def test_china_card_realignment_bonus_forfeited_by_leaving_asia():
+    engine = _bare()
+    engine.board.influence["Mexico"]["US"] = 1  # a non-Asian target too
+    for cid in ("North_Korea", "South_Korea", "Japan"):
+        engine.board.influence[cid]["US"] = 1
+    _play_china_realignment(engine, Side.USSR)
+
+    used: set[str] = set()
+    attempts = 0
+    while (engine.pending_decision is not None
+           and engine.pending_decision.kind is DecisionKind.REALIGNMENT_TARGET):
+        opts = engine.pending_decision.options
+        # Target the non-Asian country first, breaking the bonus streak.
+        target = next(a for a in opts if a.payload["country"] == "Mexico") if attempts == 0 else next(
+            a for a in opts if a.payload["country"] not in used
+        )
+        used.add(target.payload["country"])
+        _resolve_one_realignment_attempt(engine, target)
+        attempts += 1
+    assert attempts == 4  # leaving Asia on the first attempt forfeits the +1
 
 
 # -- more registered cards (representative sample) ---------------------------
