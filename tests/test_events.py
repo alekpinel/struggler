@@ -15,27 +15,22 @@ from __future__ import annotations
 
 import json
 import random
-from collections import Counter
 from pathlib import Path
 
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from struggler.engine import Action, DecisionKind, Engine, Period, Region, Side
-from struggler.engine.cards import action_rounds, cards_entering
+from conftest import assert_invariants as _assert_invariants
+from conftest import bare_engine as _bare
+from conftest import headline_setup as _headline_setup
+from struggler.engine import Action, DecisionKind, Engine, Region, Side
+from struggler.engine.cards import action_rounds
 from struggler.engine.events import EVENTS
 from struggler.engine.replay import run_with_checkpoints
 from struggler.engine.rules import RULES
 
 MAX_INT32 = 2**31 - 1
 REPLAY_DIR = Path(__file__).parent / "replays"
-
-
-def _bare(seed: int = 0) -> Engine:
-    """A minimal engine with the event layer on but no turn loop running."""
-    engine = Engine(seed=seed)
-    engine.events_enabled = True
-    return engine
 
 
 # -- tier 1: immediate state change -----------------------------------------
@@ -1005,13 +1000,6 @@ def test_neutral_card_for_ops_never_triggers_an_event():
 # -- headline events fire (with interrupt ordering) -------------------------
 
 
-def _headline_setup(engine: Engine, ussr_card: str, us_card: str) -> None:
-    """Put a controlled headline in front of a bare, events-on engine."""
-    engine.phase = "headline"
-    engine.hands = {"USSR": [ussr_card], "US": [us_card]}
-    engine._advance()  # pushes the USSR headline choice
-
-
 def test_headline_fires_both_events_high_ops_first():
     engine = _bare(seed=1)
     engine.defcon = 5
@@ -1070,50 +1058,6 @@ def test_events_disabled_never_fires_an_event_on_ops_play():
 
 
 # -- full-game invariants with events on ------------------------------------
-
-
-def _cards_in_play(engine: Engine) -> Counter:
-    c: Counter = Counter()
-    for cards in engine.hands.values():
-        c.update(cards)
-    c.update(engine.draw_pile)
-    c.update(engine.discard_pile)
-    c.update(engine.removed_cards)
-    for cid in engine._headline.values():
-        if cid is not None:
-            c.update([cid])
-    # A headlined card whose event is mid-resolution (its sub-decisions still
-    # draining) lives here until it is filed to a pile.
-    for _side, cid in engine._headline_pending:
-        c.update([cid])
-    # Our Man in Tehran's peeked-but-undecided cards live here mid-resolution;
-    # they are deliberately excluded from observe() (mandate #4) but must still
-    # be accounted for exactly once.
-    c.update(engine._our_man_queue)
-    c.update(engine._our_man_kept)
-    return c
-
-
-def _expected_in_play(engine: Engine) -> set[str]:
-    ids = set(cards_entering(engine.cards, Period.EARLY_WAR, engine.include_optional))
-    if engine.turn >= 4:
-        ids |= set(cards_entering(engine.cards, Period.MID_WAR, engine.include_optional))
-    if engine.turn >= 8:
-        ids |= set(cards_entering(engine.cards, Period.LATE_WAR, engine.include_optional))
-    return ids
-
-
-def _assert_invariants(engine: Engine) -> None:
-    assert 1 <= engine.defcon <= 5
-    for values in engine.board.influence.values():
-        assert values["US"] >= 0 and values["USSR"] >= 0
-    if not engine.is_terminal:
-        assert engine.pending_decision is not None
-        assert len(engine.legal_actions()) > 0
-    in_play = _cards_in_play(engine)
-    assert all(count == 1 for count in in_play.values())
-    assert RULES["china_card_id"] not in in_play
-    assert set(in_play) == _expected_in_play(engine)
 
 
 @settings(max_examples=25, deadline=None)
@@ -1647,16 +1591,10 @@ def test_our_man_in_tehran_no_op_with_an_empty_draw_pile():
     assert engine.pending_decision is None
 
 
-def _headline_setup_defectors(engine: Engine, ussr_card: str, us_card: str) -> None:
-    engine.phase = "headline"
-    engine.hands = {"USSR": [ussr_card], "US": [us_card]}
-    engine._advance()
-
-
 def test_defectors_cancels_the_ussr_headline():
     engine = _bare(seed=1)
     engine.defcon = 5
-    _headline_setup_defectors(engine, "Fidel", "Defectors")
+    _headline_setup(engine, "Fidel", "Defectors")
     engine.step(Action(DecisionKind.HEADLINE_PLAY, {"card": "Fidel"}))
     engine.step(Action(DecisionKind.HEADLINE_PLAY, {"card": "Defectors"}))
     assert "Fidel" in engine.discard_pile
@@ -1667,7 +1605,7 @@ def test_defectors_cancels_the_ussr_headline():
 def test_defectors_headlined_by_ussr_gives_the_us_one_vp():
     engine = _bare(seed=1)
     engine.defcon = 5
-    _headline_setup_defectors(engine, "Defectors", "Nasser")
+    _headline_setup(engine, "Defectors", "Nasser")
     engine.step(Action(DecisionKind.HEADLINE_PLAY, {"card": "Defectors"}))
     engine.step(Action(DecisionKind.HEADLINE_PLAY, {"card": "Nasser"}))
     assert engine.vp == 1

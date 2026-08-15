@@ -678,7 +678,37 @@ payloads) and assert invariants that must hold after every `step()`:
 ### Unit tests
 Standard per-mechanic tests (e.g. "coup in a country at DEFCON 2 with
 a effective defcon-adjustment card active behaves like X") for M1-era
-board mechanics and each M3 card individually.
+board mechanics and each M3 card individually. `tests/test_engine_m2.py`
+pins every `Engine.new_game(...)` call to `events=False` explicitly (the
+module docstring's "no events fire" is a claim this file must keep being
+true of, not an assumption that ambient defaults happen to satisfy);
+the events-on equivalent of its full-game invariant test lives in
+`tests/test_events.py`.
+
+### Test-writing policy
+Before writing a new test helper or fixture, check `tests/conftest.py`
+first. A near-duplicate invariant checker or setup helper copy-pasted
+across test files is a bug waiting to happen, not just clutter: it was
+exactly how a real defect stayed hidden here once — `test_engine_m2.py`
+kept its own copy of the "where can a card be" invariant checker, which
+predated the M3 headline-resolution-order mechanism (`_headline_pending`)
+and was never taught about it, while the copy in `test_events.py` was
+fixed. The stale copy then flagged perfectly valid games as broken.
+Lesson applied: that checker now lives once, in `conftest.py`.
+
+Going forward:
+- A test must assert on real state (board/VP/DEFCON/decision-stack
+  contents/serialized output) — never "the call didn't raise" or "the
+  result is not None" as its only assertion.
+- Test volume should track the mandate that motivates it (e.g. "one
+  test per M3 card," CLAUDE.md's own testing-strategy requirement) —
+  don't add tests for hypothetical future behavior, and don't multiply
+  near-identical tests for closely related branches of one mechanic
+  when a single parametrized test would cover them.
+- When a new engine mechanic introduces a new place a piece of state
+  (a card, a flag) can transiently live, update the shared invariant
+  helper in `conftest.py` once, rather than letting each test file's
+  own copy drift out of sync with it.
 
 ## Tooling and conventions
 

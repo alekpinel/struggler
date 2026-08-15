@@ -136,8 +136,12 @@ def test_load_defaults_raw_responses_when_missing_from_older_snapshot(tmp_path):
 
 
 def test_now_iso_format():
-    from datetime import datetime
+    from datetime import datetime, timedelta, timezone
 
+    before = datetime.now(timezone.utc)
     text = conversation_log.now_iso()
+    after = datetime.now(timezone.utc)
 
-    assert datetime.fromisoformat(text) is not None
+    parsed = datetime.fromisoformat(text)
+    assert parsed.utcoffset() == timedelta(0)  # UTC, as the docstring promises
+    assert before <= parsed <= after

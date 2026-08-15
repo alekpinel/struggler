@@ -9,57 +9,18 @@ from __future__ import annotations
 
 import json
 import random
-from collections import Counter
 from pathlib import Path
 
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from struggler.engine import DecisionKind, Engine, Period, Side
-from struggler.engine.cards import cards_entering
+from conftest import assert_invariants
+from struggler.engine import DecisionKind, Engine, Side
 from struggler.engine.replay import run_with_checkpoints
 from struggler.engine.rules import RULES
 
 MAX_INT32 = 2**31 - 1
 REPLAY_DIR = Path(__file__).parent / "replays"
-
-
-def _cards_in_play(engine: Engine) -> Counter:
-    c: Counter = Counter()
-    for cards in engine.hands.values():
-        c.update(cards)
-    c.update(engine.draw_pile)
-    c.update(engine.discard_pile)
-    c.update(engine.removed_cards)
-    for cid in engine._headline.values():
-        if cid is not None:
-            c.update([cid])
-    return c
-
-
-def _expected_in_play(engine: Engine) -> set[str]:
-    ids = set(cards_entering(engine.cards, Period.EARLY_WAR, engine.include_optional))
-    if engine.turn >= 4:
-        ids |= set(cards_entering(engine.cards, Period.MID_WAR, engine.include_optional))
-    if engine.turn >= 8:
-        ids |= set(cards_entering(engine.cards, Period.LATE_WAR, engine.include_optional))
-    return ids
-
-
-def _assert_invariants(engine: Engine) -> None:
-    assert 1 <= engine.defcon <= 5
-    for values in engine.board.influence.values():
-        assert values["US"] >= 0 and values["USSR"] >= 0
-    if not engine.is_terminal:
-        assert engine.pending_decision is not None
-        assert len(engine.legal_actions()) > 0  # never deadlock on a live decision
-
-    # No card is ever in two places at once, and The China Card is tracked
-    # separately (never in a hand or pile).
-    in_play = _cards_in_play(engine)
-    assert all(count == 1 for count in in_play.values())
-    assert RULES["china_card_id"] not in in_play
-    assert set(in_play) == _expected_in_play(engine)
 
 
 def _no_coup(actions):
@@ -72,7 +33,7 @@ def _no_coup(actions):
 
 
 def test_new_game_opens_with_setup_and_full_hands():
-    engine = Engine.new_game(seed=1)
+    engine = Engine.new_game(seed=1, events=False)
     decision = engine.pending_decision
     assert decision is not None
     # Opening choice is the USSR's additional Eastern Europe setup placement.
@@ -90,7 +51,7 @@ def test_new_game_opens_with_setup_and_full_hands():
 
 
 def test_setup_places_the_additional_influence_then_reaches_headline():
-    engine = Engine.new_game(seed=1)
+    engine = Engine.new_game(seed=1, events=False)
     # Base printed totals before the additional placement.
     base_ussr = sum(v["USSR"] for v in engine.board.influence.values())
     base_us = sum(v["US"] for v in engine.board.influence.values())
@@ -113,11 +74,11 @@ def test_setup_places_the_additional_influence_then_reaches_headline():
 @given(seed=st.integers(min_value=0, max_value=MAX_INT32),
        driver_seed=st.integers(min_value=0, max_value=MAX_INT32))
 def test_random_full_game_terminates_with_invariants(seed, driver_seed):
-    engine = Engine.new_game(seed=seed)
+    engine = Engine.new_game(seed=seed, events=False)
     driver = random.Random(driver_seed)
     steps = 0
     while not engine.is_terminal:
-        _assert_invariants(engine)
+        assert_invariants(engine)
         engine.step(driver.choice(engine.legal_actions()))
         steps += 1
         assert steps < 20000, "a full game should terminate well before this"
@@ -130,7 +91,7 @@ def test_observe_exposes_public_track_state():
     # Military ops, phase, and the M3 modifier maps are all public board
     # state; a player needs them to reason about the game, not just the
     # bare minimum required to stay legal.
-    engine = Engine.new_game(seed=1)
+    engine = Engine.new_game(seed=1, events=False)
     engine.military_ops["US"] = 3
     engine.turn_effects["containment"] = True
     engine.game_effects["nato"] = True
@@ -150,7 +111,7 @@ def test_observe_exposes_public_track_state():
 def test_observe_does_not_leak_in_progress_secret_headline_pick():
     # Headline is a simultaneous, secret reveal: while USSR has picked but
     # US hasn't, US's Observation must not carry USSR's pick anywhere.
-    engine = Engine.new_game(seed=1)
+    engine = Engine.new_game(seed=1, events=False)
     while engine.pending_decision.context.get("setup"):
         engine.step(engine.legal_actions()[0])
     assert engine.pending_decision.kind is DecisionKind.HEADLINE_PLAY
@@ -174,7 +135,7 @@ def test_observe_does_not_leak_in_progress_secret_headline_pick():
 @given(seed=st.integers(min_value=0, max_value=MAX_INT32),
        driver_seed=st.integers(min_value=0, max_value=MAX_INT32))
 def test_observe_never_reveals_opponent_hand(seed, driver_seed):
-    engine = Engine.new_game(seed=seed)
+    engine = Engine.new_game(seed=seed, events=False)
     driver = random.Random(driver_seed)
     steps = 0
     while not engine.is_terminal and steps < 400:
@@ -193,7 +154,7 @@ def test_observe_never_reveals_opponent_hand(seed, driver_seed):
 @given(seed=st.integers(min_value=0, max_value=MAX_INT32),
        driver_seed=st.integers(min_value=0, max_value=MAX_INT32))
 def test_serialize_round_trips_after_every_step_of_a_full_game(seed, driver_seed):
-    engine = Engine.new_game(seed=seed)
+    engine = Engine.new_game(seed=seed, events=False)
     driver = random.Random(driver_seed)
     steps = 0
     while not engine.is_terminal and steps < 300:
@@ -207,14 +168,14 @@ def test_serialize_round_trips_after_every_step_of_a_full_game(seed, driver_seed
 def test_scoring_card_can_only_be_played_as_its_event():
     # Drive to a state where a scoring card is the card being played and check
     # the play-mode options offered for it.
-    engine = Engine.new_game(seed=3)
+    engine = Engine.new_game(seed=3, events=False)
     scoring_ids = {cid for cid, c in engine.cards.items() if c.scoring}
     modes = engine._play_modes(Side.US, next(iter(scoring_ids)))
     assert modes == ("event",)  # never Ops, never Space Race
 
 
 def test_non_scoring_card_offers_the_event_vs_ops_choice():
-    engine = Engine.new_game(seed=3)
+    engine = Engine.new_game(seed=3, events=False)
     # A plain 3-Ops card: Ops and Event are both enumerated (event is a no-op
     # in M2, but the choice must exist per the milestone).
     modes = engine._play_modes(Side.US, "Duck_and_Cover")
@@ -222,7 +183,7 @@ def test_non_scoring_card_offers_the_event_vs_ops_choice():
 
 
 def test_china_card_passes_to_the_opponent_when_played():
-    engine = Engine.new_game(seed=5)
+    engine = Engine.new_game(seed=5, events=False)
     assert engine.china_card_owner == "USSR"
     engine._file_card(Side.USSR, RULES["china_card_id"], fired=False)
     assert engine.china_card_owner == "US"
@@ -242,7 +203,7 @@ def test_golden_full_game_replay_matches_checkpoints():
 def test_last_action_round_forces_a_held_scoring_card():
     # A scoring card cannot be carried out of a turn: when a side has as many
     # scoring cards as action rounds left, those rounds must spend them.
-    engine = Engine.new_game(seed=2)
+    engine = Engine.new_game(seed=2, events=False)
     engine.phase = "action_rounds"
     engine.turn = 1  # 6 action rounds/side -> 12 plays total
     engine._decision_stack = []
