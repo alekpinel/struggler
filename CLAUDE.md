@@ -496,6 +496,38 @@ implementing `Player` and adding one branch to `build_player` — no
 self-registration, no import-order dependency, no indirection between a
 name and the class it builds.
 
+### Game-level logging
+
+Separate from any LLM player's own reasoning log
+(`bots/llm/conversation_log.py`, that player's private conversation
+state), `runner.play_game(engine, players, log_path=...)` can record the
+game itself as it's played, via `engine.replay.GameLogWriter`. It writes
+a lean `{seed, new_game, include_optional, events, actions, winner}`
+replay log — the same `new_game`/`actions` shape the "Deterministic
+replay logs" testing strategy reads (`run_replay`), but without a
+`checkpoints` section: that's golden-fixture furniture for pinning a
+byte-for-byte `engine.serialize()` snapshot, which a live game isn't
+being checked against, and `seed + actions` alone is already sufficient
+to reproduce it exactly. Each `actions` entry is `encode_event`'s output,
+not a bare `{kind, payload}` — actor, and (when it targets a country)
+that country's resulting influence/control plus DEFCON/VP/turn/round,
+the same fields `engine.human._format_event` shows a human player between
+prompts — so the file reads as a play-by-play, not raw internal state.
+`replay.py` is now both the reader (golden fixtures under
+`tests/replays/`, via `run_replay`/`run_with_checkpoints`) and the writer
+(live games, via `GameLogWriter`) of one format, not two modules
+maintaining it separately. The file is atomically rewritten after every
+step (same tempfile+`os.replace`, warn-not-raise pattern as
+`conversation_log.save`), so a crash mid-game still leaves a replayable,
+if truncated, log. `src/main.py` enables this by default
+(`./logs/{timestamp}_game.json`; `--game-log-path` to override,
+`--no-game-log` to disable), independent of whether either seat is an
+LLM. This resolves the open question the LLM-tier roadmap note below used
+to defer ("do the model's reasoning turns count as 'moves' in a replay
+log, or stay external to it"): they stay external — the game log is the
+engine-level action record, the LLM conversation log is a separate,
+player-private artifact, and the two are never merged.
+
 ### Roadmap
 
 Four tiers, in the order they're worth building — each one a strictly
@@ -520,9 +552,10 @@ built:
    this is "only" prompt engineering plus response parsing into a legal
    `Action` — it needs nothing new from the engine, since `Player` already
    receives everything an LLM prompt would need and returns everything
-   `step()` needs to advance. The one new plumbing question — do the
-   model's reasoning turns count as "moves" in a replay log, or stay
-   external to it — is deferred until this tier is actually built.
+   `step()` needs to advance. The one new plumbing question this tier
+   raised — do the model's reasoning turns count as "moves" in a replay
+   log, or stay external to it — is answered in "Game-level logging"
+   above: they stay external.
 4. **Self-play reinforcement learning** (future, most promising long-term,
    most expensive to build): train a model by having it play itself
    repeatedly via `play_game`, using `Engine.winner` as the terminal reward.

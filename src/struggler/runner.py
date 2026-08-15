@@ -11,16 +11,32 @@ from typing import Mapping
 
 from struggler.engine import DecisionKind, Engine, Side
 from struggler.engine.player import Event, Player
+from struggler.engine.replay import GameLogWriter
 
 
-def play_game(engine: Engine, players: Mapping[Side, Player]) -> Side | None:
-    """Run `engine` to completion, returning the winner (or None on a draw)."""
+def play_game(
+    engine: Engine,
+    players: Mapping[Side, Player],
+    *,
+    log_path: str | None = None,
+) -> Side | None:
+    """Run `engine` to completion, returning the winner (or None on a draw).
+
+    If `log_path` is given, every step is also recorded to that path as a
+    replay-log (see `engine.replay.GameLogWriter`) — the full game record,
+    distinct from and independent of any LLM player's own reasoning log.
+    """
     history: list[Event] = []
     # Headline cards are picked secretly (USSR then US) and only revealed
     # once both are chosen. Buffering both HEADLINE_PLAY events here — instead
     # of appending each immediately — keeps the second picker's `history` from
     # leaking the first picker's card before their own choice is locked in.
+    # The on-disk game log below is NOT buffered the same way: it isn't
+    # consulted by any Player (only the engine API is), so that secrecy
+    # mandate doesn't apply to it — though a human reading the file mid-game
+    # could see a still-secret headline pick before it's revealed in-game.
     pending_headline: list[Event] = []
+    log_writer = GameLogWriter(log_path, engine) if log_path is not None else None
     while not engine.is_terminal:
         decision = engine.pending_decision
         if decision.actor is Side.CHANCE:
@@ -54,6 +70,9 @@ def play_game(engine: Engine, players: Mapping[Side, Player]) -> Side | None:
             country_influence=country_influence,
             country_control=country_control,
         )
+        if log_writer is not None:
+            log_writer.record_step(event)
+
         if decision.kind is DecisionKind.HEADLINE_PLAY:
             pending_headline.append(event)
             if len(pending_headline) == 2:
@@ -62,4 +81,6 @@ def play_game(engine: Engine, players: Mapping[Side, Player]) -> Side | None:
         else:
             history.append(event)
     history.extend(pending_headline)
+    if log_writer is not None:
+        log_writer.finalize(engine.winner)
     return engine.winner

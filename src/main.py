@@ -91,6 +91,16 @@ def main() -> None:
         default=None,
         help="Log path for the USSR LLM player. Defaults to a new timestamped file under ./logs/.",
     )
+    parser.add_argument(
+        "--game-log-path",
+        default=None,
+        help="Path for the full game replay log. Defaults to a new timestamped file under ./logs/.",
+    )
+    parser.add_argument(
+        "--no-game-log",
+        action="store_true",
+        help="Disable saving the game replay log.",
+    )
     args = parser.parse_args()
 
     engine = Engine.new_game(seed=args.seed)
@@ -103,7 +113,15 @@ def main() -> None:
         ),
     }
 
-    winner = play_game(engine, players)
+    if args.no_game_log:
+        game_log_path = None
+    elif args.game_log_path is not None:
+        game_log_path = args.game_log_path
+    else:
+        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M")
+        game_log_path = f"./logs/{timestamp}_game.json"
+
+    winner = play_game(engine, players, log_path=game_log_path)
     print(f"\nWinner: {winner}")
 
 
