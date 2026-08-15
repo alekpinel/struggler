@@ -303,7 +303,7 @@ def test_llm_player_resumes_pending_plan_from_log_path(tmp_path):
     # Simulate a fresh process: a brand-new LLMPlayer with a brand-new
     # client whose response script is empty, resuming purely from disk.
     second_client = FakeLLMClient([])
-    second_player = LLMPlayer(client=second_client, seed=0, log_path=log_path)
+    second_player = LLMPlayer(client=second_client, seed=0, log_path=log_path, resume=True)
 
     chosen = [action.payload["country"]]
     for _ in range(2):
@@ -316,6 +316,32 @@ def test_llm_player_resumes_pending_plan_from_log_path(tmp_path):
     assert second_client.requests == []  # entirely served from the resumed plan
     assert second_player.journal == first_player.journal
     assert second_player.cumulative_usage == first_player.cumulative_usage
+
+
+def test_llm_player_does_not_auto_resume_without_explicit_flag(tmp_path):
+    """A snapshot already sitting at `log_path` (e.g. left over from an
+    earlier, unrelated game that happened to reuse the same seed/path) must
+    never be picked up unless the caller explicitly passes `resume=True`."""
+    log_path = tmp_path / "log.json"
+    snapshot = conversation_log.ConversationSnapshot(
+        seed=0,
+        provider="fake",
+        model="fake-model",
+        created_at=conversation_log.now_iso(),
+        updated_at=conversation_log.now_iso(),
+        last_seen=5,
+        cumulative_usage={"input_tokens": 99, "output_tokens": 99},
+        messages=(),
+        plan=(),
+        journal=(),
+    )
+    conversation_log.save(log_path, snapshot)
+
+    player = LLMPlayer(client=FakeLLMClient([]), seed=0, log_path=log_path)
+
+    assert player._last_seen == 0
+    assert player.journal == []
+    assert player.cumulative_usage == {"input_tokens": 0, "output_tokens": 0}
 
 
 def test_choose_action_raises_when_history_shorter_than_resumed_last_seen(tmp_path):
@@ -334,7 +360,7 @@ def test_choose_action_raises_when_history_shorter_than_resumed_last_seen(tmp_pa
     )
     conversation_log.save(log_path, snapshot)
 
-    player = LLMPlayer(client=FakeLLMClient([]), seed=0, log_path=log_path)
+    player = LLMPlayer(client=FakeLLMClient([]), seed=0, log_path=log_path, resume=True)
     engine = Engine.new_game(seed=1)
     observation = engine.observe(engine.pending_decision.actor)
 

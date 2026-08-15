@@ -6,8 +6,13 @@ call, so the file on disk always reflects a complete, loadable state.
 
 Resumption contract: this module makes `LLMPlayer`'s OWN state resumable
 (the conversation, pending plan, `last_seen` index, journal, cumulative
-token usage) -- it does not orchestrate resuming an actual game. The
-caller is independently responsible for reconstructing a matching `Engine`
+token usage) -- it does not orchestrate resuming an actual game, and it is
+never consulted automatically: `LLMPlayer` only calls `load()` when
+constructed with `resume=True`. A fresh `LLMPlayer(..., log_path=path)`
+with `resume` left at its default (`False`) always starts with empty
+memory, even if `path` already holds a snapshot from an earlier game --
+loading must be an explicit choice, never a side effect of reusing a path.
+The caller is independently responsible for reconstructing a matching `Engine`
 (via `Engine.serialize()`/`deserialize()` or a replay log, see CLAUDE.md's
 Testing strategy) and for building a `history: Sequence[Event]` of at
 least `last_seen` entries, in the same order as before persistence, to
