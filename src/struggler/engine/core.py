@@ -22,6 +22,11 @@ from struggler.engine.types import (
 
 _DEFAULT_MIN_DEFCON = 1
 
+# Physical-mode placeholder: a hand/draw-pile slot whose real card identity is
+# not yet known to the engine (see Engine.physical_mode). No real card id in
+# data/cards.json ever looks like this, so it can never collide with one.
+HIDDEN_CARD = "?"
+
 # Every coup attempt, in any region, degrades DEFCON by 1, regardless of
 # success. Realignment is subject to the same COUP_MIN_DEFCON restriction above (8.1.5 restricts "Coup or
 # Realignment rolls" identically) — enforced in _usable_coup_realign_target.
@@ -90,6 +95,23 @@ class Engine:
         # the flags they depend on. Never cleared at end of turn. JSON-native
         # values only (mandate #5).
         self.game_effects: dict[str, object] = {}
+
+        # -- Physical-mode state ------------------------------------------
+        # physical_mode makes one seat a real human playing the physical
+        # board game: the engine cannot know their hand's contents (a real
+        # shuffle, not the seeded RNG), and every dice roll on the table —
+        # both sides' — is entered manually instead of drawn from `_rng`.
+        # See CLAUDE.md's "Bot framework" section for the full design.
+        self.physical_mode = False
+        self.physical_side: Side | None = None
+        # Real card ids not yet matched to a known location: the physical
+        # hand's actual contents, plus whatever hasn't been dealt to anyone
+        # yet. A card leaves this pool the instant its identity becomes
+        # known to the engine (dealt to the other side, or revealed by the
+        # physical player playing/discarding/being forced to show it) and
+        # never returns except via a genuine physical reshuffle. Never
+        # surfaced by observe() — same treatment as `_our_man_queue`.
+        self.hidden_pool: list[str] = []
 
     # -- public API -------------------------------------------------------
 
@@ -188,6 +210,9 @@ class Engine:
             "game_effects": dict(self.game_effects),
             "our_man_queue": list(self._our_man_queue),
             "our_man_kept": list(self._our_man_kept),
+            "physical_mode": self.physical_mode,
+            "physical_side": self.physical_side.value if self.physical_side is not None else None,
+            "hidden_pool": list(self.hidden_pool),
         }
 
     @classmethod
@@ -227,6 +252,10 @@ class Engine:
         engine.game_effects = dict(data.get("game_effects", {}))
         engine._our_man_queue = list(data.get("our_man_queue", []))
         engine._our_man_kept = list(data.get("our_man_kept", []))
+        engine.physical_mode = data.get("physical_mode", False)
+        physical_side = data.get("physical_side")
+        engine.physical_side = Side(physical_side) if physical_side is not None else None
+        engine.hidden_pool = list(data.get("hidden_pool", []))
         return engine
 
     # -- M1 test-harness entry points (no cards yet) -----------------------
@@ -258,6 +287,8 @@ class Engine:
         include_optional: bool = True,
         board: Board | None = None,
         events: bool = True,
+        physical_mode: bool = False,
+        physical_side: Side | None = None,
     ) -> "Engine":
         """Start a complete game: build the Early War deck, deal opening
         hands, and push the first (USSR) headline decision.
@@ -266,16 +297,25 @@ class Engine:
         the USSR places 6 additional Influence in Eastern Europe and the US 7
         in Western Europe (as ordinary placement decisions), before the turn-1
         headline.
+
+        `physical_mode`/`physical_side`: `physical_side` is a real human
+        playing the physical board game (see the "Physical-mode state"
+        fields on `__init__`) — its hand is unknown to the engine until
+        revealed, and all dice (both sides') are entered manually. See
+        CLAUDE.md's "Bot framework" section.
         """
+        if physical_mode and physical_side not in (Side.US, Side.USSR):
+            raise ValueError("physical_mode requires physical_side to be Side.US or Side.USSR")
         engine = cls(seed=seed, board=board)
         engine.include_optional = include_optional
         engine.events_enabled = events
+        engine.physical_mode = physical_mode
+        engine.physical_side = physical_side
         engine.china_card_owner = "USSR"
         engine.china_card_available = True
         engine.turn = 1
-        engine._start_turn()  # build Early War deck, deal (phase set to headline)
-        engine._begin_setup()  # apply/choose opening influence (phase -> setup)
-        engine._advance()      # runs once setup completes: push the first headline
+        engine._start_turn(initial=True)  # build deck, deal (phase -> predeal until dealt)
+        engine._advance()  # drains physical-mode dealing if any, then runs setup -> first headline
         return engine
 
     # -- M2: turn director --------------------------------------------------
@@ -288,6 +328,14 @@ class Engine:
         director decides what happens next. It is a no-op in the M1 sandbox
         (phase 'idle') and once the game is over ('complete').
         """
+        # 'predeal' is turn 1 only, set by _start_turn(initial=True): once
+        # the opening deal has fully drained (a no-op wait for physical
+        # mode's DEAL_CARD decisions, instant otherwise), begin opening
+        # setup placement instead of jumping straight to headline picks.
+        if self.phase == "predeal":
+            if not self._decision_stack:
+                self._begin_setup()
+            return
         # 'setup' self-drives through its own placement handler (it always
         # leaves a decision pending until it flips the phase to 'headline'),
         # so the director only takes over from the headline onward.
@@ -343,9 +391,14 @@ class Engine:
 
     # -- M2: turn boundaries ------------------------------------------------
 
-    def _start_turn(self) -> None:
+    def _start_turn(self, *, initial: bool = False) -> None:
         """Add the period's cards to the deck (as the war escalates), deal
-        both hands up to the limit, and enter the headline phase."""
+        both hands up to the limit, and enter the headline phase.
+
+        `initial=True` only for turn 1's call from `new_game`: phase becomes
+        'predeal' instead of 'headline' so `_advance()` runs opening setup
+        placement once dealing has fully drained, instead of jumping
+        straight to headline picks."""
         if self.turn == 1:
             self._add_period_to_deck(Period.EARLY_WAR)
         elif self.turn == 4:
@@ -353,7 +406,7 @@ class Engine:
         elif self.turn == 8:
             self._add_period_to_deck(Period.LATE_WAR)
         self._deal_to_limit()
-        self.phase = "headline"
+        self.phase = "predeal" if initial else "headline"
 
     def _end_of_turn(self) -> None:
         # Required military operations: a side that spent fewer military Ops
@@ -401,11 +454,15 @@ class Engine:
         if holder is None:
             return False
         side = Side(holder)
-        hand = self.hands[side.value]
-        if not hand:
+        candidates = (
+            self._physical_hand_candidates(side)
+            if self.physical_mode and side is self.physical_side
+            else list(self.hands[side.value])
+        )
+        if not candidates:
             return False
         options = tuple(
-            Action(DecisionKind.HELD_CARD_DISCARD, {"card": cid}) for cid in hand
+            Action(DecisionKind.HELD_CARD_DISCARD, {"card": cid}) for cid in candidates
         ) + (Action(DecisionKind.HELD_CARD_DISCARD, {"card": "none"}),)
         self._push(side, DecisionKind.HELD_CARD_DISCARD, options, {})
         return True
@@ -505,10 +562,21 @@ class Engine:
 
     def _add_period_to_deck(self, period: Period) -> None:
         entering = cards_entering(self.cards, period, self.include_optional)
+        if self.physical_mode:
+            # Real cards enter a real physical deck: identity is unknown
+            # until an operator declares it (dealt or reshuffled in), so
+            # only placeholder slots go on `draw_pile` — no virtual shuffle,
+            # since order is meaningless for placeholders.
+            self.hidden_pool.extend(entering)
+            self.draw_pile.extend([HIDDEN_CARD] * len(entering))
+            return
         self.draw_pile.extend(entering)
         self._rng.shuffle(self.draw_pile)
 
     def _deal_to_limit(self) -> None:
+        if self.physical_mode:
+            self._deal_to_limit_physical()
+            return
         limit = hand_limit(self.turn)
         order = ("USSR", "US")  # USSR is the first player; VERIFY deal order
         while any(len(self.hands[s]) < limit for s in order):
@@ -531,18 +599,95 @@ class Engine:
         return self.draw_pile.pop()
 
     def _reshuffle_discard_into_draw(self) -> None:
+        if self.physical_mode:
+            # A real reshuffle forgets identity again: the discarded cards
+            # go back to being an unaccounted-for pool, not a known order.
+            self.hidden_pool.extend(self.discard_pile)
+            self.draw_pile = [HIDDEN_CARD] * len(self.discard_pile)
+            self.discard_pile = []
+            return
         # Removed cards stay out of the game; only the discard is recycled.
         self.draw_pile = self.discard_pile
         self.discard_pile = []
         self._rng.shuffle(self.draw_pile)
 
+    # -- Physical mode: dealing from a real shared deck ----------------------
+    #
+    # There is one real deck on the table. The physical player's hand is
+    # topped up silently (nothing new is *learned* by the engine — it's still
+    # just a count); the other side's hand must be declared card by card by
+    # the operator, since a real physical shuffle can't be predicted by the
+    # seeded RNG. `_deal_n` is the shared entry point for both the opening
+    # deal and any mid-game draw (e.g. Ask Not's redraw).
+
+    def _deal_to_limit_physical(self) -> None:
+        limit = hand_limit(self.turn)
+        self._deal_n(self.physical_side, max(0, limit - len(self.hands[self.physical_side.value])))
+        bot_side = self.physical_side.opponent
+        self._deal_n(bot_side, max(0, limit - len(self.hands[bot_side.value])))
+
+    def _deal_n(self, side: Side, n: int) -> None:
+        """Physical-mode draw of `n` cards into `side`'s hand. For the
+        physical side this is silent bookkeeping (a `HIDDEN_CARD` placeholder
+        per card); for the other side it pushes a `DEAL_CARD` decision per
+        card, which `_handle_deal_card` re-drives until `n` are dealt."""
+        if n <= 0:
+            return
+        if side is self.physical_side:
+            for _ in range(n):
+                if not self.draw_pile:
+                    self._reshuffle_discard_into_draw()
+                if not self.draw_pile:
+                    return
+                self.draw_pile.pop()
+                self.hands[side.value].append(HIDDEN_CARD)
+            return
+        self._push_deal_card(side, n)
+
+    def _push_deal_card(self, side: Side, remaining: int) -> None:
+        if remaining <= 0:
+            return
+        # A card can only be dealt out of the *draw pile* — never out of the
+        # physical hand's own not-yet-revealed budget, even though both are
+        # represented by the same `hidden_pool` set of real ids. Checking
+        # `draw_pile` (not `hidden_pool`) here is what keeps
+        # `_handle_deal_card`'s `draw_pile.remove(HIDDEN_CARD)` safe: it
+        # can't fire while the draw pile is genuinely empty.
+        if not self.draw_pile:
+            if not self.discard_pile:
+                return  # nothing left to deal (should not happen)
+            self._reshuffle_discard_into_draw()
+            if not self.draw_pile:
+                return
+        options = tuple(
+            Action(DecisionKind.DEAL_CARD, {"card": cid}) for cid in self.hidden_pool
+        )
+        if not options:
+            return
+        self._push(
+            Side.CHANCE, DecisionKind.DEAL_CARD, options,
+            {"side": side.value, "remaining": remaining},
+        )
+
+    def _handle_deal_card(self, decision: Decision, action: Action) -> None:
+        side_str = decision.context["side"]
+        cid = action.payload["card"]
+        self.hidden_pool.remove(cid)
+        self.draw_pile.remove(HIDDEN_CARD)
+        self.hands[side_str].append(cid)
+        self._push_deal_card(Side(side_str), decision.context["remaining"] - 1)
+
     # -- M2: headline phase -------------------------------------------------
 
     def _push_headline(self, side: Side) -> None:
         # The China Card cannot be headlined; scoring cards can.
+        candidates = (
+            self._physical_hand_candidates(side)
+            if self.physical_mode and side is self.physical_side
+            else list(self.hands[side.value])
+        )
         options = tuple(
-            Action(DecisionKind.HEADLINE_PLAY, {"card": cid})
-            for cid in self.hands[side.value]
+            Action(DecisionKind.HEADLINE_PLAY, {"card": cid}) for cid in candidates
         )
         if options:
             self._push(side, DecisionKind.HEADLINE_PLAY, options, {})
@@ -550,7 +695,13 @@ class Engine:
     def _handle_headline_play(self, decision: Decision, action: Action) -> None:
         side = decision.actor
         cid = action.payload["card"]
-        self.hands[side.value].remove(cid)
+        # The card leaves the hand immediately (matches non-physical mode
+        # exactly): between this pick and the *other* side's pick, it must be
+        # tracked in exactly one place — `self._headline[side]` — never also
+        # still sitting in the hand list (a card counted in two tracked
+        # locations at once is exactly what `assert_invariants` forbids).
+        self.declare_physical_card(side, cid)
+        self._hand_remove_known(side, cid)
         self._headline[side.value] = cid
 
     def _headline_resolution_order(self) -> list[list[str]]:
@@ -578,7 +729,7 @@ class Engine:
         if picks.get("US") == "Defectors":
             ussr_card = picks.get("USSR")
             if ussr_card is not None:
-                self._file_card(Side.USSR, ussr_card, fired=False)
+                self._file_card(Side.USSR, ussr_card, fired=False, already_removed_from_hand=True)
                 order = [pair for pair in order if pair[0] != "USSR"]
         elif picks.get("USSR") == "Defectors":
             self._award_vp(Side.US, 1)
@@ -600,16 +751,33 @@ class Engine:
         card = self.cards[cid]
         if card.scoring:
             self._resolve_scoring_card(cid)
-            self._file_card(side, cid, fired=True)
+            self._file_card(side, cid, fired=True, already_removed_from_hand=True)
         elif self.events_enabled and self._has_event(cid):
-            self._file_card(side, cid, fired=True)
+            self._file_card(side, cid, fired=True, already_removed_from_hand=True)
             self._fire_event(side, cid)
         else:
-            self._file_card(side, cid, fired=False)
+            self._file_card(side, cid, fired=False, already_removed_from_hand=True)
 
     # -- M2: action round: pick a card, then how to use it ------------------
 
     def _push_action_round_play(self, side: Side) -> None:
+        if self.physical_mode and side is self.physical_side:
+            # The engine can't compute must-play-scoring for a hand it can't
+            # see the true contents of (a documented simplification): every
+            # not-yet-accounted-for card is offered, and the physical player
+            # (who can see their own hand) is trusted to honor the
+            # must-play-a-scoring-card rule themselves — the same trust
+            # model any human player already gets for rules HumanPlayer
+            # doesn't independently re-verify.
+            candidates = self._physical_hand_candidates(side)
+            options = [Action(DecisionKind.ACTION_ROUND_PLAY, {"card": cid}) for cid in candidates]
+            if side.value == self.china_card_owner and self.china_card_available:
+                options.append(
+                    Action(DecisionKind.ACTION_ROUND_PLAY, {"card": RULES["china_card_id"]})
+                )
+            if options:
+                self._push(side, DecisionKind.ACTION_ROUND_PLAY, tuple(options), {})
+            return
         hand = self.hands[side.value]
         scoring_in_hand = [cid for cid in hand if self.cards[cid].scoring]
         # A scoring card may not be held past the end of the turn. Once a side
@@ -717,11 +885,10 @@ class Engine:
         if mode == "space_race":
             self._file_card(side, cid, fired=False)
             self.space_race_attempts[side.value] += 1
-            roll = self._roll_d6()
             self._push(
                 Side.CHANCE,
                 DecisionKind.SPACE_RACE_ROLL,
-                (Action(DecisionKind.SPACE_RACE_ROLL, {"value": roll}),),
+                self._d6_actions(DecisionKind.SPACE_RACE_ROLL),
                 {"side": side.value},
             )
             return
@@ -1149,12 +1316,24 @@ class Engine:
         hand = self.hands[owner.value]
         if count <= 0 or not hand:
             return
+        context = {"owner": owner.value, "purpose": purpose, "count": count}
+        if self.physical_mode:
+            # No RNG index to draw for a hand the engine can't see: for the
+            # physical owner, every option is a candidate from hidden_pool;
+            # for the bot owner (hand fully known), the real hand itself —
+            # either way the operator picks the one matching the physical
+            # card actually drawn.
+            candidates = self.hidden_pool if owner is self.physical_side else hand
+            options = tuple(Action(DecisionKind.RANDOM_DISCARD, {"card": cid}) for cid in candidates)
+            if options:
+                self._push(Side.CHANCE, DecisionKind.RANDOM_DISCARD, options, context)
+            return
         card = hand[self._rng.randrange(len(hand))]
         self._push(
             Side.CHANCE,
             DecisionKind.RANDOM_DISCARD,
             (Action(DecisionKind.RANDOM_DISCARD, {"card": card}),),
-            {"owner": owner.value, "purpose": purpose, "count": count},
+            context,
         )
 
     def _handle_random_discard(self, decision: Decision, action: Action) -> None:
@@ -1174,6 +1353,7 @@ class Engine:
             # The revealed card is not filed yet: the opponent (US) decides to
             # take it (use its Ops, then discard) or return it (use Grain Sales'
             # own 2 Ops). It stays in the USSR hand until then.
+            self._reveal_in_hand(owner, card)
             self.push_event_choice(
                 "Grain_Sales_to_Soviets", owner.opponent, ("take", "return"),
                 extra={"card": card},
@@ -1184,6 +1364,9 @@ class Engine:
 
     def draw_cards_to_hand(self, side: Side, n: int) -> None:
         """Draw `n` cards from the deck into `side`'s hand (Ask Not's redraw)."""
+        if self.physical_mode:
+            self._deal_n(side, n)
+            return
         for _ in range(n):
             card = self._draw_card()
             if card is None:
@@ -1199,21 +1382,44 @@ class Engine:
     def push_dice_contest(
         self, event: str, sponsor: Side, sponsor_mod: int, defender_mod: int, vp: int
     ) -> None:
+        context = {
+            "event": event, "sponsor": sponsor.value,
+            "sponsor_mod": sponsor_mod, "defender_mod": defender_mod, "vp": vp,
+        }
+        if self.physical_mode:
+            # Two physical dice, entered one at a time (a flat 36-option menu
+            # would be unusable at the console): the sponsor's die first,
+            # _handle_contest_roll then asks for the defender's.
+            self._push(
+                Side.CHANCE, DecisionKind.CONTEST_ROLL,
+                tuple(Action(DecisionKind.CONTEST_ROLL, {"sponsor_roll": v}) for v in range(1, 7)),
+                context,
+            )
+            return
         s_roll, d_roll = self._roll_d6(), self._roll_d6()
         self._push(
             Side.CHANCE, DecisionKind.CONTEST_ROLL,
             (Action(DecisionKind.CONTEST_ROLL,
                     {"sponsor_roll": s_roll, "defender_roll": d_roll}),),
-            {"event": event, "sponsor": sponsor.value,
-             "sponsor_mod": sponsor_mod, "defender_mod": defender_mod, "vp": vp},
+            context,
         )
 
     def _handle_contest_roll(self, decision: Decision, action: Action) -> None:
         from struggler.engine.events import CONTEST_RESOLVERS
 
         ctx = decision.context
+        if "defender_roll" not in action.payload:
+            # Physical-mode sponsor stage just resolved: ask for the
+            # defender's die next, carrying the sponsor roll in context.
+            self._push(
+                Side.CHANCE, DecisionKind.CONTEST_ROLL,
+                tuple(Action(DecisionKind.CONTEST_ROLL, {"defender_roll": v}) for v in range(1, 7)),
+                {**ctx, "sponsor_roll": action.payload["sponsor_roll"]},
+            )
+            return
         sponsor = Side(ctx["sponsor"])
-        s_total = action.payload["sponsor_roll"] + ctx["sponsor_mod"]
+        sponsor_roll = ctx.get("sponsor_roll", action.payload.get("sponsor_roll"))
+        s_total = sponsor_roll + ctx["sponsor_mod"]
         d_total = action.payload["defender_roll"] + ctx["defender_mod"]
         if s_total == d_total:  # tie: reroll
             self.push_dice_contest(
@@ -1291,11 +1497,10 @@ class Engine:
         """Start a war event: it always counts toward the attacker's required
         military operations, then a logged CHANCE roll decides the outcome."""
         self.military_ops[attacker.value] += military_ops
-        roll = self._roll_d6()
         self._push(
             Side.CHANCE,
             DecisionKind.WAR_ROLL,
-            (Action(DecisionKind.WAR_ROLL, {"value": roll}),),
+            self._d6_actions(DecisionKind.WAR_ROLL),
             {
                 "card": card_id,
                 "attacker": attacker.value,
@@ -1442,7 +1647,9 @@ class Engine:
             # hit DEFCON 1) is abandoned.
             self._decision_stack.clear()
 
-    def _file_card(self, side: Side, cid: str, fired: bool) -> None:
+    def _file_card(
+        self, side: Side, cid: str, fired: bool, *, already_removed_from_hand: bool = False
+    ) -> None:
         if cid == RULES["china_card_id"]:
             # The China Card is never discarded: it passes to the opponent
             # face-down and becomes available to them next turn. Playing it also
@@ -1451,8 +1658,13 @@ class Engine:
             self.china_card_owner = side.opponent.value
             self.china_card_available = False
             return
-        if cid in self.hands[side.value]:
-            self.hands[side.value].remove(cid)
+        self.declare_physical_card(side, cid)
+        # `already_removed_from_hand` is for callers (headline resolution)
+        # where the card is known to have already left the hand at an
+        # earlier step (`_handle_headline_play`) — skipping this avoids
+        # mistakenly removing a second, unrelated HIDDEN_CARD placeholder.
+        if not already_removed_from_hand:
+            self._hand_remove_known(side, cid)
         if fired and self.cards[cid].remove_after_event:
             self.removed_cards.append(cid)
         else:
@@ -1484,6 +1696,7 @@ class Engine:
             DecisionKind.QUAGMIRE_DISCARD: self._handle_quagmire_discard,
             DecisionKind.QUAGMIRE_ROLL: self._handle_quagmire_roll,
             DecisionKind.HELD_CARD_DISCARD: self._handle_held_card_discard,
+            DecisionKind.DEAL_CARD: self._handle_deal_card,
         }[decision.kind]
         handler(decision, action)
 
@@ -1502,6 +1715,76 @@ class Engine:
 
     def _roll_d6(self) -> int:
         return self._rng.randint(1, 6)
+
+    def _d6_actions(self, kind: DecisionKind, payload_key: str = "value") -> tuple[Action, ...]:
+        """The CHANCE options for a single d6 roll. Physical mode has no
+        die to draw from `self._rng` — every possible outcome (1-6) is
+        exposed instead, and the operator picks the one that matches the
+        real physical roll (mandate #3: chance is still fully exposed as a
+        decision, just resolved by a human instead of the seeded RNG)."""
+        if self.physical_mode:
+            return tuple(Action(kind, {payload_key: v}) for v in range(1, 7))
+        return (Action(kind, {payload_key: self._roll_d6()}),)
+
+    def declare_physical_card(self, side: Side, cid: str) -> None:
+        """A card leaving `hidden_pool` for good, the instant its identity is
+        learned for `side` (played, discarded, or otherwise revealed) — the
+        invariant the whole physical-hand model rests on: once declared, a
+        card can never later be claimed as still in the pool. No-op outside
+        physical mode, for the non-physical side, or for a non-card id
+        (e.g. an EVENT_CHOICE keyword like "refuse")."""
+        if self.physical_mode and side is self.physical_side and cid in self.hidden_pool:
+            self.hidden_pool.remove(cid)
+
+    def _hand_remove_known(self, side: Side, cid: str) -> None:
+        """Remove a specific, already-identified card from `side`'s hand
+        list. If `cid` is literally present (the normal case, and the
+        physical side's own already-revealed cards via `_reveal_in_hand`),
+        remove it directly. Otherwise — the physical side's hand still only
+        holds HIDDEN_CARD placeholders for it — remove one placeholder
+        instead. Checking `cid in hand` first keeps this idempotent: a
+        second call for an already-removed card (e.g. a headlined card's
+        later `_file_card`, after `_reveal_in_hand` already placed then
+        this removed its real id) is a correct no-op, not a stray
+        placeholder removal."""
+        hand = self.hands[side.value]
+        if cid in hand:
+            hand.remove(cid)
+        elif self.physical_mode and side is self.physical_side and HIDDEN_CARD in hand:
+            hand.remove(HIDDEN_CARD)
+
+    def _reveal_in_hand(self, side: Side, cid: str) -> None:
+        """A card's identity becomes known while it stays in `side`'s hand
+        (e.g. Grain Sales' revealed-but-undecided card): swap one
+        HIDDEN_CARD placeholder for the real id, so both `hidden_pool` and
+        the hand list stay accurate until the card later actually leaves
+        the hand (via `_hand_remove_known`/`_file_card`)."""
+        self.declare_physical_card(side, cid)
+        if self.physical_mode and side is self.physical_side:
+            hand = self.hands[side.value]
+            if HIDDEN_CARD in hand:
+                hand[hand.index(HIDDEN_CARD)] = cid
+
+    def _physical_hand_candidates(self, side: Side) -> list[str]:
+        """All card ids that might be sitting in `side`'s physical hand: any
+        already-revealed real ids there (e.g. a Grain-Sales-revealed card
+        not yet resolved) plus every still-unidentified card in
+        `hidden_pool`. Used to build decision options for a hand the engine
+        can't see the true contents of — the operator picks whichever one
+        matches the real physical card.
+
+        A hand's *size* is never hidden (only identity is): `hidden_pool`
+        candidates are offered only for the hand's remaining unrevealed
+        (HIDDEN_CARD) slots, never unconditionally — a hand with no such
+        slots left (empty, or every card already revealed) must never
+        offer `hidden_pool` cards as if it could still hold one of them;
+        those cards may just as well be elsewhere (the draw pile, another
+        hand)."""
+        hand = self.hands[side.value]
+        revealed = [cid for cid in hand if cid != HIDDEN_CARD]
+        if HIDDEN_CARD not in hand:
+            return revealed
+        return revealed + list(self.hidden_pool)
 
     # -- influence placement --------------------------------------------------
 
@@ -1622,11 +1905,10 @@ class Engine:
         if bonus and self._in_bonus_region(country, bonus):
             ops += 1
             self.military_ops[side.value] += 1
-        roll = self._roll_d6()
         self._push(
             Side.CHANCE,
             DecisionKind.COUP_ROLL,
-            (Action(DecisionKind.COUP_ROLL, {"value": roll}),),
+            self._d6_actions(DecisionKind.COUP_ROLL),
             {"side": side.value, "country": country, "ops": ops},
         )
 
@@ -1769,18 +2051,23 @@ class Engine:
         """Play `cid` — already pulled out of the discard pile — immediately for
         its event, on `side`'s behalf (Star Wars). Files it afterwards (removed
         if it is a remove-after-event card), exactly like a normal event play; an
-        unimplemented event is a no-op discard."""
+        unimplemented event is a no-op discard.
+
+        `cid` was never in `side`'s hand (it came straight from the discard
+        pile), so every `_file_card` call passes `already_removed_from_hand`
+        — otherwise, for a physical `side`, `_file_card` would mistake this
+        for a real hand departure and strip an unrelated placeholder."""
         card = self.cards[cid]
         if card.scoring:
             self._resolve_scoring_card(cid)
             if not self.is_terminal:
-                self._file_card(side, cid, fired=True)
+                self._file_card(side, cid, fired=True, already_removed_from_hand=True)
             return
         if self._has_event(cid) and EVENTS[cid].eligible(self, side):
-            self._file_card(side, cid, fired=True)
+            self._file_card(side, cid, fired=True, already_removed_from_hand=True)
             self._fire_event(side, cid)
         else:
-            self._file_card(side, cid, fired=False)
+            self._file_card(side, cid, fired=False, already_removed_from_hand=True)
 
     # -- M3: Che — a free coup with a conditional repeat --------------------
 
@@ -1812,11 +2099,10 @@ class Engine:
         COUP_ROLL context carries the `che` state so _handle_coup_roll can
         offer the second attempt if this one removes US Influence."""
         used = list(used) + [country]
-        roll = self._roll_d6()
         self._push(
             Side.CHANCE,
             DecisionKind.COUP_ROLL,
-            (Action(DecisionKind.COUP_ROLL, {"value": roll}),),
+            self._d6_actions(DecisionKind.COUP_ROLL),
             {
                 "side": side.value, "country": country, "ops": ops,
                 "che": {"ops": ops, "candidates": list(candidates), "used": used},
@@ -1898,8 +2184,13 @@ class Engine:
         return None
 
     def _push_trap_step(self, side: Side, key: str) -> None:
+        source = (
+            self._physical_hand_candidates(side)
+            if self.physical_mode and side is self.physical_side
+            else self.hands[side.value]
+        )
         payable = [
-            cid for cid in self.hands[side.value]
+            cid for cid in source
             if not self.cards[cid].scoring and self.cards[cid].ops >= 2
         ]
         if not payable:
@@ -1914,10 +2205,9 @@ class Engine:
         key = decision.context["key"]
         cid = action.payload["card"]
         self._file_card(side, cid, fired=False)
-        roll = self._roll_d6()
         self._push(
             Side.CHANCE, DecisionKind.QUAGMIRE_ROLL,
-            (Action(DecisionKind.QUAGMIRE_ROLL, {"value": roll}),), {"key": key},
+            self._d6_actions(DecisionKind.QUAGMIRE_ROLL), {"key": key},
         )
 
     def _handle_quagmire_roll(self, decision: Decision, action: Action) -> None:
@@ -1951,11 +2241,10 @@ class Engine:
     def _handle_realignment_target(self, decision: Decision, action: Action) -> None:
         side = decision.actor
         country = action.payload["country"]
-        roll = self._roll_d6()
         self._push(
             Side.CHANCE,
             DecisionKind.REALIGNMENT_ACTOR_ROLL,
-            (Action(DecisionKind.REALIGNMENT_ACTOR_ROLL, {"value": roll}),),
+            self._d6_actions(DecisionKind.REALIGNMENT_ACTOR_ROLL),
             {
                 "side": side.value,
                 "country": country,
@@ -1965,11 +2254,10 @@ class Engine:
         )
 
     def _handle_realignment_actor_roll(self, decision: Decision, action: Action) -> None:
-        opp_roll = self._roll_d6()
         self._push(
             Side.CHANCE,
             DecisionKind.REALIGNMENT_OPPONENT_ROLL,
-            (Action(DecisionKind.REALIGNMENT_OPPONENT_ROLL, {"value": opp_roll}),),
+            self._d6_actions(DecisionKind.REALIGNMENT_OPPONENT_ROLL),
             {**decision.context, "actor_roll": action.payload["value"]},
         )
 

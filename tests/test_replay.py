@@ -25,6 +25,18 @@ def test_golden_replay_matches_recorded_checkpoints():
         assert rec["state"] == checkpoint["state"]
 
 
+def test_golden_physical_replay_matches_recorded_checkpoints():
+    log = _load("m_physical_basic.json")
+    recorded = run_with_checkpoints(log)
+    assert len(recorded) == len(log["checkpoints"])
+    for rec, checkpoint in zip(recorded, log["checkpoints"]):
+        assert rec["after_step"] == checkpoint["after_step"]
+        assert rec["state"] == checkpoint["state"]
+    final_state = recorded[-1]["state"]
+    assert final_state["physical_mode"] is True
+    assert final_state["physical_side"] == "USSR"
+
+
 def test_replay_is_deterministic_across_independent_runs():
     log = _load("m1_influence_basic.json")
     engine_a = run_replay(log)

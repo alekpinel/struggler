@@ -2234,7 +2234,10 @@
           "marshall_or_warsaw": true
         },
         "our_man_queue": [],
-        "our_man_kept": []
+        "our_man_kept": [],
+        "physical_mode": false,
+        "physical_side": null,
+        "hidden_pool": []
       }
     },
     {
@@ -3346,7 +3349,10 @@
           "formosan_resolution": true
         },
         "our_man_queue": [],
-        "our_man_kept": []
+        "our_man_kept": [],
+        "physical_mode": false,
+        "physical_side": null,
+        "hidden_pool": []
       }
     },
     {
@@ -4460,7 +4466,10 @@
           "norad": true
         },
         "our_man_queue": [],
-        "our_man_kept": []
+        "our_man_kept": [],
+        "physical_mode": false,
+        "physical_side": null,
+        "hidden_pool": []
       }
     }
   ]

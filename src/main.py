@@ -19,6 +19,7 @@ from struggler.bots.llm.player import LLMPlayer
 from struggler.bots.naive import FirstLegalPlayer, RandomPlayer
 from struggler.engine import Engine, Side
 from struggler.engine.human import HumanPlayer
+from struggler.engine.physical import OperatorConsolePlayer
 from struggler.engine.player import Player
 from struggler.runner import play_game
 
@@ -73,6 +74,18 @@ def main() -> None:
     parser.add_argument("--ussr", default="human")
     parser.add_argument("--seed", type=int, default=12345)
     parser.add_argument(
+        "--physical",
+        choices=["us", "ussr"],
+        default=None,
+        help=(
+            "Physical-board mode: the given side is a real human playing the "
+            "physical board game. --us/--ussr for THAT side is ignored (the "
+            "operator console answers for it); the other side is still built "
+            "from --us/--ussr as normal. All dealing and dice route to the "
+            "operator console too, for both sides."
+        ),
+    )
+    parser.add_argument(
         "--resume",
         action="store_true",
         help=(
@@ -103,15 +116,31 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    engine = Engine.new_game(seed=args.seed)
-    players: dict[Side, Player] = {
-        Side.US: build_player(
-            args.us, seed=args.seed + 1, resume=args.resume, log_path=args.us_log_path, side_label="us"
-        ),
-        Side.USSR: build_player(
-            args.ussr, seed=args.seed + 2, resume=args.resume, log_path=args.ussr_log_path, side_label="ussr"
-        ),
-    }
+    if args.physical:
+        physical_side = Side.US if args.physical == "us" else Side.USSR
+        bot_side = physical_side.opponent
+        bot_kind = args.us if bot_side is Side.US else args.ussr
+        engine = Engine.new_game(seed=args.seed, physical_mode=True, physical_side=physical_side)
+        operator = OperatorConsolePlayer()
+        bot_log_path = args.us_log_path if bot_side is Side.US else args.ussr_log_path
+        players: dict[Side, Player] = {
+            physical_side: operator,
+            Side.CHANCE: operator,
+            bot_side: build_player(
+                bot_kind, seed=args.seed + 1, resume=args.resume,
+                log_path=bot_log_path, side_label=bot_side.value.lower(),
+            ),
+        }
+    else:
+        engine = Engine.new_game(seed=args.seed)
+        players = {
+            Side.US: build_player(
+                args.us, seed=args.seed + 1, resume=args.resume, log_path=args.us_log_path, side_label="us"
+            ),
+            Side.USSR: build_player(
+                args.ussr, seed=args.seed + 2, resume=args.resume, log_path=args.ussr_log_path, side_label="ussr"
+            ),
+        }
 
     if args.no_game_log:
         game_log_path = None

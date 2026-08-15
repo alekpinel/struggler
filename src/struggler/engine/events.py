@@ -889,6 +889,11 @@ CONTEST_RESOLVERS: dict[str, Callable[["Engine", Side, Side], None]] = {
 def _aldrich_ames(engine: "Engine", side: Side) -> None:
     # The USSR sees the US hand and chooses one card the US must discard. (The
     # remix's ongoing "sees the hand for the turn" reveal is not modeled.)
+    # Physical mode, not yet wired (see CLAUDE.md's M3 "Physical mode"
+    # limitation): the USSR can't inspect the US's true hidden hand, so this
+    # is a documented no-op rather than a crash on the HIDDEN_CARD sentinel.
+    if engine.physical_mode and engine.physical_side is Side.US:
+        return
     us_hand = engine.hands["US"]
     if not us_hand:
         return
@@ -925,8 +930,19 @@ def _ask_not(engine: "Engine", side: Side) -> None:
 
 
 def _push_ask_not(engine: "Engine", side: Side, discarded: int) -> None:
-    hand = engine.hands[side.value]
-    choices = tuple(cid for cid in hand if not engine.cards[cid].scoring) + ("stop",)
+    if engine.physical_mode and side is engine.physical_side and not engine.hands[side.value]:
+        # The physical hand's true (unknown-to-the-engine) card count has
+        # already reached 0: hidden_pool alone (cards elsewhere in the deck)
+        # would otherwise keep offering "more" discards forever, well past
+        # what this hand could actually hold.
+        engine.draw_cards_to_hand(side, discarded)
+        return
+    source = (
+        engine._physical_hand_candidates(side)
+        if engine.physical_mode and side is engine.physical_side
+        else engine.hands[side.value]
+    )
+    choices = tuple(cid for cid in source if not engine.cards[cid].scoring) + ("stop",)
     if len(choices) == 1:  # nothing left to discard -> draw and finish
         engine.draw_cards_to_hand(side, discarded)
         return
@@ -959,6 +975,11 @@ def _scoring_card_countries(engine: "Engine", scoring_id: str) -> list[str]:
 def _cambridge_five(engine: "Engine", side: Side) -> None:
     # The US reveals its scoring cards; the USSR adds 1 Influence to a country
     # in one of those regions.
+    # Physical mode, not yet wired (see CLAUDE.md's M3 "Physical mode"
+    # limitation): the USSR can't inspect the US's true hidden hand, so this
+    # is a documented no-op rather than a crash on the HIDDEN_CARD sentinel.
+    if engine.physical_mode and engine.physical_side is Side.US:
+        return
     candidates: list[str] = []
     for cid in engine.hands["US"]:
         if engine.cards[cid].scoring:
@@ -989,6 +1010,14 @@ def _missile_envy(engine: "Engine", side: Side) -> None:
     # "opponent must play Missile Envy next action round" rider is not modeled —
     # the opponent simply gains it in hand.)
     opp = side.opponent
+    # Physical mode, not yet wired (see CLAUDE.md's M3 "Physical mode"
+    # limitation): a physical giver's hand can't be inspected for the
+    # highest-Ops card, and a physical taker's later `missile_envy_use` would
+    # incorrectly consume one of *their own* hand placeholders for a card
+    # that was never actually dealt to them. Either role being physical is a
+    # documented no-op rather than a crash.
+    if engine.physical_mode and engine.physical_side in (side, opp):
+        return
     hand = engine.hands[opp.value]
     if not hand:
         return  # nothing to exchange: a no-op discard (Missile Envy stays filed)
@@ -1180,10 +1209,20 @@ def _south_african_unrest_adj_choice(engine: "Engine", side: Side, choice: str, 
 
 def _payable_cards(engine: "Engine", side: Side) -> list[str]:
     """`side`'s hand cards with a printed Ops value of 3 or more (the "discard a
-    3+ card to cancel" clause on Blockade and Latin American Debt Crisis)."""
+    3+ card to cancel" clause on Blockade and Latin American Debt Crisis).
+
+    In physical mode, `side`'s true hand may be unknown to the engine; source
+    candidates from the physical-hand pool instead (see
+    `Engine._physical_hand_candidates`) — the operator picks whichever one
+    matches the real physical card."""
+    source = (
+        engine._physical_hand_candidates(side)
+        if engine.physical_mode and side is engine.physical_side
+        else engine.hands[side.value]
+    )
     return [
         cid
-        for cid in engine.hands[side.value]
+        for cid in source
         if not engine.cards[cid].scoring and engine.cards[cid].ops >= 3
     ]
 
@@ -1380,7 +1419,12 @@ def _nixon_plays_the_china_card(engine: "Engine", side: Side) -> None:
     # the physical card here. If the USSR holds the China Card, the US takes it
     # face down (unusable this turn) unless the USSR discards a card from hand
     # to keep it.
-    payable = [cid for cid in engine.hands["USSR"] if not engine.cards[cid].scoring]
+    source = (
+        engine._physical_hand_candidates(Side.USSR)
+        if engine.physical_mode and engine.physical_side is Side.USSR
+        else engine.hands["USSR"]
+    )
+    payable = [cid for cid in source if not engine.cards[cid].scoring]
     if not payable:
         _nixon_take_china(engine)
         return
@@ -1412,6 +1456,13 @@ def _our_man_in_tehran(engine: "Engine", side: Side) -> None:
     # EVENT_CHOICE decision itself only ever offers "keep"/"remove", never the
     # card identity, so the opponent's observation never sees which card is
     # under consideration.
+    # Physical mode, not yet wired (see CLAUDE.md's M3 "Physical mode"
+    # limitation): the draw pile's real contents are unknown to the engine
+    # itself in physical mode (not just hidden from a player) — there is no
+    # "top card" to peek at, so this is a documented no-op rather than
+    # queuing HIDDEN_CARD placeholders as if they were real cards.
+    if engine.physical_mode:
+        return
     n = min(5, len(engine.draw_pile))
     if n == 0:
         return

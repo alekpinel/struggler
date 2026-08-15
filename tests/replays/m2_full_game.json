@@ -4583,7 +4583,10 @@
         "turn_effects": {},
         "game_effects": {},
         "our_man_queue": [],
-        "our_man_kept": []
+        "our_man_kept": [],
+        "physical_mode": false,
+        "physical_side": null,
+        "hidden_pool": []
       }
     },
     {
@@ -5740,7 +5743,10 @@
         "turn_effects": {},
         "game_effects": {},
         "our_man_queue": [],
-        "our_man_kept": []
+        "our_man_kept": [],
+        "physical_mode": false,
+        "physical_side": null,
+        "hidden_pool": []
       }
     },
     {
@@ -6873,7 +6879,10 @@
         "turn_effects": {},
         "game_effects": {},
         "our_man_queue": [],
-        "our_man_kept": []
+        "our_man_kept": [],
+        "physical_mode": false,
+        "physical_side": null,
+        "hidden_pool": []
       }
     },
     {
@@ -8004,7 +8013,10 @@
         "turn_effects": {},
         "game_effects": {},
         "our_man_queue": [],
-        "our_man_kept": []
+        "our_man_kept": [],
+        "physical_mode": false,
+        "physical_side": null,
+        "hidden_pool": []
       }
     }
   ]
