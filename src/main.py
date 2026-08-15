@@ -21,7 +21,7 @@ from struggler.engine.human import HumanPlayer
 from struggler.engine.player import Player
 from struggler.runner import play_game
 
-def build_player(kind: str, *, seed: int = 0) -> Player:
+def build_player(kind: str, *, seed: int = 0, resume: bool = False) -> Player:
     if kind == "human":
         return HumanPlayer()
     if kind == "first":
@@ -48,7 +48,7 @@ def build_player(kind: str, *, seed: int = 0) -> Player:
             )
         log_base = os.environ.get("STRUGGLER_LLM_LOG_PATH")
         log_path = f"{log_base}.{seed}.json" if log_base else f"./logs/{seed}.json"
-        return LLMPlayer(client=client, seed=seed, log_path=log_path)
+        return LLMPlayer(client=client, seed=seed, log_path=log_path, resume=resume)
     raise ValueError(f"unknown player kind: {kind!r} (expected human/first/random/greedy/llm)")
 
 
@@ -57,12 +57,23 @@ def main() -> None:
     parser.add_argument("--us", default="human")
     parser.add_argument("--ussr", default="human")
     parser.add_argument("--seed", type=int, default=12345)
+    parser.add_argument(
+        "--resume",
+        action="store_true",
+        help=(
+            "Resume any LLM player(s) from their existing log file at "
+            "--seed instead of starting with fresh memory. Never implied "
+            "by reusing a seed -- must be passed explicitly. Note this "
+            "only resumes each LLMPlayer's own conversation memory, not "
+            "the Engine's game state, which always starts fresh."
+        ),
+    )
     args = parser.parse_args()
 
     engine = Engine.new_game(seed=args.seed)
     players: dict[Side, Player] = {
-        Side.US: build_player(args.us, seed=args.seed + 1),
-        Side.USSR: build_player(args.ussr, seed=args.seed + 2),
+        Side.US: build_player(args.us, seed=args.seed + 1, resume=args.resume),
+        Side.USSR: build_player(args.ussr, seed=args.seed + 2, resume=args.resume),
     }
 
     winner = play_game(engine, players)

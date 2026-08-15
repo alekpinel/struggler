@@ -28,10 +28,15 @@ Design:
   never engine state.
 - If `log_path` is given, every real LLM-consulting call also persists a
   full JSON snapshot (conversation, pending plan, journal, cumulative
-  token usage) via `conversation_log.py`. Passing the same `log_path` to a
-  fresh `LLMPlayer` in a later process resumes from it automatically --
-  see `conversation_log.py`'s module docstring for the exact resumption
-  contract (this only covers the bot's own state; the caller is
+  token usage) via `conversation_log.py`. This never loads anything by
+  itself: a fresh `LLMPlayer` always starts with empty memory, even if a
+  snapshot already exists at `log_path` (a stale file from an earlier,
+  unrelated game must never be picked up silently -- the engine itself
+  always starts a new game unless the caller explicitly reconstructs one,
+  see CLAUDE.md mandate #5, and this bot's memory follows the same rule).
+  Pass `resume=True` to load the existing snapshot at construction time
+  instead -- see `conversation_log.py`'s module docstring for the exact
+  resumption contract (this only covers the bot's own state; the caller is
   responsible for the `Engine` and `history` halves of resuming a game).
 
 Known limitations (v1, documented rather than engineered around):
@@ -108,6 +113,7 @@ class LLMPlayer:
         seed: int = 0,
         max_plan_steps: int = 8,
         log_path: str | Path | None = None,
+        resume: bool = False,
     ) -> None:
         self._client = client
         self._rng = random.Random(seed)  # own seeded RNG -- never the engine's (RandomPlayer convention)
@@ -121,7 +127,10 @@ class LLMPlayer:
         self.cumulative_usage: dict[str, int] = {"input_tokens": 0, "output_tokens": 0}
         self._created_at = conversation_log.now_iso()
 
-        snapshot = conversation_log.load(self._log_path) if self._log_path is not None else None
+        # `resume` must be explicit: a snapshot sitting at `log_path` (e.g.
+        # left over from an earlier game that happened to reuse the same
+        # seed/path) must never be picked up silently.
+        snapshot = conversation_log.load(self._log_path) if resume and self._log_path is not None else None
         if snapshot is not None:
             self._messages = list(snapshot.messages)
             self._plan = deque(snapshot.plan)
