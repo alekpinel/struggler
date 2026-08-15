@@ -4,6 +4,7 @@ Examples:
     python src/main.py                                    # human vs human
     python src/main.py --us greedy --ussr random --seed 1  # bot vs bot
     python src/main.py --ussr greedy                       # human (US) vs bot (USSR)
+    python src/main.py --ussr llm
 
 Bots register themselves with `struggler.engine.player_registry` when their
 module is imported (see player_registry.py); importing them below is what

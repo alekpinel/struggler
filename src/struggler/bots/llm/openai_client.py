@@ -49,7 +49,7 @@ class OpenAIClient:
         try:
             response = self._client.chat.completions.create(
                 model=self._model,
-                max_tokens=request.max_tokens or self._max_tokens,
+                max_completion_tokens=request.max_tokens or self._max_tokens,
                 messages=messages,
                 response_format={
                     "type": "json_schema",

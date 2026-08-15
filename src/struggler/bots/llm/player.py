@@ -324,7 +324,7 @@ class LLMPlayer:
 
 @register("llm")
 def _build_llm_player(seed: int = 0) -> LLMPlayer:
-    provider = os.environ.get("STRUGGLER_LLM_PROVIDER", "anthropic")
+    provider = os.environ.get("STRUGGLER_LLM_PROVIDER", "openai")
     if provider == "anthropic":
         from struggler.bots.llm.anthropic_client import AnthropicClient
 
@@ -342,7 +342,7 @@ def _build_llm_player(seed: int = 0) -> LLMPlayer:
             f"unknown STRUGGLER_LLM_PROVIDER: {provider!r} (expected 'anthropic' or 'openai')"
         )
 
-    log_base = os.environ.get("STRUGGLER_LLM_LOG_PATH")
+    log_base = "./logs/"
     # Two "llm" players can be built in the same process (US and USSR); the
     # registry factory only receives `seed`, not which Side it's for, so
     # `seed` is what disambiguates their log files -- same convention
