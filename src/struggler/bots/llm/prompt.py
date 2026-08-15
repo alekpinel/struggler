@@ -10,21 +10,44 @@ import json
 from typing import Sequence
 
 from struggler.bots.llm.event_summaries import EVENT_MECHANICAL_SUMMARIES
+from struggler.bots.llm.rules_primer import RULES_PRIMER
 from struggler.bots.llm.schema import PAYLOAD_KEY_BY_KIND, PLAYER_FACING_KINDS
-from struggler.engine import Action, Decision, Observation
+from struggler.engine import Action, Decision, DecisionKind, Observation
 from struggler.engine.cards import load_cards
 from struggler.engine.data_loader import load_json
 from struggler.engine.player import Event
 from struggler.engine.rules import RULES
 
+# One-line semantic meaning per player-facing DecisionKind -- what the
+# decision actually represents, not just its payload shape. Source of truth
+# is the inline comments already next to each DecisionKind member in
+# engine/types.py; kept here by hand since Python enums don't expose
+# adjacent source comments at runtime.
+_DECISION_KIND_MEANING: dict[DecisionKind, str] = {
+    DecisionKind.PLACE_INFLUENCE: "place one Influence point in the given country (one atomic point per decision)",
+    DecisionKind.COUP_TARGET: "pick which country to attempt a Coup against",
+    DecisionKind.REALIGNMENT_TARGET: "pick which country to attempt a Realignment roll against",
+    DecisionKind.HEADLINE_PLAY: "pick which card from your hand to headline this turn",
+    DecisionKind.ACTION_ROUND_PLAY: "pick which card to play for this action round",
+    DecisionKind.PLAY_MODE: "choose how to use the card just played",
+    DecisionKind.OPS_TYPE: "choose how to spend this card's Ops",
+    DecisionKind.EVENT_OPS_ORDER: "the opponent's card Event was triggered by your Ops play -- choose whether it resolves before or after your Ops",
+    DecisionKind.WAR_TARGET: "pick the target country for a 'war' Event whose attacker chooses the target",
+    DecisionKind.EVENT_INFLUENCE: "an Event-driven Influence placement/removal step -- pick the country",
+    DecisionKind.EVENT_CHOICE: "pick one of this Event's branching sub-options",
+    DecisionKind.QUAGMIRE_DISCARD: "discard an Ops-2+ card to try to break free from Bear Trap/Quagmire",
+    DecisionKind.HELD_CARD_DISCARD: "optionally discard your Held Card at end of turn (Space Race box 6 ability)",
+}
+
 
 def _payload_catalog_text() -> str:
-    lines = ["Decision kind -> the payload key you must fill in for that kind's step:"]
+    lines = ["Decision kind -> what it means, and the payload key you must fill in for that kind's step:"]
     for kind in PLAYER_FACING_KINDS:
         key = PAYLOAD_KEY_BY_KIND.get(kind)
         if key is None:  # EVENT_RESUME: always single-option, never actually reaches you
             continue
-        lines.append(f"  - {kind.value}: payload.{key}")
+        meaning = _DECISION_KIND_MEANING[kind]
+        lines.append(f"  - {kind.value}: {meaning} -- payload.{key}")
     return "\n".join(lines)
 
 
@@ -54,6 +77,13 @@ def build_system_prompt() -> str:
         return _system_prompt_cache
 
     countries = load_json("countries.json")
+    # The raw file carries dev-facing provenance/confidence notes
+    # (_disclaimer, _confirmed_against_physical_board, _uncertain,
+    # _setup_influence_note) that are not meant for the model to reason
+    # about -- only the game-facing keys are included in the dump.
+    countries_for_model = {
+        key: countries[key] for key in ("superpowers", "setup_influence", "countries")
+    }
 
     parts = [
         "You are playing Twilight Struggle (GMT Games) as one seat in a "
@@ -76,9 +106,18 @@ def build_system_prompt() -> str:
         "4. Dice are rolled by the engine's own seeded RNG before you're ever "
         "consulted again -- you never roll dice yourself and never see a "
         "decision asking you to.",
+        RULES_PRIMER,
         _payload_catalog_text(),
         f"Rules constants (JSON):\n{json.dumps(RULES, indent=2)}",
-        f"Countries (JSON):\n{json.dumps(countries, indent=2)}",
+        "Countries (JSON). Each entry has: region, subregion (nullable), "
+        "stability (used in the Control/Coup/Realignment formulas above), "
+        "battleground (true/false, used in regional scoring), and "
+        "adjacent_to (country ids this country connects to for placement "
+        "reachability, Coup/Realignment eligibility bonuses, and event "
+        "targeting). \"US\" and \"USSR\" also appear as adjacency pseudo-"
+        "nodes representing each superpower's home space -- a country "
+        "adjacent to one of them is always a legal Influence-placement "
+        f"target for that side:\n{json.dumps(countries_for_model, indent=2)}",
         f"Cards (mechanical facts only -- no printed flavor/event text is "
         f"available to you, only what's summarized below):\n{_cards_text()}",
     ]
