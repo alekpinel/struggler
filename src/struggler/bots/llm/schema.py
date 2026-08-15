@@ -184,7 +184,22 @@ def parse_plan_response(payload: Mapping[str, Any]) -> DecisionPlan:
         unknown_keys = set(raw_payload) - _VALID_PAYLOAD_KEYS
         if unknown_keys:
             raise PlanParseError(f"step {i}: unknown payload key(s) {unknown_keys}")
+        kind = DecisionKind(kind_value)
+        # A provider's strict-mode schema (see openai_client.py's
+        # `_to_openai_strict_schema`) forces every payload key to be
+        # present, nullable, on every step -- so the model sometimes fills
+        # irrelevant keys with a plausible-looking non-null value instead
+        # of `null` (e.g. a PLACE_INFLUENCE step also carrying
+        # `"mode": "ops"`). `_find_matching_option` in player.py does an
+        # exact subset match against the live Action's payload, which only
+        # ever carries this kind's one real key -- so any such stray key
+        # makes an otherwise-correct, live-legal step (e.g. a real country)
+        # silently fail to match anything. Drop everything except the key
+        # this kind actually uses.
+        expected_key = PAYLOAD_KEY_BY_KIND.get(kind)
         populated = {k: v for k, v in raw_payload.items() if v is not None}
-        steps.append(PlannedStep(kind=DecisionKind(kind_value), payload=populated))
+        if expected_key is not None:
+            populated = {k: v for k, v in populated.items() if k == expected_key}
+        steps.append(PlannedStep(kind=kind, payload=populated))
 
     return DecisionPlan(justification=justification, steps=tuple(steps))

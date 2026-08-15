@@ -47,7 +47,18 @@ from struggler.engine.types import DecisionKind
 class JournalEntry:
     """One LLM-consulting call's outcome. Kept entirely outside the Engine
     and the replay-log format -- the bot's own bookkeeping, for debugging,
-    explainability, and (via `save`/`load` below) persistence."""
+    explainability, and (via `save`/`load` below) persistence.
+
+    `raw_responses` is every attempt's raw model output for this call, in
+    order -- including attempts that were retried or ultimately discarded
+    into a fallback. Without this, a fallback entry records only that the
+    model failed (`fallback_reason`), never *what it actually said* -- the
+    one thing needed to diagnose a systematically-misbehaving model (e.g.
+    it keeps naming a country that doesn't match any live option). The
+    persisted conversation (`ConversationSnapshot.messages`) intentionally
+    excludes retry noise (see player.py), so this is the only place that
+    noise survives.
+    """
 
     decision_id: int
     justification: str | None
@@ -55,6 +66,7 @@ class JournalEntry:
     fallback_reason: str | None = None
     usage: Mapping[str, int] = field(default_factory=dict)
     timestamp: str = ""
+    raw_responses: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -99,6 +111,7 @@ def _snapshot_to_dict(snapshot: ConversationSnapshot) -> dict[str, Any]:
                 "fallback_reason": entry.fallback_reason,
                 "usage": dict(entry.usage),
                 "timestamp": entry.timestamp,
+                "raw_responses": list(entry.raw_responses),
             }
             for entry in snapshot.journal
         ],
@@ -129,6 +142,7 @@ def _dict_to_snapshot(data: Mapping[str, Any]) -> ConversationSnapshot:
                 fallback_reason=e.get("fallback_reason"),
                 usage=dict(e.get("usage", {})),
                 timestamp=e.get("timestamp", ""),
+                raw_responses=tuple(e.get("raw_responses", ())),
             )
             for e in data["journal"]
         ),

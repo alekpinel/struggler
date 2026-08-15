@@ -3,6 +3,7 @@ the "never raise" contract, all against the local filesystem only."""
 
 from __future__ import annotations
 
+import json
 import os
 
 import pytest
@@ -36,6 +37,7 @@ def _sample_snapshot() -> ConversationSnapshot:
                 fallback_reason=None,
                 usage={"input_tokens": 10, "output_tokens": 5},
                 timestamp="2026-01-01T00:00:00+00:00",
+                raw_responses=('{"justification": "because", "steps": []}',),
             ),
         ),
     )
@@ -116,6 +118,21 @@ def test_save_swallows_write_failure_and_warns(tmp_path):
         conversation_log.save(path, _sample_snapshot())
 
     assert not path.exists()
+
+
+def test_load_defaults_raw_responses_when_missing_from_older_snapshot(tmp_path):
+    """`raw_responses` was added after `JournalEntry` shipped -- a snapshot
+    written by an older version of this module won't have the key. Loading
+    it must default to an empty tuple rather than raising."""
+    path = tmp_path / "log.json"
+    data = conversation_log._snapshot_to_dict(_sample_snapshot())
+    del data["journal"][0]["raw_responses"]
+    path.write_text(json.dumps(data), encoding="utf-8")
+
+    loaded = conversation_log.load(path)
+
+    assert loaded is not None
+    assert loaded.journal[0].raw_responses == ()
 
 
 def test_now_iso_format():

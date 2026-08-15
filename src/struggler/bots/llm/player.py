@@ -177,7 +177,7 @@ class LLMPlayer:
         self, observation: Observation, decision: Decision, new_events: Sequence[Event]
     ) -> Action:
         user_text = build_user_turn(observation, decision, new_events)
-        plan, first_action, assistant_text, error, usage = self._request_plan_with_retry(
+        plan, first_action, assistant_text, error, usage, raw_responses = self._request_plan_with_retry(
             user_text, decision
         )
 
@@ -198,6 +198,7 @@ class LLMPlayer:
                     fallback_used=False,
                     usage=usage,
                     timestamp=timestamp,
+                    raw_responses=raw_responses,
                 )
             )
             action = first_action
@@ -211,6 +212,7 @@ class LLMPlayer:
                     fallback_reason=error or "unknown",
                     usage=usage,
                     timestamp=timestamp,
+                    raw_responses=raw_responses,
                 )
             )
 
@@ -219,7 +221,7 @@ class LLMPlayer:
 
     def _request_plan_with_retry(
         self, user_text: str, decision: Decision
-    ) -> tuple[DecisionPlan | None, Action | None, str, str | None, dict[str, int]]:
+    ) -> tuple[DecisionPlan | None, Action | None, str, str | None, dict[str, int], tuple[str, ...]]:
         """Attempts the LLM call up to `_MAX_RETRIES + 1` times, using a
         local scratch message list so failed attempts never pollute the
         persisted conversation. A response is retried both when it fails to
@@ -229,20 +231,25 @@ class LLMPlayer:
         itself with the reason appended, before `LLMPlayer` gives up and
         falls back to a legal choice via its own seeded RNG.
 
-        Returns `(plan, first_action, assistant_text, error, usage)`: on
-        success `error` is `None`, `first_action` is the live option the
-        plan's first step resolved to, and `assistant_text` is the model's
-        real raw response; on total failure `plan`/`first_action` are
-        `None` and `assistant_text` is a synthetic note recording the
-        fallback, so the one committed conversation turn still makes sense
-        on replay. `usage` is the summed token usage across every attempt
-        that actually received a response (a `LLMClientError` raised
-        before any response arrives contributes nothing, since none was
-        received).
+        Returns `(plan, first_action, assistant_text, error, usage,
+        raw_responses)`: on success `error` is `None`, `first_action` is
+        the live option the plan's first step resolved to, and
+        `assistant_text` is the model's real raw response; on total
+        failure `plan`/`first_action` are `None` and `assistant_text` is a
+        synthetic note recording the fallback, so the one committed
+        conversation turn still makes sense on replay. `usage` is the
+        summed token usage across every attempt that actually received a
+        response (a `LLMClientError` raised before any response arrives
+        contributes nothing, since none was received). `raw_responses` is
+        every attempt's raw text (or, for a client error, the error
+        message), in order -- kept out of the persisted conversation (see
+        above) but recorded on the journal entry so a run of fallbacks is
+        actually debuggable instead of just "it failed."
         """
         attempt_messages = list(self._messages) + [LLMMessage(role="user", content=user_text)]
         last_error: str | None = None
         total_usage: dict[str, int] = {"input_tokens": 0, "output_tokens": 0}
+        raw_responses: list[str] = []
 
         for _ in range(_MAX_RETRIES + 1):
             request = LLMRequest(
@@ -254,6 +261,7 @@ class LLMPlayer:
                 response = self._client.complete(request)
             except LLMClientError as exc:
                 last_error = str(exc)
+                raw_responses.append(f"[client error: {last_error}]")
                 attempt_messages.append(
                     LLMMessage(role="assistant", content=f"[invalid response: {last_error}]")
                 )
@@ -266,6 +274,7 @@ class LLMPlayer:
                 continue  # no response received -- nothing to add to total_usage
 
             total_usage = _add_usage(total_usage, response.usage)
+            raw_responses.append(response.raw_text)
 
             try:
                 plan = parse_plan_response(response.structured)
@@ -303,10 +312,10 @@ class LLMPlayer:
                 )
                 continue
 
-            return plan, first_action, response.raw_text, None, total_usage
+            return plan, first_action, response.raw_text, None, total_usage, tuple(raw_responses)
 
         note = f"[fallback: no valid plan after {_MAX_RETRIES + 1} attempt(s): {last_error}]"
-        return None, None, note, last_error, total_usage
+        return None, None, note, last_error, total_usage, tuple(raw_responses)
 
     def _persist_if_configured(self) -> None:
         if self._log_path is None:

@@ -139,6 +139,73 @@ def test_illegal_first_step_after_retry_falls_back():
     assert player.journal[-1].fallback_used is True
 
 
+def test_strict_mode_payload_noise_still_matches_the_live_option():
+    """Regression test for logs/12347.json: a real OpenAI strict-mode
+    response filled PLACE_INFLUENCE's irrelevant payload keys (`mode`,
+    `order`, `type`) with non-null values instead of `null`, which used to
+    make `_find_matching_option`'s exact subset match reject an otherwise
+    correct, live-legal country every single time."""
+    engine = Engine.new_game(seed=1)
+    observation = engine.observe(engine.pending_decision.actor)
+    decision = observation.pending_decision
+    payload_key = PAYLOAD_KEY_BY_KIND[decision.kind]
+    correct_value = decision.options[0].payload[payload_key]
+
+    noisy_payload = {"card": None, "choice": None, "country": None, "mode": "ops", "order": "event_first", "type": "influence"}
+    noisy_payload[payload_key] = correct_value
+    noisy = LLMResponse(
+        structured={
+            "justification": "noisy but correct",
+            "steps": [{"kind": decision.kind.value, "payload": noisy_payload}],
+        },
+        raw_text="noisy but correct payload",
+    )
+    client = FakeLLMClient([noisy])
+    player = LLMPlayer(client=client, seed=0)
+
+    action = player.choose_action(observation, [])
+
+    assert action == decision.options[0]
+    assert player.journal[-1].fallback_used is False
+
+
+def test_fallback_journal_entry_records_raw_responses_for_debugging():
+    """A fallback used to record only `fallback_reason`, never what the
+    model actually said -- making a systematic mismatch (e.g. the model
+    consistently naming an option that never matches) undiagnosable from
+    the log alone. Every attempt's raw text must survive onto the journal
+    entry even though none of it is committed to the persisted conversation."""
+    engine = Engine.new_game(seed=1)
+    observation = engine.observe(engine.pending_decision.actor)
+    decision = observation.pending_decision
+    payload_key = PAYLOAD_KEY_BY_KIND[decision.kind]
+
+    illegal = make_plan_response(
+        "Confidently wrong.", [(decision.kind, {payload_key: "__nonexistent__"})]
+    )
+    malformed = LLMResponse(structured={}, raw_text="not json shaped correctly")
+    client = FakeLLMClient([illegal, malformed])
+    player = LLMPlayer(client=client, seed=0)
+
+    player.choose_action(observation, [])
+
+    entry = player.journal[-1]
+    assert len(entry.raw_responses) == 2
+    assert "__nonexistent__" in entry.raw_responses[0]
+    assert entry.raw_responses[1] == "not json shaped correctly"
+
+
+def test_successful_journal_entry_also_records_raw_responses():
+    observation, decision, payload_key, correct_value = _single_step_response_and_decision()
+    response = make_plan_response("ok", [(decision.kind, {payload_key: correct_value})])
+    client = FakeLLMClient([response])
+    player = LLMPlayer(client=client, seed=0)
+
+    player.choose_action(observation, [])
+
+    assert player.journal[-1].raw_responses == (response.raw_text,)
+
+
 def test_journal_records_justification_on_success():
     engine = Engine.new_game(seed=1)
     observation = engine.observe(engine.pending_decision.actor)
