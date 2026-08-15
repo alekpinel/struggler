@@ -61,7 +61,6 @@ Known limitations (v1, documented rather than engineered around):
 
 from __future__ import annotations
 
-import os
 import random
 from collections import deque
 from pathlib import Path
@@ -80,7 +79,6 @@ from struggler.bots.llm.schema import (
 )
 from struggler.engine import Action, Decision, Observation
 from struggler.engine.player import Event
-from struggler.engine.player_registry import register
 
 _MAX_RETRIES = 1  # one retry after an invalid response, then fall back to RNG
 
@@ -320,32 +318,3 @@ class LLMPlayer:
             journal=tuple(self.journal),
         )
         conversation_log.save(self._log_path, snapshot)
-
-
-@register("llm")
-def _build_llm_player(seed: int = 0) -> LLMPlayer:
-    provider = os.environ.get("STRUGGLER_LLM_PROVIDER", "openai")
-    if provider == "anthropic":
-        from struggler.bots.llm.anthropic_client import AnthropicClient
-
-        model = os.environ.get("STRUGGLER_LLM_MODEL", "claude-sonnet-5")
-        client: LLMClient = AnthropicClient(model=model)
-    elif provider == "openai":
-        from struggler.bots.llm.openai_client import OpenAIClient
-
-        # NOTE: verify this default model id against OpenAI's current
-        # catalog at implementation/deploy time -- model names move.
-        model = os.environ.get("STRUGGLER_LLM_MODEL", "gpt-5")
-        client = OpenAIClient(model=model)
-    else:
-        raise ValueError(
-            f"unknown STRUGGLER_LLM_PROVIDER: {provider!r} (expected 'anthropic' or 'openai')"
-        )
-
-    log_base = "./logs/"
-    # Two "llm" players can be built in the same process (US and USSR); the
-    # registry factory only receives `seed`, not which Side it's for, so
-    # `seed` is what disambiguates their log files -- same convention
-    # STRUGGLER_LLM_MODEL already uses (an env var read inside the factory).
-    log_path = f"{log_base}.{seed}.json" if log_base else None
-    return LLMPlayer(client=client, seed=seed, log_path=log_path)

@@ -8,10 +8,9 @@ import dataclasses
 import pytest
 
 from struggler.bots.greedy import GreedyPlayer, GreedyWeights, board_value
-from struggler.bots.naive import RandomPlayer
+from struggler.bots.naive import FirstLegalPlayer, RandomPlayer
 from struggler.engine import Action, Decision, DecisionKind, Engine, Side
 from struggler.engine.board import Board
-from struggler.engine.player_registry import available, build_player
 from struggler.runner import play_game
 
 
@@ -73,21 +72,6 @@ def test_greedy_falls_back_to_first_option_for_unmapped_decision_kinds():
     action = GreedyPlayer().choose_action(observation, [])
 
     assert action == fallback_decision.options[0]
-
-
-def test_registry_has_all_baseline_bots_and_greedy():
-    # "llm" only appears once struggler.bots.llm.player has been imported --
-    # which some test module in this session may or may not have done yet,
-    # since player_registry._FACTORIES is a process-global dict.
-    expected = {"human", "random", "first", "greedy"}
-    assert expected <= set(available())
-    assert set(available()) - expected <= {"llm"}
-    assert isinstance(build_player("greedy"), GreedyPlayer)
-
-
-def test_registry_rejects_unknown_bot_name():
-    with pytest.raises(ValueError):
-        build_player("nonexistent")
 
 
 @pytest.mark.parametrize("greedy_side", [Side.US, Side.USSR])

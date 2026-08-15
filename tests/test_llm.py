@@ -1,6 +1,6 @@
 """Tests for LLMPlayer: the single-option shortcut, plan batching/replanning,
-the parse-failure/illegal-action fallback path, the journal, and registry
-wiring -- all against a `FakeLLMClient`, no network access.
+the parse-failure/illegal-action fallback path, the journal -- all against a `FakeLLMClient`, no
+network access.
 """
 
 from __future__ import annotations
@@ -16,7 +16,6 @@ from struggler.bots.llm.fake_client import FakeLLMClient, make_plan_response
 from struggler.bots.llm.player import LLMPlayer
 from struggler.bots.llm.schema import PAYLOAD_KEY_BY_KIND
 from struggler.engine import DecisionKind, Engine, Side
-from struggler.engine.player_registry import available, build_player
 
 
 def test_single_option_auto_resolves_without_llm_call():
@@ -175,12 +174,6 @@ def test_conversation_alternates_cleanly_even_after_a_retry():
 
     roles = [m.role for m in player._messages]
     assert roles == ["user", "assistant"]
-
-
-def test_registry_has_llm_after_import():
-    import struggler.bots.llm.player  # noqa: F401
-
-    assert "llm" in available()
 
 
 def test_llm_player_constructs_with_anthropic_client_given_an_api_key():
@@ -347,52 +340,3 @@ def test_choose_action_raises_when_history_shorter_than_resumed_last_seen(tmp_pa
 
     with pytest.raises(ValueError):
         player.choose_action(observation, [])
-
-
-def test_registry_selects_openai_provider_via_env(monkeypatch):
-    monkeypatch.setenv("STRUGGLER_LLM_PROVIDER", "openai")
-    captured = {}
-
-    class _StubOpenAIClient:
-        provider_name = "openai"
-        model_name = "stub-model"
-
-        def __init__(self, *, model, api_key=None, max_tokens=4096):
-            captured["model"] = model
-
-        def complete(self, request):
-            raise AssertionError("should not be called")
-
-    monkeypatch.setattr("struggler.bots.llm.openai_client.OpenAIClient", _StubOpenAIClient)
-
-    player = build_player("llm", seed=0)
-
-    assert isinstance(player, LLMPlayer)
-    assert captured["model"] == "gpt-5"
-
-
-def test_registry_folds_seed_into_log_path(monkeypatch, tmp_path):
-    base = str(tmp_path / "game")
-    monkeypatch.setenv("STRUGGLER_LLM_LOG_PATH", base)
-
-    class _StubAnthropicClient:
-        provider_name = "anthropic"
-        model_name = "stub-model"
-
-        def __init__(self, *, model, api_key=None, max_tokens=4096):
-            pass
-
-        def complete(self, request):
-            raise AssertionError("should not be called")
-
-    monkeypatch.setattr("struggler.bots.llm.anthropic_client.AnthropicClient", _StubAnthropicClient)
-
-    player = build_player("llm", seed=7)
-
-    assert player._log_path == Path(f"{base}.7.json")
-
-
-def test_registry_rejects_unknown_provider(monkeypatch):
-    monkeypatch.setenv("STRUGGLER_LLM_PROVIDER", "bogus")
-    with pytest.raises(ValueError):
-        build_player("llm", seed=0)

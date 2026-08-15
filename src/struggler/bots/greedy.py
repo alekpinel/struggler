@@ -47,7 +47,6 @@ from struggler.engine.board import Board, CountryInfo
 from struggler.engine.cards import load_cards
 from struggler.engine.core import SCORING_CARD_REGION
 from struggler.engine.player import Event
-from struggler.engine.player_registry import register
 from struggler.engine.rules import RULES
 
 _CARDS = load_cards()
@@ -439,8 +438,3 @@ class GreedyPlayer:
             decision.options,
             key=lambda action: scorer(self.weights, self._board, observation, action),
         )
-
-
-@register("greedy")
-def _build_greedy(seed: int = 0) -> GreedyPlayer:
-    return GreedyPlayer()

@@ -483,29 +483,18 @@ class Player(Protocol):
   each non-CHANCE decision to the registered `Player` for that decision's
   `actor`.
 
-### Bot registry
+### Building players
 
-`struggler.engine.player_registry` is a dynamic, self-registering lookup,
-not a hardcoded table: each bot module decorates its own zero/one-arg
-factory (`seed` for the ones that need it) with `@register("name")` — see
-`bots/greedy.py`, `bots/naive.py`. `player_registry.build_player(name,
-seed=...)` resolves a name to a `Player`; `player_registry.available()`
-lists the names registered *so far*, which reflects only the bot modules
-that have actually been imported (importing `struggler.bots` alone
-registers nothing — it's an empty package on purpose). `"human"` is the
-one exception: it's registered inside `player_registry` itself, next to
-`HumanPlayer`, so the engine stays usable for a human-vs-human game with
-no dependency on `struggler.bots` at all.
-
-Whoever builds players is responsible for importing the bot modules it
-wants available first — `src/main.py` does this explicitly
-(`import struggler.bots.greedy`, `import struggler.bots.naive`) before
-reading `player_registry.available()` for its `--us`/`--ussr` argparse
-choices. This is the "simple to configure, easy to extend" requirement:
-writing a new bot means implementing `Player` and decorating one factory
-with `@register(...)` in its own module — the registry itself never needs
-touching, and a caller opts a bot into a given CLI/script by adding one
-import line.
+There is no registry: `src/main.py`'s `build_player(kind, *, seed=0)` is a
+plain `if`/`elif` over kind names (`"human"`, `"first"`, `"random"`,
+`"greedy"`, `"llm"`), each branch constructing the corresponding `Player`
+directly (`HumanPlayer`, `FirstLegalPlayer`/`RandomPlayer` from
+`bots/naive.py`, `GreedyPlayer` from `bots/greedy.py`, `LLMPlayer` from
+`bots/llm/player.py` — the `"llm"` branch also picks a provider client via
+`STRUGGLER_LLM_PROVIDER`/`STRUGGLER_LLM_MODEL`). Adding a new bot means
+implementing `Player` and adding one branch to `build_player` — no
+self-registration, no import-order dependency, no indirection between a
+name and the class it builds.
 
 ### Roadmap
 
@@ -669,9 +658,9 @@ board mechanics and each M3 card individually.
 - **Layout**: `src/struggler/` package (src-layout to avoid accidental
   implicit imports of the working directory during tests), split by
   concern: `engine/` is the rules engine itself (state, board, cards,
-  events, replay, and the `Player`/`HumanPlayer`/registry contract that
-  bots plug into), `bots/` holds the automated `Player` implementations
-  (each self-registering with `engine.player_registry` when its module is
-  imported), and `data/` (inside the package) holds the game's JSON facts
-  (`cards.json`, `countries.json`, `rules.json`). Tests live under
-  `tests/`, golden replay logs under `tests/replays/`.
+  events, replay, and the `Player`/`HumanPlayer` contract that bots plug
+  into), `bots/` holds the automated `Player` implementations (wired up by
+  `src/main.py`'s `build_player`, see "Building players" above), and
+  `data/` (inside the package) holds the game's JSON facts (`cards.json`,
+  `countries.json`, `rules.json`). Tests live under `tests/`, golden
+  replay logs under `tests/replays/`.

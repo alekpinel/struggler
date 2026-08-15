@@ -1,10 +1,10 @@
 """Anthropic adapter for `LLMClient`.
 
 The only module in this package that imports `anthropic`, and it does so
-lazily inside `__init__` -- so `import struggler.bots.llm.player` (what
-registers `"llm"` with the bot registry) never requires the optional
-`anthropic` package to be installed; only actually constructing a client
-(building an `"llm"` player for real) does.
+lazily inside `__init__` -- so importing `struggler.bots.llm.player` never
+requires the optional `anthropic` package to be installed; only actually
+constructing this client (building an `"llm"` player for real, with
+`STRUGGLER_LLM_PROVIDER=anthropic`) does.
 """
 
 from __future__ import annotations
