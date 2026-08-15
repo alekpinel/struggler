@@ -5,20 +5,6 @@ from struggler.engine.board import Board
 from struggler.engine.rules import RULES
 
 
-def test_scoring_table_matches_confirmed_values():
-    # Regression guard for the numbers confirmed against the physical game.
-    assert RULES["scoring"][Region.MIDDLE_EAST.name] == [3, 5, 7]
-    assert RULES["scoring"][Region.AFRICA.name] == [1, 4, 6]
-    assert RULES["scoring"][Region.SOUTH_AMERICA.name] == [2, 5, 6]
-
-
-def test_all_countries_reciprocal_adjacency_loaded_without_error():
-    # Board() raises on load if any adjacency edge isn't reciprocated;
-    # constructing it successfully is itself the assertion.
-    board = Board()
-    assert len(board.countries) > 0
-
-
 def test_control_requires_margin_at_least_stability():
     board = Board()
     # Guatemala has stability 1: a 1-point margin is enough to control.

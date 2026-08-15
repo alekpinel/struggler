@@ -44,7 +44,7 @@ class LLMRequest:
     system: str
     messages: Sequence[LLMMessage]
     output: StructuredOutputSpec
-    max_tokens: int = 4096
+    max_tokens: int = 16000
 
 
 @dataclass(frozen=True)

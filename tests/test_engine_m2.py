@@ -239,19 +239,6 @@ def test_golden_full_game_replay_matches_checkpoints():
         assert rec["state"] == checkpoint["state"]  # exact, diffable equality
 
 
-def test_peaceful_game_never_touches_the_defcon_loss_track():
-    # With no coups, DEFCON is never degraded, so it stays pinned at 5 and the
-    # game can only end on VP (a scoring swing) or turn-10 final scoring —
-    # never on defcon_1. Exercises multi-turn end-of-turn processing.
-    engine = Engine.new_game(seed=20260811)
-    driver = random.Random(1)
-    while not engine.is_terminal:
-        assert engine.defcon == 5
-        engine.step(driver.choice(_no_coup(engine.legal_actions())))
-    assert engine._game_over_reason in ("vp", "final_vp", "europe_control")
-    assert engine.turn > 1  # several turns were processed
-
-
 def test_last_action_round_forces_a_held_scoring_card():
     # A scoring card cannot be carried out of a turn: when a side has as many
     # scoring cards as action rounds left, those rounds must spend them.

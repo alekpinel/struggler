@@ -21,6 +21,20 @@ from struggler.engine.human import HumanPlayer
 from struggler.engine.player import Player
 from struggler.runner import play_game
 
+
+def build_llm_client(provider: str = "openai", model: str = "gpt-5.6-luna"):
+    if provider == "anthropic":
+        from struggler.bots.llm.anthropic_client import AnthropicClient
+        client: LLMClient = AnthropicClient(model=model)
+    elif provider == "openai":
+        from struggler.bots.llm.openai_client import OpenAIClient
+        client = OpenAIClient(model=model)
+    else:
+        raise ValueError(
+            f"unknown STRUGGLER_LLM_PROVIDER: {provider!r} (expected 'anthropic' or 'openai')"
+        )
+    return client
+
 def build_player(kind: str, *, seed: int = 0) -> Player:
     if kind == "human":
         return HumanPlayer()
@@ -31,23 +45,8 @@ def build_player(kind: str, *, seed: int = 0) -> Player:
     if kind == "greedy":
         return GreedyPlayer()
     if kind == "llm":
-        provider = os.environ.get("STRUGGLER_LLM_PROVIDER", "openai")
-        if provider == "anthropic":
-            from struggler.bots.llm.anthropic_client import AnthropicClient
-
-            model = os.environ.get("STRUGGLER_LLM_MODEL", "claude-sonnet-5")
-            client: LLMClient = AnthropicClient(model=model)
-        elif provider == "openai":
-            from struggler.bots.llm.openai_client import OpenAIClient
-
-            model = os.environ.get("STRUGGLER_LLM_MODEL", "gpt-5")
-            client = OpenAIClient(model=model)
-        else:
-            raise ValueError(
-                f"unknown STRUGGLER_LLM_PROVIDER: {provider!r} (expected 'anthropic' or 'openai')"
-            )
-        log_base = os.environ.get("STRUGGLER_LLM_LOG_PATH")
-        log_path = f"{log_base}.{seed}.json" if log_base else f"./logs/{seed}.json"
+        client = build_llm_client()
+        log_path = f"./logs/{seed}.json"
         return LLMPlayer(client=client, seed=seed, log_path=log_path)
     raise ValueError(f"unknown player kind: {kind!r} (expected human/first/random/greedy/llm)")
 
