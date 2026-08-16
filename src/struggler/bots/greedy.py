@@ -190,8 +190,17 @@ def _expected_coup_gain(
 
 
 def _realignment_bonus(board: Board, side: Side, country: str) -> float:
+    """Mirrors engine.core.Engine._realignment_bonus -- kept in sync by
+    hand since this is an independent duplicate, not shared code. The
+    region-bonus extra attempt (China Card in Asia / Vietnam Revolts in SE
+    Asia) is deliberately NOT modeled here: it would add "count remaining
+    Ops-type-choice attempts as still in-region" bookkeeping to a bot that
+    already has no lookahead and only proxy (not exact) legality elsewhere
+    in this module -- disproportionate complexity for its value."""
     bonus = 1.0 if board.is_adjacent(side.value, country) else 0.0
     bonus += sum(1 for n in board.neighbors(country) if board.control(n) is side)
+    if board.influence[country][side.value] > board.influence[country][side.opponent.value]:
+        bonus += 1.0
     return bonus
 
 

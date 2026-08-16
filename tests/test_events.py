@@ -44,6 +44,21 @@ def test_duck_and_cover_degrades_defcon_and_scores_us():
     assert engine.vp == 1  # 5 - new DEFCON (4)
 
 
+def test_duck_and_cover_defcon_1_blames_whoever_played_it_not_its_alignment():
+    # Duck and Cover is a US-aligned card, but the DEFCON-1 loss must be
+    # blamed on the phasing player who actually played it, not on a side
+    # fixed by the card's own US/USSR alignment.
+    us_plays_it = _bare()
+    us_plays_it.defcon = 2
+    us_plays_it._fire_event(Side.US, "Duck_and_Cover")
+    assert us_plays_it.is_terminal and us_plays_it.winner is Side.USSR
+
+    ussr_plays_it = _bare()
+    ussr_plays_it.defcon = 2
+    ussr_plays_it._fire_event(Side.USSR, "Duck_and_Cover")
+    assert ussr_plays_it.is_terminal and ussr_plays_it.winner is Side.US
+
+
 def test_fidel_hands_cuba_to_the_ussr():
     engine = _bare()
     engine.board.influence["Cuba"] = {"US": 2, "USSR": 0}
@@ -352,6 +367,18 @@ def _play_china_ops(engine: Engine, side: Side) -> None:
     _play_card_for(engine, side, RULES["china_card_id"], "ops")
 
 
+def _play_china_realignment(engine: Engine, side: Side) -> None:
+    _play_china_ops(engine, side)
+    engine.step(Action(DecisionKind.OPS_TYPE, {"type": "realignment"}))
+
+
+def _resolve_one_realignment_attempt(engine: Engine, target: Action) -> None:
+    """Step a REALIGNMENT_TARGET choice through its two CHANCE rolls."""
+    engine.step(target)
+    engine.step(engine.pending_decision.options[0])  # actor roll
+    engine.step(engine.pending_decision.options[0])  # opponent roll
+
+
 def test_china_card_grants_five_ops_used_entirely_in_asia():
     engine = _bare()
     engine.board.influence["North_Korea"]["USSR"] = 1  # a reachable Asian foothold
@@ -389,6 +416,49 @@ def test_china_card_bonus_forfeited_by_leaving_asia():
         engine.step(non_asia[0] if non_asia else opts[0])
         steps += 1
     assert steps == 4  # leaving Asia forfeits the +1
+
+
+def test_china_card_grants_extra_realignment_attempt_used_entirely_in_asia():
+    asian_targets = ["North_Korea", "South_Korea", "Japan", "Taiwan", "Thailand"]
+    engine = _bare()
+    for cid in asian_targets:
+        engine.board.influence[cid]["US"] = 1
+    _play_china_realignment(engine, Side.USSR)
+
+    used: set[str] = set()
+    attempts = 0
+    while (engine.pending_decision is not None
+           and engine.pending_decision.kind is DecisionKind.REALIGNMENT_TARGET):
+        target = next(
+            a for a in engine.pending_decision.options
+            if a.payload["country"] in asian_targets and a.payload["country"] not in used
+        )
+        used.add(target.payload["country"])
+        _resolve_one_realignment_attempt(engine, target)
+        attempts += 1
+    assert attempts == 5  # 4 base + 1 Asia bonus
+
+
+def test_china_card_realignment_bonus_forfeited_by_leaving_asia():
+    engine = _bare()
+    engine.board.influence["Mexico"]["US"] = 1  # a non-Asian target too
+    for cid in ("North_Korea", "South_Korea", "Japan"):
+        engine.board.influence[cid]["US"] = 1
+    _play_china_realignment(engine, Side.USSR)
+
+    used: set[str] = set()
+    attempts = 0
+    while (engine.pending_decision is not None
+           and engine.pending_decision.kind is DecisionKind.REALIGNMENT_TARGET):
+        opts = engine.pending_decision.options
+        # Target the non-Asian country first, breaking the bonus streak.
+        target = next(a for a in opts if a.payload["country"] == "Mexico") if attempts == 0 else next(
+            a for a in opts if a.payload["country"] not in used
+        )
+        used.add(target.payload["country"])
+        _resolve_one_realignment_attempt(engine, target)
+        attempts += 1
+    assert attempts == 4  # leaving Asia on the first attempt forfeits the +1
 
 
 # -- more registered cards (representative sample) ---------------------------
@@ -1263,6 +1333,17 @@ def test_we_will_bury_you_degrades_defcon_and_scores_at_end_of_turn():
     assert engine.vp == vp0 - 3  # 3 VP to the USSR (negative on the US-positive track)
 
 
+def test_we_will_bury_you_defcon_1_blames_whoever_played_it():
+    # We Will Bury You is a USSR-aligned card, but if the US plays it (e.g.
+    # for its Ops, with the event firing per EVENT_OPS_ORDER) and that
+    # degrades DEFCON to 1, the US -- the side that actually played it --
+    # must lose, not the USSR just because it's "the USSR's" card.
+    engine = Engine.new_game(seed=2, events=True)
+    engine.defcon = 2
+    engine._fire_event(Side.US, "We_Will_Bury_You")
+    assert engine.is_terminal and engine.winner is Side.USSR
+
+
 def test_we_will_bury_you_defused_by_us_un_intervention():
     engine = _bare()
     engine.defcon = 5
@@ -1441,6 +1522,17 @@ def test_soviets_shoot_down_kal_007_conducts_ops_only_with_south_korea():
     engine2.board.influence["South_Korea"] = {"US": 0, "USSR": 0}  # not US-controlled
     engine2._fire_event(Side.US, "Soviets_Shoot_Down_KAL_007")
     assert engine2.vp == 2 and engine2.pending_decision is None  # no Operations
+
+
+def test_kal_007_defcon_1_blames_whoever_played_it():
+    # Soviets Shoot Down KAL 007 is a USSR-aligned card, but if the USSR
+    # itself plays it and the resulting degrade hits DEFCON 1, the USSR --
+    # the side that actually played it -- must lose, not the US just
+    # because the card's own effect happens to award the US VP.
+    engine = _bare()
+    engine.defcon = 2
+    engine._fire_event(Side.USSR, "Soviets_Shoot_Down_KAL_007")
+    assert engine.is_terminal and engine.winner is Side.US
 
 
 def test_ussuri_river_skirmish_takes_the_china_card_or_places_in_asia():

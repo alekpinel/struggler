@@ -247,7 +247,7 @@ class Engine:
     def begin_realignment_operations(self, side: Side, ops: int) -> None:
         if ops <= 0:
             raise ValueError("ops must be positive")
-        self._maybe_push_realignment_target(side, card_ops=ops, attempts_remaining=ops)
+        self._maybe_push_realignment_target(side, card_ops=ops, spent=0)
 
     # -- M2: full-game entry point -----------------------------------------
 
@@ -805,9 +805,11 @@ class Engine:
             self.military_ops[side.value] += ops
             self.begin_coup(side, ops, bonus=bonus)
         else:  # realignment
-            # (The region bonus is not modeled for realignment — rare; tracked
-            # in CLAUDE.md.)
-            self._maybe_push_realignment_target(side, card_ops=ops, attempts_remaining=ops)
+            # Region-bonus play (China Card -> Asia, Vietnam Revolts -> SE
+            # Asia): one extra Realignment attempt, all-or-nothing, if every
+            # attempt this Ops-spend targets a country inside the bonus
+            # region — mirrors _maybe_push_bonus_influence's rule.
+            self._maybe_push_realignment_target(side, card_ops=ops, spent=0, bonus=bonus)
 
     # -- M2: space race -----------------------------------------------------
 
@@ -1749,7 +1751,7 @@ class Engine:
             if options:
                 self._push(
                     side, DecisionKind.REALIGNMENT_TARGET, options,
-                    {"card_ops": ops, "attempts_remaining": ops},
+                    {"card_ops": ops, "spent": 0, "bonus": None, "non_bonus": 0},
                 )
 
     # -- M3: reclaim a card from the (public) discard pile ------------------
@@ -1875,7 +1877,7 @@ class Engine:
         if options:
             self._push(
                 side, DecisionKind.REALIGNMENT_TARGET, options,
-                {"card_ops": 0, "attempts_remaining": attempts},
+                {"card_ops": attempts, "spent": 0, "bonus": None, "non_bonus": 0},
             )
 
     # -- M3: Bear Trap / Quagmire — a persistent per-player operating lock --
@@ -1934,9 +1936,22 @@ class Engine:
         )
 
     def _maybe_push_realignment_target(
-        self, side: Side, card_ops: int, attempts_remaining: int
+        self,
+        side: Side,
+        card_ops: int,
+        spent: int,
+        bonus: str | None = None,
+        non_bonus: int = 0,
     ) -> None:
-        if self.is_terminal or attempts_remaining <= 0:
+        """Push the next Realignment-attempt decision, if any attempts are
+        still available. `spent` attempts are always allowed up to
+        `card_ops`; one extra attempt (`card_ops + 1`) is allowed on top of
+        that only while `bonus` is active and every attempt so far has
+        stayed inside the bonus region (`non_bonus == 0`) -- the same
+        all-or-nothing rule `_maybe_push_bonus_influence` uses."""
+        if self.is_terminal:
+            return
+        if not (spent < card_ops or (bonus and non_bonus == 0 and spent < card_ops + 1)):
             return
         options = self._realignment_target_options(side)
         if not options:
@@ -1945,7 +1960,7 @@ class Engine:
             side,
             DecisionKind.REALIGNMENT_TARGET,
             options,
-            {"card_ops": card_ops, "attempts_remaining": attempts_remaining},
+            {"card_ops": card_ops, "spent": spent, "bonus": bonus, "non_bonus": non_bonus},
         )
 
     def _handle_realignment_target(self, decision: Decision, action: Action) -> None:
@@ -1960,7 +1975,9 @@ class Engine:
                 "side": side.value,
                 "country": country,
                 "card_ops": decision.context["card_ops"],
-                "attempts_remaining": decision.context["attempts_remaining"],
+                "spent": decision.context["spent"],
+                "bonus": decision.context["bonus"],
+                "non_bonus": decision.context["non_bonus"],
             },
         )
 
@@ -1978,7 +1995,9 @@ class Engine:
         opponent = side.opponent
         country = decision.context["country"]
         card_ops = decision.context["card_ops"]
-        attempts_remaining = decision.context["attempts_remaining"]
+        spent = decision.context["spent"]
+        bonus = decision.context["bonus"]
+        non_bonus = decision.context["non_bonus"]
         actor_roll = decision.context["actor_roll"]
         opp_roll = action.payload["value"]
 
@@ -1999,11 +2018,17 @@ class Engine:
             removed = min(-margin, self.board.influence[country][side.value])
             self.board.influence[country][side.value] -= removed
 
-        self._maybe_push_realignment_target(side, card_ops, attempts_remaining - 1)
+        if bonus and not self._in_bonus_region(country, bonus):
+            non_bonus += 1
+        self._maybe_push_realignment_target(side, card_ops, spent + 1, bonus, non_bonus)
 
     def _realignment_bonus(self, side: Side, country: str) -> int:
         bonus = 1 if self.board.is_adjacent(side.value, country) else 0
         bonus += sum(1 for n in self.board.neighbors(country) if self.board.control(n) is side)
+        # 6.2.2's third modifier: +1 if this side already holds more
+        # Influence in the target than their opponent does.
+        if self.board.influence[country][side.value] > self.board.influence[country][side.opponent.value]:
+            bonus += 1
         return bonus
 
     def _realignment_modifier(self, side: Side) -> int:
