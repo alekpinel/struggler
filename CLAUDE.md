@@ -421,9 +421,10 @@ historical "Ops-only" toggle.
       action-rounds branch of `_advance_once`, replace the trapped side's
       normal `ACTION_ROUND_PLAY` with a mandatory-when-possible discard of an
       Ops-2+ card (`QUAGMIRE_DISCARD`) followed by a seeded `QUAGMIRE_ROLL`
-      CHANCE die that frees the side on a 5–6; with no legal card to discard,
-      that action round is simply wasted (no decision offered at all) — a
-      documented simplification of that edge case.
+      CHANCE die that frees the side on a 1–4 (confirmed against the physical
+      card text, #44); with no legal card to discard, that action round is
+      simply wasted with no roll at all — except a scoring card in hand must
+      still be played (a scoring card may never be held past end of turn).
 - **China Card bonus.** Playing the China Card for Ops grants its +1
   ("all Ops used in Asia") for influence (an all-or-nothing invariant in
   the placement step: the 5th point is offered only while nothing has
@@ -469,11 +470,10 @@ historical "Ops-only" toggle.
     nullified only when the *US* plays The China Card, not whenever the card
     changes hands either way; Quagmire now also nullifies NORAD, per its own
     printed text (mirrors NORAD's own "nullified by Quagmire" line); a trapped
-    side (Bear Trap/Quagmire) with no Ops-2+ card now plays every scoring card
-    still in hand (forced) and has its remaining rounds *that turn* skipped
-    (`turn_effects["trap_skip"]`), but still gets that turn's escape roll
-    right away instead of a silent forfeit; The Cambridge Five is now blocked
-    during Late War (`turn < 8`), per its printed restriction.
+    side (Bear Trap/Quagmire) with no Ops-2+ card still must play any scoring
+    card in hand, but no longer rolls in that case (see the escape-roll
+    correction below); The Cambridge Five is now blocked during Late War
+    (`turn < 8`), per its printed restriction.
   - *Fixed in a follow-up pass*: Missile Envy now forces its recipient to
     spend their next action round playing it for Operations
     (`game_effects["missile_envy_forced"]`, enforced in
@@ -501,15 +501,18 @@ historical "Ops-only" toggle.
     `observe()` — deferred because it would add a new hidden/shared-visibility
     field to the public `Observation` API surface, a larger change than a
     card-logic fix.
-  - *VERIFY: two independent sources disagree, left unchanged pending a look
-    at the physical card* — Bear Trap/Quagmire's escape-roll direction. The
-    PNP redesign's own card text reads "then roll: a 1-4 ends this Event",
-    which read literally would mean 1-4 *frees* the trapped side; the engine
-    (predating this audit) instead frees on a 5-6, matching the commonly-cited
-    real-game rule. Given the two sources conflict and flipping this the
-    wrong way would silently invert the card's difficulty, `_handle_quagmire_roll`
-    was deliberately left as-is (5-6 frees) rather than changed on the PNP
-    card's wording alone.
+  - *Resolved*: Bear Trap/Quagmire's escape-roll direction. Confirmed against
+    the physical card text (#44: "On the next action round, [side] must
+    discard an Operations card worth 2 or more and roll 1-4 to cancel this
+    event"): **1-4 frees the trapped side, 5-6 leaves it trapped** — the
+    engine previously had this backwards (freed on 5-6). Also corrected in
+    the same pass: with no Ops-2+ card to discard, the round is now wasted
+    with *no* roll at all (the trap persists untouched) rather than the
+    previous behavior of forcing a roll anyway; a scoring card in hand is
+    still forced into play regardless (a scoring card may never be held past
+    end of turn — the one exception), but that no longer implies a roll or a
+    "remaining rounds skipped this turn" flag, since the physical card never
+    described one.
   - Still unmodeled generally: the Space Race box 4 headline-reveal-order
     perk (requiring the opponent to select their Headline Event first).
     Box 6 (may discard the Held Card at end of turn) and box 8 (an extra

@@ -1976,6 +1976,8 @@ def test_quagmire_traps_the_us_not_the_ussr():
 
 
 def test_trapped_side_gets_a_forced_discard_and_die_each_action_round():
+    # Physical card text (Bear Trap #44 / Quagmire): "must discard an
+    # Operations card worth 2 or more and roll 1-4 to cancel this event."
     engine = _bare(seed=5)
     engine.game_effects["bear_trap"] = True  # traps the USSR
     engine.hands["USSR"] = ["Nasser", "Duck_and_Cover"]  # ops 1 and 3
@@ -1988,33 +1990,35 @@ def test_trapped_side_gets_a_forced_discard_and_die_each_action_round():
     roll = engine.pending_decision
     assert roll.kind is DecisionKind.QUAGMIRE_ROLL and roll.actor is Side.CHANCE
     engine.step(roll.options[0])
-    freed = roll.options[0].payload["value"] >= 5
+    freed = roll.options[0].payload["value"] <= 4  # 1-4 frees, 5-6 stays trapped
     assert (engine._trap_key_for(Side.USSR) is None) == freed
 
 
-def test_trapped_side_with_no_payable_card_forces_scoring_cards_then_rolls():
+def test_trapped_side_with_no_payable_card_wastes_the_round_with_no_roll():
+    # No Ops-2+ card at all: no discard, no roll -- the trap simply persists
+    # untouched into the next round (confirmed against the physical card:
+    # rolling is conditional on having made the discard first).
+    engine = _bare()
+    engine.game_effects["quagmire"] = True  # traps the US
+    engine.hands["US"] = ["Nasser"]  # only a 1-Op card: nothing to discard
+    engine._push_trap_step(Side.US, "quagmire")
+    assert engine.pending_decision is None
+    assert "Nasser" in engine.hands["US"]  # untouched
+    assert engine._trap_key_for(Side.US) == "quagmire"  # still trapped
+
+
+def test_trapped_side_with_no_payable_card_still_must_play_scoring_cards():
+    # The one exception to "no card -> no roll, round wasted": a scoring
+    # card may never be held past end of turn, so it's forced regardless.
     engine = _bare()
     engine.game_effects["quagmire"] = True  # traps the US
     engine.turn = 1
     engine.hands["US"] = ["Nasser", "Europe_Scoring"]  # 1-Op + a scoring card
     engine._push_trap_step(Side.US, "quagmire")
-    # The scoring card was forced into play (removed from hand, resolved)...
-    assert "Europe_Scoring" not in engine.hands["US"]
+    assert "Europe_Scoring" not in engine.hands["US"]  # forced into play
     assert "Nasser" in engine.hands["US"]  # not discardable, so it stays
-    # ...remaining rounds this turn are marked skipped...
-    assert "US" in engine.turn_effects.get("trap_skip", [])
-    # ...but the escape roll still happens right away.
-    d = engine.pending_decision
-    assert d is not None and d.kind is DecisionKind.QUAGMIRE_ROLL
-
-
-def test_trapped_side_skip_flag_silences_later_rounds_this_turn():
-    engine = _bare()
-    engine.game_effects["quagmire"] = True
-    engine.turn_effects["trap_skip"] = ["US"]
-    engine.hands["US"] = ["Nasser"]
-    engine._push_trap_step(Side.US, "quagmire")
-    assert engine.pending_decision is None  # already exhausted this turn
+    assert engine.pending_decision is None  # still no roll
+    assert engine._trap_key_for(Side.US) == "quagmire"  # still trapped
 
 
 def test_trap_intercepts_the_normal_action_round_play():

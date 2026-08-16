@@ -1982,14 +1982,21 @@ class Engine:
 
     # -- M3: Bear Trap / Quagmire — a persistent per-player operating lock --
     #
-    # While trapped, `side` may not play cards normally. On each forthcoming
-    # round: if it holds a card with Ops 2+, it must discard one, then rolls
-    # to break free (5-6). Once it holds no such card, it instead plays every
-    # scoring card still in hand (forced) and its remaining rounds *this
-    # turn* are skipped outright -- but it still gets that turn's one escape
-    # roll right away, not a silent skip. Bear Trap traps the USSR; Quagmire
-    # traps the US -- independent of who actually plays the card, exactly
-    # like Duck and Cover always favors the US regardless of who plays it.
+    # Physical card text (Bear Trap #44, Quagmire identical with US/USSR
+    # swapped): "On the next action round, [side] must discard an Operations
+    # card worth 2 or more and roll 1-4 to cancel this event." So, on each
+    # forthcoming round for the trapped side:
+    #   - If it holds a card with Ops 2+: it must discard one, then rolls a
+    #     die. 1-4 frees it (event cancelled); 5-6 leaves it trapped for next
+    #     round. The action round is spent either way -- never also a normal
+    #     play.
+    #   - If it holds no such card: the round is wasted with *no* roll at
+    #     all (the trap persists untouched into the next round) -- except any
+    #     scoring card still in hand must still be played (a scoring card may
+    #     never be held past end of turn; this is the one exception).
+    # Bear Trap traps the USSR; Quagmire traps the US -- independent of who
+    # actually plays the card, exactly like Duck and Cover always favors the
+    # US regardless of who plays it.
 
     _TRAP_KEYS: dict[str, Side] = {"bear_trap": Side.USSR, "quagmire": Side.US}
 
@@ -2000,8 +2007,6 @@ class Engine:
         return None
 
     def _push_trap_step(self, side: Side, key: str) -> None:
-        if side.value in self.turn_effects.get("trap_skip", []):
-            return  # already out of cards this turn: remaining rounds skip
         payable = [
             cid for cid in self.hands[side.value]
             if not self.cards[cid].scoring and self.cards[cid].ops >= 2
@@ -2012,27 +2017,20 @@ class Engine:
             )
             self._push(side, DecisionKind.QUAGMIRE_DISCARD, options, {"key": key})
             return
-        # No Ops-2+ card: forced to play every scoring card still held, then
-        # every remaining round this turn is skipped -- but the escape roll
-        # still happens now, this turn, not a silent forfeit.
-        skip = self.turn_effects.setdefault("trap_skip", [])
-        skip.append(side.value)
+        # No Ops-2+ card: no roll this round -- but any scoring card in hand
+        # must still be played.
         for cid in list(self.hands[side.value]):
             if self.cards[cid].scoring:
                 self._resolve_scoring_card(cid)
                 self._file_card(side, cid, fired=True)
                 if self.is_terminal:
                     return
-        self._push_quagmire_roll(key)
 
     def _handle_quagmire_discard(self, decision: Decision, action: Action) -> None:
         side = decision.actor
         key = decision.context["key"]
         cid = action.payload["card"]
         self._file_card(side, cid, fired=False)
-        self._push_quagmire_roll(key)
-
-    def _push_quagmire_roll(self, key: str) -> None:
         roll = self._roll_d6()
         self._push(
             Side.CHANCE, DecisionKind.QUAGMIRE_ROLL,
@@ -2040,7 +2038,7 @@ class Engine:
         )
 
     def _handle_quagmire_roll(self, decision: Decision, action: Action) -> None:
-        if action.payload["value"] >= 5:  # break free
+        if action.payload["value"] <= 4:  # 1-4: break free
             self.game_effects.pop(decision.context["key"], None)
 
     # -- realignment ---------------------------------------------------------
