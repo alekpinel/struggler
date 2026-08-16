@@ -82,21 +82,35 @@ class Board:
     def neighbors(self, country_id: str) -> frozenset[str]:
         return frozenset(self._adjacency.get(country_id, set()))
 
-    def is_reachable(self, side: Side, country_id: str) -> bool:
+    def is_reachable(
+        self,
+        side: Side,
+        country_id: str,
+        influence: dict[str, dict[str, int]] | None = None,
+    ) -> bool:
         """Whether `side` may add influence to `country_id` at all.
 
         A side can place influence in a country that's adjacent to its own
         superpower, that it already has influence in, or that's adjacent to
         another country it already has influence in.
+
+        `influence` optionally overrides which influence snapshot to consult
+        (rule 6.1.1: within one Operations spend, every point must be
+        adjacent to friendly markers that were in place at the *start* of
+        the phasing player's Action Round, not markers placed earlier in the
+        same spend). Defaults to the board's live influence for callers that
+        don't need that distinction (e.g. Event-driven placement, which rule
+        6.1.1's own exception exempts).
         """
+        inf = influence if influence is not None else self.influence
         if country_id in self._adjacency[side.value]:
             return True
-        if self.influence[country_id][side.value] > 0:
+        if inf[country_id][side.value] > 0:
             return True
         return any(
-            self.influence[n][side.value] > 0
+            inf[n][side.value] > 0
             for n in self._adjacency.get(country_id, set())
-            if n in self.influence
+            if n in inf
         )
 
     def influence_cost(self, side: Side, country_id: str) -> int:

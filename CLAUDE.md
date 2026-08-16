@@ -185,6 +185,22 @@ modeled — Ops-only actions are driven directly for testing.
 and observation all work for the board mechanics that every later
 milestone depends on.
 
+**Reachability within one Operations spend (rule 6.1.1).** Placing
+Influence is atomic per point (mandate #2), but legality is *not*
+re-derived from the live board after each point: "all markers must be
+placed with, or adjacent to, friendly markers that were in place at the
+start of the phasing player's Action Round" — a point placed earlier in
+the same Ops spend does not itself unlock a further-away country later in
+that same spend. `Engine._ops_round_snapshot` freezes `board.influence`
+the moment an Ops-driven placement chain begins (`_maybe_push_place_influence`
+/ `_maybe_push_bonus_influence`, threaded into `Board.is_reachable` via its
+optional `influence` override), is reused for every point in that chain,
+and clears once it ends; it round-trips through `serialize()`/`deserialize()`
+so a save/resume mid-chain can't reopen the chaining bug. Event-driven
+placement (`push_event_influence`) is unaffected — rule 6.1.1's own
+exception excludes it, and it was never reachability-gated in the first
+place (its candidates are fixed lists, not adjacency-derived).
+
 ### M2 — Full game, cards as Ops only, zero events fire
 All 110 cards exist as data (see Card data policy) and can be played
 for their Ops value; headline phase, space race, China Card, defcon
@@ -296,7 +312,8 @@ historical "Ops-only" toggle.
     sanctioned by the card, so surfacing the involved cards as decision
     options is correct, not a leak):* Aldrich Ames Remix (USSR discards a
     chosen US card), Grain Sales to Soviets (one random USSR card revealed
-    via a CHANCE step, the US takes it for its Ops or returns it for 2),
+    via a CHANCE step, the US plays it in full — Event or Ops — or returns it
+    for 2 Ops of its own; an empty USSR hand grants the US 2 Ops directly),
     Ask Not… (discard any own cards and redraw as many, via
     `draw_cards_to_hand`), The Cambridge Five (place in a region whose
     scoring card the US holds).
@@ -416,28 +433,62 @@ historical "Ops-only" toggle.
   above). M3's remaining work is fidelity, not coverage: a still-growing set
   of documented rough edges and unconfirmed numeric/mechanical details, not
   missing subsystems.
-  - *Documented simplifications* (consistent with the rest of M3, noted in
-    `events.py` docstrings at the card in question): Missile Envy does not
-    force the opponent to play the received Missile Envy card on their next
-    action round (it is simply added to their hand); Cuban Missile Crisis
-    offers its defuse immediately rather than at any later point in the turn;
-    Shuttle Diplomacy is filed to the discard when played rather than kept "in
-    front of you" (only the effect flag matters); Star Wars fires the taken
-    card's event exactly like a normal event play; Glasnost's and Soviets
-    Shoot Down KAL-007's follow-up Operations are offered as full Operations
-    (Influence/Coup/Realignment) rather than the card's narrower
-    Coup/Realignment or Influence/Realignment wording; a trapped side
-    (Bear Trap/Quagmire) with no Ops-2+ card simply wastes that action round,
-    with no roll offered. Ortega's free coup, Tear Down This Wall's
-    Operations, and Junta's "single country" are older examples of the same
-    pattern.
-  - *VERIFY: reconstructed from memory, not independently reconfirmed against
-    the physical card text here* (flagged in `events.py` at the card, the same
-    convention `engine/rules.py` already uses for unconfirmed numeric
-    constants like `SPACE_RACE_BOXES`): Special Relationship's and Nixon Plays
-    the China Card's exact wording. Re-verifying these against the physical
-    cards (or GMT's published card list) and correcting `events.py` if they're
-    off is the concrete next step, not new subsystem work.
+  - *Re-verified against the physical card text and corrected* (this was a
+    full audit pass, not spot checks): Special Relationship and Nixon Plays
+    The China Card were both substantively wrong, not just imprecise (see
+    below); Grain Sales to Soviets' "take" branch now plays the taken card in
+    full — Event or Ops via `Engine.push_full_card_play`, the ordinary
+    Event/Ops/Space-Race choice — instead of forcibly spending only its Ops
+    value, and its "USSR hand empty ⇒ US gets 2 Ops" branch (previously
+    unreachable) now fires; Glasnost's and Soviets Shoot Down KAL-007's
+    follow-up Operations are now restricted to Influence/Realignment
+    (`push_event_operations(..., allow_coup=False)`), never Coup, per their
+    printed text; Ortega Elected in Nicaragua's free Coup-only op (against a
+    Nicaragua neighbor) and Tear Down This Wall's free Coup-or-Realignment op
+    (in Europe) are now modeled via `push_free_coup_or_realign`; Junta places
+    its +2 Influence in a *single* chosen country (`amount=2, remaining=1`),
+    not split across two; NORAD now gates on Canada being US-controlled (its
+    printed precondition); OPEC's country list had a phantom 8th field
+    (Nigeria) not on the physical card, removed; Southeast Asia Scoring now
+    weighs Thailand at 2 VP, other countries at 1 (was flat 1 VP each);
+    Summit's dice contest no longer rerolls ties (`push_dice_contest(...,
+    reroll_ties=False)`) — its printed text explicitly says not to, unlike
+    Olympic Games, which still does; One Small Step withholds VP for the
+    first of its two Space Race steps (`advance_space_race_box(...,
+    award_vp=False)`), scoring only the second, per its own wording; NATO's
+    protection of US-controlled Europe now also covers Brush War, not just
+    Coup/Realignment (`Engine._nato_protects`, shared with
+    `_usable_coup_realign_target`); Chernobyl's region choice is now always
+    made by the US (`Side.US` hardcoded, not the phasing `side`) — the printed
+    card names the US specifically, and the old code let the USSR pick its
+    own block when it played the card for Ops; Formosan Resolution is now
+    nullified only when the *US* plays The China Card, not whenever the card
+    changes hands either way; Quagmire now also nullifies NORAD, per its own
+    printed text (mirrors NORAD's own "nullified by Quagmire" line); a trapped
+    side (Bear Trap/Quagmire) with no Ops-2+ card now plays every scoring card
+    still in hand (forced) and has its remaining rounds *that turn* skipped
+    (`turn_effects["trap_skip"]`), but still gets that turn's escape roll
+    right away instead of a silent forfeit; The Cambridge Five is now blocked
+    during Late War (`turn < 8`), per its printed restriction.
+  - *Documented simplifications that remain* (noted in `events.py`
+    docstrings at the card in question): Missile Envy does not force the
+    opponent to play the received Missile Envy card on their next action
+    round (it is simply added to their hand); Cuban Missile Crisis offers its
+    defuse immediately rather than at any later point in the turn; Shuttle
+    Diplomacy is filed to the discard when played rather than kept "in front
+    of you" (only the effect flag matters); Star Wars fires the taken card's
+    event exactly like a normal event play; Aldrich Ames Remix's "USA reveals
+    their hand face-up until end of turn" is a momentary reveal (the decision
+    options), not an ongoing visibility grant surfaced through `observe()`.
+  - *VERIFY: two independent sources disagree, left unchanged pending a look
+    at the physical card* — Bear Trap/Quagmire's escape-roll direction. The
+    PNP redesign's own card text reads "then roll: a 1-4 ends this Event",
+    which read literally would mean 1-4 *frees* the trapped side; the engine
+    (predating this audit) instead frees on a 5-6, matching the commonly-cited
+    real-game rule. Given the two sources conflict and flipping this the
+    wrong way would silently invert the card's difficulty, `_handle_quagmire_roll`
+    was deliberately left as-is (5-6 frees) rather than changed on the PNP
+    card's wording alone.
   - Still unmodeled generally: the Space Race box 4 headline-reveal-order
     perk (requiring the opponent to select their Headline Event first).
     Box 6 (may discard the Held Card at end of turn) and box 8 (an extra

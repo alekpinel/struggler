@@ -407,16 +407,27 @@ def _cultural_revolution(engine: "Engine", side: Side) -> None:
 
 @event("Ortega_Elected_in_Nicaragua")
 def _ortega(engine: "Engine", side: Side) -> None:
-    # (The optional free coup against a Nicaragua-adjacent country is not
-    # modeled.)
+    # In Nicaragua: remove all US Influence. In any neighbor of Nicaragua:
+    # the USSR gets 2 Ops it may use for a free Coup attempt (Coup only, no
+    # Realignment option).
     engine.remove_all_influence("Nicaragua", Side.US)
+    neighbors = sorted(engine.board.neighbors("Nicaragua"))
+    engine.push_free_coup_or_realign(
+        Side.USSR, "Ortega_Elected_in_Nicaragua", ops=2, countries=neighbors,
+        allow_realign=False,
+    )
 
 
 @event("Tear_Down_This_Wall")
 def _tear_down_wall(engine: "Engine", side: Side) -> None:
-    # (The optional US Operations/coup in Europe is not modeled.)
+    # In East Germany: +3 US Influence. In Europe: the US gets 3 Ops for a
+    # free Coup attempt or Realignment (not Influence).
     engine.game_effects.pop("willy_brandt", None)  # cancels Willy Brandt
     engine.add_influence("East_Germany", Side.US, 3)
+    engine.push_free_coup_or_realign(
+        Side.US, "Tear_Down_This_Wall", ops=3,
+        countries=_in_region(engine, Region.EUROPE),
+    )
 
 
 @event("Kitchen_Debates")
@@ -432,8 +443,10 @@ def _kitchen_debates(engine: "Engine", side: Side) -> None:
     eligible=lambda engine, side: not engine.game_effects.get("north_sea_oil"),
 )
 def _opec(engine: "Engine", side: Side) -> None:
+    # Physical card text lists exactly these 7 countries -- Nigeria is not
+    # among them.
     fields = ["Egypt", "Iran", "Libya", "Saudi_Arabia", "Iraq", "Gulf_States",
-              "Venezuela", "Nigeria"]
+              "Venezuela"]
     vp = sum(1 for cid in fields if engine.board.control(cid) is Side.USSR)
     engine._award_vp(Side.USSR, vp)
 
@@ -458,9 +471,10 @@ def _reagan_bombs_libya(engine: "Engine", side: Side) -> None:
 
 @event("One_Small_Step")
 def _one_small_step(engine: "Engine", side: Side) -> None:
-    # If you are behind on the Space Race, jump two boxes.
+    # If you are behind on the Space Race, jump two boxes; get VP for the
+    # second step only (the printed card's own wording).
     if engine.space_race[side.value] < engine.space_race[side.opponent.value]:
-        engine.advance_space_race_box(side)
+        engine.advance_space_race_box(side, award_vp=False)
         engine.advance_space_race_box(side)
 
 
@@ -642,8 +656,12 @@ def _iran_iraq_war(engine: "Engine", side: Side) -> None:
 @event("Brush_War")
 def _brush_war(engine: "Engine", side: Side) -> None:
     # Attack any country with stability 1 or 2; success on a modified 3-6.
+    # NATO explicitly protects US-controlled Europe from Brush War too (not
+    # just Coups/Realignments), when the USSR is the attacker.
     candidates = [
-        cid for cid, info in engine.board.countries.items() if info.stability <= 2
+        cid for cid, info in engine.board.countries.items()
+        if info.stability <= 2
+        and not (side is Side.USSR and engine._nato_protects(cid))
     ]
     engine.push_war_target_choice(
         card_id="Brush_War", attacker=side, candidates=candidates,
@@ -719,10 +737,12 @@ def _iran_contra(engine: "Engine", side: Side) -> None:
 
 @event("Chernobyl")
 def _chernobyl(engine: "Engine", side: Side) -> None:
-    # The US designates a region; the USSR may not add Influence there via
-    # Operations for the rest of the turn.
+    # Printed text: the region is chosen by the US specifically -- always,
+    # even when the USSR is the one phasing this play (its card played by
+    # the opponent for Ops still fires the event, per the normal rule; the
+    # choice must not fall to whoever happens to be resolving it).
     engine.push_event_choice(
-        "Chernobyl", side,
+        "Chernobyl", Side.US,
         ("EUROPE", "ASIA", "MIDDLE_EAST", "AFRICA", "CENTRAL_AMERICA", "SOUTH_AMERICA"),
     )
 
@@ -777,20 +797,22 @@ def _central_and_south_america(engine: "Engine") -> list[str]:
 
 @event("Junta")
 def _junta(engine: "Engine", side: Side) -> None:
-    # Place 2 Influence in Central/South America, then optionally make a free
-    # Coup or Realignment there. The free-op choice is pushed first so it
-    # resolves *after* the placement drains. (The card says a single country;
-    # here the 2 points may be split within the region — a minor deviation.)
+    # Physical card text: +2 Influence in a *single* country in Central/South
+    # America, then optionally a free Coup or Realignment there. The free-op
+    # choice is pushed first so it resolves *after* the placement.
     americas = _central_and_south_america(engine)
     engine.push_free_coup_or_realign(side, "Junta", ops=2, countries=americas)
     engine.push_event_influence(
         event="Junta", op="place", choose_side=side, inf_side=side,
-        remaining=2, candidates=americas, cap=2,
+        remaining=1, amount=2, candidates=americas,
     )
 
 
-def _junta_choice(engine: "Engine", side: Side, choice: str, context: dict) -> None:
-    engine.resolve_free_op_choice(side, choice, 2, _central_and_south_america(engine))
+def _free_op_choice(engine: "Engine", side: Side, choice: str, context: dict) -> None:
+    """Generic router for push_free_coup_or_realign's outcome (Junta, Ortega
+    Elected in Nicaragua): the country list travels in the decision context,
+    set once when the choice was offered."""
+    engine.resolve_free_op_choice(side, choice, context["ops"], context["countries"])
 
 
 # -- reclaim-from-discard -----------------------------------------------------
@@ -837,12 +859,14 @@ def _olympic_choice(engine: "Engine", chooser: Side, choice: str, context: dict)
 @event("Summit")
 def _summit(engine: "Engine", side: Side) -> None:
     # Both roll, +1 per region Dominated/Controlled; winner +2 VP and may raise
-    # or lower DEFCON one level.
+    # or lower DEFCON one level. Printed text: "Do not reroll ties" (unlike
+    # Olympic Games, a tie here is simply a wash).
     engine.push_dice_contest(
         "Summit", side,
         sponsor_mod=engine._regions_dominated(side),
         defender_mod=engine._regions_dominated(side.opponent),
         vp=2,
+        reroll_ties=False,
     )
 
 
@@ -901,18 +925,26 @@ def _aldrich_ames_choice(engine: "Engine", side: Side, choice: str, context: dic
 
 @event("Grain_Sales_to_Soviets")
 def _grain_sales(engine: "Engine", side: Side) -> None:
-    # Randomly reveal one USSR card to the US, who then takes it or returns it.
+    # Randomly reveal one USSR card to the US, who then takes it or returns
+    # it. If the USSR's hand is empty there's nothing to reveal: the printed
+    # card text says the US simply gets 2 Ops for Operations.
+    if not engine.hands["USSR"]:
+        engine.push_event_operations(Side.US, 2)
+        return
     engine.push_random_discard(Side.USSR, "grain_sales")
 
 
 def _grain_sales_choice(engine: "Engine", side: Side, choice: str, context: dict) -> None:
     card = context["card"]
     if choice == "take":
-        # The US takes the card, uses its Ops, then discards it.
+        # The US takes the card and plays it in full -- Event or Ops (its own
+        # choice, per the printed "play the card"), not just its Ops value.
+        # It moves into the US hand (like any card it's about to play) rather
+        # than floating in neither hand while the choice is pending.
         if card in engine.hands["USSR"]:
             engine.hands["USSR"].remove(card)
-        engine.discard_pile.append(card)
-        engine.push_event_operations(Side.US, engine.cards[card].ops)
+        engine.hands["US"].append(card)
+        engine.push_full_card_play(Side.US, card)
     else:  # return: the card stays with the USSR; the US uses Grain Sales' 2 Ops
         engine.push_event_operations(Side.US, 2)
 
@@ -955,7 +987,10 @@ def _scoring_card_countries(engine: "Engine", scoring_id: str) -> list[str]:
     return _in_region(engine, region)
 
 
-@event("The_Cambridge_Five")
+@event(
+    "The_Cambridge_Five",
+    eligible=lambda engine, side: engine.turn < 8,  # blocked during Late War
+)
 def _cambridge_five(engine: "Engine", side: Side) -> None:
     # The US reveals its scoring cards; the USSR adds 1 Influence to a country
     # in one of those regions.
@@ -1214,15 +1249,15 @@ def _blockade_choice(engine: "Engine", side: Side, choice: str, context: dict) -
 
 @event("Glasnost")
 def _glasnost(engine: "Engine", side: Side) -> None:
-    # USSR +2 VP and DEFCON improves one level; if The Reformer is in effect the
-    # USSR then conducts 4 Ops of Operations. (The card restricts those to
-    # Coup/Realignment; here they are full Operations — a documented rough edge.)
+    # USSR +2 VP and DEFCON improves one level; if The Reformer is in effect
+    # the USSR then gets 4 Ops restricted to placing Influence or making
+    # Realignment rolls (the printed card's own wording -- no Coup).
     engine._award_vp(Side.USSR, 2)
     if engine.is_terminal:
         return
     engine._change_defcon(+1, caused_by=side)
     if not engine.is_terminal and engine.game_effects.get("reformer"):
-        engine.push_event_operations(Side.USSR, 4)
+        engine.push_event_operations(Side.USSR, 4, allow_coup=False)
 
 
 @event("Latin_American_Debt_Crisis")
@@ -1270,15 +1305,15 @@ def _latin_debt_double_choice(engine: "Engine", side: Side, choice: str, context
 
 @event("Soviets_Shoot_Down_KAL_007")
 def _kal_007(engine: "Engine", side: Side) -> None:
-    # Degrade DEFCON one level; the US gains 2 VP; if the US controls South Korea
-    # it then conducts 4 Ops of Operations. (Restricted to Influence/Realignment
-    # on the card; full Operations here — a documented rough edge.)
+    # Degrade DEFCON one level; the US gains 2 VP; if the US controls South
+    # Korea it then gets 4 Ops restricted to placing Influence or making
+    # Realignment rolls (the printed card's own wording -- no Coup).
     engine._change_defcon(-1, caused_by=side)
     if engine.is_terminal:
         return
     engine._award_vp(Side.US, 2)
     if not engine.is_terminal and engine.board.control("South_Korea") is Side.US:
-        engine.push_event_operations(Side.US, 4)
+        engine.push_event_operations(Side.US, 4, allow_coup=False)
 
 
 @event("Ussuri_River_Skirmish")
@@ -1364,48 +1399,38 @@ def _norad(engine: "Engine", side: Side) -> None:
     eligible=lambda engine, side: engine.board.control("UK") is Side.US,
 )
 def _special_relationship(engine: "Engine", side: Side) -> None:
-    # VERIFY: reconstructed from memory, not independently reconfirmed against
-    # the physical card here. Approximated as: 2 VP for the US (the card is
-    # only eligible while the US Controls the UK); if NATO is also in effect,
-    # the US may additionally attempt one Realignment roll (no Ops bonus, per
-    # push_free_realignment) against a Europe country.
-    engine._award_vp(Side.US, 2)
-    if engine.is_terminal:
-        return
+    # Physical card text, confirmed: while the UK is US-controlled --
+    # if NATO is *not* in effect: +1 US Influence to a single neighbor of
+    # the UK. If NATO *is* in effect: +2 US Influence to a single country in
+    # Western Europe, and +2 VP for the US (VP only scores in this branch).
     if engine.game_effects.get("nato"):
-        engine.push_free_realignment(Side.US, _in_region(engine, Region.EUROPE))
-
-
-@event(
-    "Nixon_Plays_The_China_Card",
-    eligible=lambda engine, side: engine.china_card_owner == "USSR",
-)
-def _nixon_plays_the_china_card(engine: "Engine", side: Side) -> None:
-    # VERIFY: reconstructed from memory, not independently reconfirmed against
-    # the physical card here. If the USSR holds the China Card, the US takes it
-    # face down (unusable this turn) unless the USSR discards a card from hand
-    # to keep it.
-    payable = [cid for cid in engine.hands["USSR"] if not engine.cards[cid].scoring]
-    if not payable:
-        _nixon_take_china(engine)
-        return
-    engine.push_event_choice(
-        "Nixon_Plays_The_China_Card", Side.USSR, tuple(payable) + ("give_up_china",)
-    )
-
-
-def _nixon_take_china(engine: "Engine") -> None:
-    engine.china_card_owner = "US"
-    engine.china_card_available = False  # face down: not usable this turn
-
-
-def _nixon_plays_the_china_card_choice(
-    engine: "Engine", side: Side, choice: str, context: dict
-) -> None:
-    if choice == "give_up_china":
-        _nixon_take_china(engine)
+        engine._award_vp(Side.US, 2)
+        if engine.is_terminal:
+            return
+        engine.push_event_influence(
+            event="Special_Relationship", op="place", choose_side=Side.US,
+            inf_side=Side.US, remaining=1, amount=2,
+            candidates=_in_subregion(engine, Subregion.WESTERN_EUROPE),
+        )
     else:
-        engine._file_card(Side.USSR, choice, fired=False)
+        engine.push_event_influence(
+            event="Special_Relationship", op="place", choose_side=Side.US,
+            inf_side=Side.US, remaining=1,
+            candidates=sorted(engine.board.neighbors("UK")),
+        )
+
+
+@event("Nixon_Plays_The_China_Card")
+def _nixon_plays_the_china_card(engine: "Engine", side: Side) -> None:
+    # Physical card text, confirmed: "If USA has The China Card: +2 VP for
+    # USA. If CCCP has The China Card: USA gets the card, face down and
+    # unavailable for immediate play." Two exhaustive, unconditional
+    # branches -- no discard-to-keep option exists on the card.
+    if engine.china_card_owner == "US":
+        engine._award_vp(Side.US, 2)
+    else:
+        engine.china_card_owner = "US"
+        engine.china_card_available = False  # face down: not usable this turn
 
 
 @event("Our_Man_In_Tehran")
@@ -1455,6 +1480,8 @@ def _bear_trap(engine: "Engine", side: Side) -> None:
 
 @event("Quagmire")
 def _quagmire(engine: "Engine", side: Side) -> None:
+    # Physical card text: nullifies NORAD.
+    engine.game_effects.pop("norad", None)
     engine.game_effects["quagmire"] = True
 
 
@@ -1485,7 +1512,9 @@ CHOICE_ROUTERS: dict[str, Callable[["Engine", Side, str], None]] = {
     "Independent_Reds": _independent_reds_choice,
     "How_I_Learned_to_Stop_Worrying": _how_i_learned_choice,
     "Salt_Negotiations": _salt_reclaim_choice,
-    "Junta": _junta_choice,
+    "Junta": _free_op_choice,
+    "Ortega_Elected_in_Nicaragua": _free_op_choice,
+    "Tear_Down_This_Wall": _free_op_choice,
     "Chernobyl": _chernobyl_choice,
     "Olympic_Games": _olympic_choice,
     "Wargames": _wargames_choice,
@@ -1504,6 +1533,5 @@ CHOICE_ROUTERS: dict[str, Callable[["Engine", Side, str], None]] = {
     "Latin_American_Debt_Crisis": _latin_american_debt_crisis_choice,
     "Latin_American_Debt_Crisis_double": _latin_debt_double_choice,
     "De_Stalinization_remove": _de_stalinization_remove_choice,
-    "Nixon_Plays_The_China_Card": _nixon_plays_the_china_card_choice,
     "Our_Man_In_Tehran": _our_man_in_tehran_choice,
 }

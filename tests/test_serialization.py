@@ -2,7 +2,7 @@
 
 import json
 
-from struggler.engine import Engine, Side
+from struggler.engine import Action, DecisionKind, Engine, Side
 
 
 def test_serialize_is_json_native():
@@ -31,6 +31,25 @@ def test_round_trip_preserves_full_state_including_rng():
     engine.step(a1)
     restored.step(a2)
     assert engine.serialize() == restored.serialize()
+
+
+def test_ops_round_snapshot_survives_a_round_trip_mid_placement():
+    # The start-of-Action-Round snapshot (rule 6.1.1) must itself round-trip,
+    # or a deserialized-and-resumed game would re-freeze from the *current*
+    # (already-mutated) board instead of the real start state, silently
+    # reopening the chaining bug across a save/load boundary.
+    engine = Engine(seed=1)
+    engine.begin_influence_operations(Side.USSR, 2)
+    engine.step(Action(DecisionKind.PLACE_INFLUENCE, {"country": "Finland"}))
+    assert engine._ops_round_snapshot is not None
+
+    restored = Engine.deserialize(engine.serialize())
+    assert restored._ops_round_snapshot == engine._ops_round_snapshot
+    # Sweden only became reachable via the point just placed in Finland; the
+    # restored engine must still refuse it, exactly like the original.
+    assert all(
+        a.payload["country"] != "Sweden" for a in restored.pending_decision.options
+    )
 
 
 def test_round_trip_through_a_chance_decision_preserves_rng_state():

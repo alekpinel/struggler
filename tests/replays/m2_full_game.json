@@ -4583,7 +4583,8 @@
         "turn_effects": {},
         "game_effects": {},
         "our_man_queue": [],
-        "our_man_kept": []
+        "our_man_kept": [],
+        "ops_round_snapshot": null
       }
     },
     {
@@ -5742,7 +5743,8 @@
         "turn_effects": {},
         "game_effects": {},
         "our_man_queue": [],
-        "our_man_kept": []
+        "our_man_kept": [],
+        "ops_round_snapshot": null
       }
     },
     {
@@ -6875,7 +6877,8 @@
         "turn_effects": {},
         "game_effects": {},
         "our_man_queue": [],
-        "our_man_kept": []
+        "our_man_kept": [],
+        "ops_round_snapshot": null
       }
     },
     {
@@ -8006,7 +8009,8 @@
         "turn_effects": {},
         "game_effects": {},
         "our_man_queue": [],
-        "our_man_kept": []
+        "our_man_kept": [],
+        "ops_round_snapshot": null
       }
     }
   ]
