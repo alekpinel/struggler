@@ -85,7 +85,12 @@ _STRATEGIC_GUIDANCE = "\n".join(
         "fallback: if a card's Ops aren't needed for a strong Influence/"
         "Coup/Realignment play this turn, or its Event would help your "
         "OPPONENT, consider discarding it for a Space Race attempt instead "
-        "of defaulting to Ops.",
+        "of defaulting to Ops. Remember: playing an opponent's card for "
+        "Ops does NOT stop their Event from firing (only its order changes) "
+        "-- Space Race is the only mode that actually denies it, so if "
+        "avoiding that Event is the whole point, choose Space Race, not Ops.",
+        "  - Read `vp` number -- a NEGATIVE vp is a big USSR lead (approaching "
+        "USSR's automatic win at -20); a large POSITIVE vp is a big US lead."
         "  - The Mid War deck (Central America, Southeast Asia, Africa, "
         "and South America Scoring, among other cards) only enters play "
         "starting turn 4 -- Asia, Europe, and Middle East Scoring are the "
