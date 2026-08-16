@@ -349,11 +349,13 @@ class Engine:
             side = self._side_for_play_index(idx)
             self.action_round = idx // 2 + 1
             self._ars_played += 1
-            trap_key = self._trap_key_for(side)
-            if trap_key is not None:
-                self._push_trap_step(side, trap_key)
+            if self.turn_effects.get("cuban_missile_crisis") == side.value:
+                # "May defuse at any point in the turn": offered fresh at the
+                # start of every one of this side's action rounds until they
+                # take it or the turn ends -- a free choice, not a spent round.
+                self._push_cmc_defuse_offer(side)
             else:
-                self._push_action_round_play(side)
+                self._dispatch_action_round(side)
             return
 
     # -- M2: turn boundaries ------------------------------------------------
@@ -624,6 +626,29 @@ class Engine:
 
     # -- M2: action round: pick a card, then how to use it ------------------
 
+    def _dispatch_action_round(self, side: Side) -> None:
+        """`side`'s next action round: a trap step if it's caught in one,
+        otherwise its ordinary card play."""
+        trap_key = self._trap_key_for(side)
+        if trap_key is not None:
+            self._push_trap_step(side, trap_key)
+        else:
+            self._push_action_round_play(side)
+
+    def _push_cmc_defuse_offer(self, side: Side) -> None:
+        """Cuban Missile Crisis: `side` may remove 2 Influence from Cuba
+        (USSR) or West Germany/Turkey (US, its choice) to lift the
+        Coup-attempt ban for the rest of the turn. Offered as a free choice
+        -- it never costs the action round that follows it."""
+        candidates = ["Cuba"] if side is Side.USSR else ["West_Germany", "Turkey"]
+        eligible = [c for c in candidates if self.board.influence[c][side.value] >= 2]
+        if not eligible:
+            self._dispatch_action_round(side)
+            return
+        self.push_event_choice(
+            "Cuban_Missile_Crisis_defuse", side, tuple(eligible) + ("skip",)
+        )
+
     def _push_action_round_play(self, side: Side) -> None:
         hand = self.hands[side.value]
         scoring_in_hand = [cid for cid in hand if self.cards[cid].scoring]
@@ -634,18 +659,37 @@ class Engine:
             scoring_in_hand
         ) >= self._remaining_action_rounds(side)
 
-        playable = scoring_in_hand if must_play_scoring else list(hand)
+        # Missile Envy: "next round your opponent must use this card for
+        # Operations" -- the scoring deadline still takes priority if both
+        # apply at once, since carrying a scoring card past end of turn isn't
+        # legal at all.
+        forced_missile_envy = (
+            not must_play_scoring
+            and self.game_effects.get("missile_envy_forced") == side.value
+            and "Missile_Envy" in hand
+        )
+
+        if forced_missile_envy:
+            playable = ["Missile_Envy"]
+        else:
+            playable = scoring_in_hand if must_play_scoring else list(hand)
         options = [
             Action(DecisionKind.ACTION_ROUND_PLAY, {"card": cid}) for cid in playable
         ]
         if (
             not must_play_scoring
+            and not forced_missile_envy
             and side.value == self.china_card_owner
             and self.china_card_available
         ):
             options.append(Action(DecisionKind.ACTION_ROUND_PLAY, {"card": RULES["china_card_id"]}))
         if options:
             self._push(side, DecisionKind.ACTION_ROUND_PLAY, tuple(options), {})
+
+    def _handle_missile_envy_forced_play(self, side: Side, cid: str) -> None:
+        self.game_effects.pop("missile_envy_forced", None)
+        self._file_card(side, cid, fired=False)
+        self._push_ops_type(side, self._effective_ops(side, self.cards[cid]))
 
     def _remaining_action_rounds(self, side: Side) -> int:
         """Action rounds `side` still has this turn, including the one now
@@ -662,6 +706,9 @@ class Engine:
     def _handle_action_round_play(self, decision: Decision, action: Action) -> None:
         side = decision.actor
         cid = action.payload["card"]
+        if cid == "Missile_Envy" and self.game_effects.get("missile_envy_forced") == side.value:
+            self._handle_missile_envy_forced_play(side, cid)
+            return
         self.push_full_card_play(side, cid)
 
     def push_full_card_play(self, side: Side, cid: str) -> None:

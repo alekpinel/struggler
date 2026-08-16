@@ -348,8 +348,10 @@ historical "Ops-only" toggle.
   - *Take-and-play from a hand or the discard pile:* Missile Envy
     (`missile_envy_take`/`missile_envy_use` — take the opponent's highest-Ops
     card, opponent breaks ties; use it for Ops, or its Event when it is neutral
-    or the taker's own; Missile Envy itself passes to the opponent's hand),
-    Star Wars (`play_card_from_discard` — eligible only while the US leads the
+    or the taker's own; Missile Envy itself passes to the opponent's hand,
+    which must spend its next action round playing it for Ops —
+    `game_effects["missile_envy_forced"]`), Star Wars (`play_card_from_discard`
+    — eligible only while the US leads the
     Space Race; take a non-scoring discard and fire its event now).
   - *Free coup with a conditional repeat:* Che (`push_che_coup`/`begin_che_coup`
     — a free USSR coup against a non-Battleground Central/South America/Africa
@@ -357,9 +359,11 @@ historical "Ops-only" toggle.
     US Influence, capped at two via the `che` context on the `COUP_ROLL`).
   - *Deferred per-turn conditions:* Cuban Missile Crisis (DEFCON→2; a coup by
     the flagged side loses the game, checked in `_handle_coup_roll`; the at-risk
-    side may defuse by removing 2 Influence from Cuba/West Germany), We Will
-    Bury You (DEFCON −1; USSR +3 VP at end of turn unless the US plays UN
-    Intervention, which clears the `we_will_bury_you` turn effect).
+    side may defuse — Cuba for the USSR, West Germany or Turkey for the US —
+    offered fresh at the start of each of its action rounds for the rest of
+    the turn via `Engine._push_cmc_defuse_offer`), We Will Bury You (DEFCON
+    −1; USSR +3 VP at end of turn unless the US plays UN Intervention, which
+    clears the `we_will_bury_you` turn effect).
   - *Scoring-time modifiers / extra rounds (`_scoring_overrides`,
     `_total_action_rounds`/`_side_for_play_index`):* Formosan Resolution (Taiwan
     scores as an Asian Battleground while the US controls it; nullified once the
@@ -470,16 +474,33 @@ historical "Ops-only" toggle.
     (`turn_effects["trap_skip"]`), but still gets that turn's escape roll
     right away instead of a silent forfeit; The Cambridge Five is now blocked
     during Late War (`turn < 8`), per its printed restriction.
+  - *Fixed in a follow-up pass*: Missile Envy now forces its recipient to
+    spend their next action round playing it for Operations
+    (`game_effects["missile_envy_forced"]`, enforced in
+    `_push_action_round_play`/`_handle_action_round_play` — yields to a
+    scoring-card deadline if both apply at once, since that one is a hard
+    constraint); Cuban Missile Crisis's defuse is now offered fresh at the
+    start of *every* one of the trapped side's action rounds for the rest of
+    the turn (`Engine._push_cmc_defuse_offer`, wired into the turn loop via
+    `Engine._dispatch_action_round`), not just once immediately, and the US
+    branch now correctly offers Turkey as an alternative to West Germany (the
+    physical card names both; the engine previously only modeled West
+    Germany). Star Wars was re-examined and found already correct — it was
+    flagged as a "simplification" in error; its behavior (event-only, no
+    scoring cards, filed exactly like a normal event play) already matches
+    the printed card.
   - *Documented simplifications that remain* (noted in `events.py`
-    docstrings at the card in question): Missile Envy does not force the
-    opponent to play the received Missile Envy card on their next action
-    round (it is simply added to their hand); Cuban Missile Crisis offers its
-    defuse immediately rather than at any later point in the turn; Shuttle
-    Diplomacy is filed to the discard when played rather than kept "in front
-    of you" (only the effect flag matters); Star Wars fires the taken card's
-    event exactly like a normal event play; Aldrich Ames Remix's "USA reveals
-    their hand face-up until end of turn" is a momentary reveal (the decision
-    options), not an ongoing visibility grant surfaced through `observe()`.
+    docstrings at the card in question): Shuttle Diplomacy is filed to the
+    discard when played rather than kept "in front of you" until its delayed
+    effect triggers (only the effect flag matters — a card-manipulation event
+    like Star Wars could in principle retrieve it slightly earlier than the
+    physical game allows, but the effect it would re-apply is idempotent, so
+    this has no actual gameplay consequence); Aldrich Ames Remix's "USA
+    reveals their hand face-up until end of turn" is a momentary reveal (the
+    decision options), not an ongoing visibility grant surfaced through
+    `observe()` — deferred because it would add a new hidden/shared-visibility
+    field to the public `Observation` API surface, a larger change than a
+    card-logic fix.
   - *VERIFY: two independent sources disagree, left unchanged pending a look
     at the physical card* — Bear Trap/Quagmire's escape-roll direction. The
     PNP redesign's own card text reads "then roll: a 1-4 ends this Event",

@@ -1019,10 +1019,11 @@ def _cambridge_five(engine: "Engine", side: Side) -> None:
 @event("Missile_Envy")
 def _missile_envy(engine: "Engine", side: Side) -> None:
     # Exchange Missile Envy for the highest-Ops card in the opponent's hand
-    # (opponent chooses among ties); Missile Envy passes to the opponent. The
-    # taker then uses the card for Ops, or its Event when allowed. (The card's
-    # "opponent must play Missile Envy next action round" rider is not modeled —
-    # the opponent simply gains it in hand.)
+    # (opponent chooses among ties); Missile Envy passes to the opponent, who
+    # must use it for Operations on their next action round (game_effects
+    # ["missile_envy_forced"], consulted in _push_action_round_play /
+    # _handle_action_round_play). The taker then uses the *taken* card for
+    # Ops, or its Event when allowed.
     opp = side.opponent
     hand = engine.hands[opp.value]
     if not hand:
@@ -1034,6 +1035,7 @@ def _missile_envy(engine: "Engine", side: Side) -> None:
     if "Missile_Envy" in engine.discard_pile:
         engine.discard_pile.remove("Missile_Envy")
     engine.hands[opp.value].append("Missile_Envy")
+    engine.game_effects["missile_envy_forced"] = opp.value
     if len(candidates) == 1:
         engine.missile_envy_take(side, candidates[0])
     else:
@@ -1103,28 +1105,25 @@ def _che_choice(engine: "Engine", side: Side, choice: str, context: dict) -> Non
 
 @event("Cuban_Missile_Crisis")
 def _cuban_missile_crisis(engine: "Engine", side: Side) -> None:
-    # Set DEFCON to 2. For the rest of the turn any Coup attempt by the opponent
-    # loses them the game (checked in _handle_coup_roll). The opponent may defuse
-    # at once by removing 2 Influence from Cuba (USSR) or West Germany (US).
-    # (Faithful simplification: the real defuse can be taken at any later point in
-    # the turn; here it is offered immediately.)
+    # Set DEFCON to 2. For the rest of the turn any Coup attempt by the
+    # opponent loses them the game (checked in _handle_coup_roll). The
+    # opponent may defuse by removing 2 Influence from Cuba (USSR) or West
+    # Germany *or Turkey* (US, its choice) -- offered fresh at the start of
+    # every one of their action rounds this turn (see
+    # Engine._push_cmc_defuse_offer), not just once immediately.
     engine.set_defcon(2, caused_by=side)
     if engine.is_terminal:
         return
-    opp = side.opponent
-    engine.turn_effects["cuban_missile_crisis"] = opp.value
-    country = "Cuba" if opp is Side.USSR else "West_Germany"
-    choices = ["defuse", "keep"] if engine.board.influence[country][opp.value] >= 2 else ["keep"]
-    if len(choices) > 1:
-        engine.push_event_choice(
-            "Cuban_Missile_Crisis", opp, tuple(choices), extra={"country": country}
-        )
+    engine.turn_effects["cuban_missile_crisis"] = side.opponent.value
 
 
-def _cuban_missile_crisis_choice(engine: "Engine", side: Side, choice: str, context: dict) -> None:
-    if choice == "defuse":
-        engine.remove_influence(context["country"], side, 2)
+def _cuban_missile_crisis_defuse_choice(
+    engine: "Engine", side: Side, choice: str, context: dict
+) -> None:
+    if choice != "skip":
+        engine.remove_influence(choice, side, 2)
         engine.turn_effects.pop("cuban_missile_crisis", None)
+    engine._dispatch_action_round(side)
 
 
 # -- We Will Bury You: end-of-turn VP unless UN Intervention defuses it -------
@@ -1526,7 +1525,7 @@ CHOICE_ROUTERS: dict[str, Callable[["Engine", Side, str], None]] = {
     "Missile_Envy_use": _missile_envy_use_choice,
     "Star_Wars": _star_wars_choice,
     "Che": _che_choice,
-    "Cuban_Missile_Crisis": _cuban_missile_crisis_choice,
+    "Cuban_Missile_Crisis_defuse": _cuban_missile_crisis_defuse_choice,
     "South_African_Unrest": _south_african_unrest_choice,
     "South_African_Unrest_adj": _south_african_unrest_adj_choice,
     "Blockade": _blockade_choice,

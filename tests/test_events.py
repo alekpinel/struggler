@@ -1367,6 +1367,39 @@ def test_missile_envy_no_op_on_an_empty_opponent_hand():
     assert engine.pending_decision is None
 
 
+def test_missile_envy_forces_the_recipient_to_use_it_for_ops_next_round():
+    # "next round your opponent must use this card for Operations."
+    engine = _bare()
+    engine.defcon = 5
+    engine.hands["US"] = ["Missile_Envy"]
+    engine.hands["USSR"] = ["Nasser"]
+    _play_card_for(engine, Side.US, "Missile_Envy", "event")
+    assert engine.game_effects.get("missile_envy_forced") == "USSR"
+    engine.hands["USSR"].append("COMECON")  # a second, tempting card in hand
+    engine._push_action_round_play(Side.USSR)
+    d = engine.pending_decision
+    assert d.kind is DecisionKind.ACTION_ROUND_PLAY and d.actor is Side.USSR
+    assert {a.payload["card"] for a in d.options} == {"Missile_Envy"}  # only option
+    engine.step(Action(DecisionKind.ACTION_ROUND_PLAY, {"card": "Missile_Envy"}))
+    # Forced straight to Ops (no Event/Space-Race choice), and consumed.
+    assert engine.pending_decision.kind is DecisionKind.OPS_TYPE
+    assert engine.pending_decision.actor is Side.USSR
+    assert "missile_envy_forced" not in engine.game_effects
+
+
+def test_missile_envy_forced_play_yields_to_a_scoring_deadline():
+    # turn=1 (default): 12 total plays, USSR at even indices. Starting at
+    # index 10 leaves exactly one USSR round this turn -- matching its one
+    # scoring card, so the deadline (not Missile Envy) must win the choice.
+    engine = _bare()
+    engine.game_effects["missile_envy_forced"] = "USSR"
+    engine.hands["USSR"] = ["Missile_Envy", "Asia_Scoring"]
+    engine._ars_played = 11
+    engine._push_action_round_play(Side.USSR)
+    d = engine.pending_decision
+    assert {a.payload["card"] for a in d.options} == {"Asia_Scoring"}  # deadline wins
+
+
 def test_star_wars_requires_us_space_race_lead():
     engine = _bare()
     engine.discard_pile = ["Fidel"]
@@ -1444,18 +1477,68 @@ def test_che_serializes_with_its_repeat_state_on_the_stack():
     assert Engine.deserialize(data).serialize() == data
 
 
-def test_cuban_missile_crisis_sets_defcon_two_and_can_be_defused():
+def test_cuban_missile_crisis_sets_defcon_and_flags_the_opponent():
     engine = _bare(seed=1)
     engine.defcon = 5
-    engine.board.influence["Cuba"] = {"US": 0, "USSR": 3}  # USSR can afford to defuse
     engine._fire_event(Side.US, "Cuban_Missile_Crisis")  # US plays it -> USSR at risk
     assert engine.defcon == 2
     assert engine.turn_effects.get("cuban_missile_crisis") == "USSR"
+    # No immediate decision: the defuse is offered at the start of the
+    # trapped side's own action rounds, "at any point in the turn" -- not
+    # forced on them the instant the card resolves.
+    assert engine.pending_decision is None
+
+
+def test_cuban_missile_crisis_defuse_offered_each_of_the_trapped_sides_rounds():
+    engine = _bare(seed=1)
+    engine.board.influence["Cuba"] = {"US": 0, "USSR": 3}  # USSR can afford to defuse
+    engine.hands["USSR"] = ["Nasser"]  # so a normal action round has something to offer
+    engine.turn_effects["cuban_missile_crisis"] = "USSR"
+    engine._push_cmc_defuse_offer(Side.USSR)
     d = engine.pending_decision
-    assert d.actor is Side.USSR and {a.payload["choice"] for a in d.options} == {"defuse", "keep"}
-    engine.step(Action(DecisionKind.EVENT_CHOICE, {"choice": "defuse"}))
+    assert d.kind is DecisionKind.EVENT_CHOICE and d.actor is Side.USSR
+    assert {a.payload["choice"] for a in d.options} == {"Cuba", "skip"}
+    engine.step(Action(DecisionKind.EVENT_CHOICE, {"choice": "Cuba"}))
     assert engine.board.influence["Cuba"]["USSR"] == 1  # 2 removed
     assert "cuban_missile_crisis" not in engine.turn_effects  # threat gone
+    # Defusing is free: the normal action-round play follows right after.
+    assert engine.pending_decision.kind is DecisionKind.ACTION_ROUND_PLAY
+
+
+def test_cuban_missile_crisis_us_may_defuse_via_west_germany_or_turkey():
+    engine = _bare(seed=1)
+    engine.turn_effects["cuban_missile_crisis"] = "US"
+    engine.board.influence["Turkey"] = {"US": 2, "USSR": 0}  # only Turkey qualifies
+    engine._push_cmc_defuse_offer(Side.US)
+    d = engine.pending_decision
+    assert {a.payload["choice"] for a in d.options} == {"Turkey", "skip"}
+    engine.step(Action(DecisionKind.EVENT_CHOICE, {"choice": "Turkey"}))
+    assert engine.board.influence["Turkey"]["US"] == 0
+    assert "cuban_missile_crisis" not in engine.turn_effects
+
+
+def test_cuban_missile_crisis_no_eligible_country_skips_straight_to_the_round():
+    engine = _bare(seed=1)
+    engine.hands["USSR"] = ["Nasser"]
+    engine.turn_effects["cuban_missile_crisis"] = "USSR"  # Cuba has no USSR influence
+    engine._push_cmc_defuse_offer(Side.USSR)
+    assert engine.pending_decision.kind is DecisionKind.ACTION_ROUND_PLAY
+    assert "cuban_missile_crisis" in engine.turn_effects  # still in effect: never offered
+
+
+def test_cuban_missile_crisis_defuse_offer_wired_into_the_turn_loop():
+    # End-to-end through _advance(), not a direct _push_cmc_defuse_offer call.
+    engine = Engine.new_game(seed=3, events=True)
+    engine.phase = "action_rounds"
+    engine._decision_stack.clear()
+    engine._ars_played = 1  # next play index (1) belongs to the US
+    engine.turn_effects["cuban_missile_crisis"] = "US"
+    engine.board.influence["Turkey"] = {"US": 2, "USSR": 0}
+    engine.hands["US"] = ["Duck_and_Cover"]
+    engine._advance()
+    d = engine.pending_decision
+    assert d.kind is DecisionKind.EVENT_CHOICE and d.actor is Side.US
+    assert "Turkey" in {a.payload["choice"] for a in d.options}
 
 
 def test_cuban_missile_crisis_coup_by_the_flagged_side_loses_the_game():
