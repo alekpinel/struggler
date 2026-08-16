@@ -46,9 +46,15 @@ RULES_PRIMER = "\n".join(
         "left over at the end is 'held' for next turn (Scoring cards can "
         "never be held).",
         "",
-        "CARD PLAY -- EVENT VS. OPS: a played card is used either for its "
-        "Event or for its Ops value, never both. A Scoring card must be "
-        "played the turn it's drawn. IMPORTANT: if you play a card for Ops "
+        "CARD PLAY -- EVENT VS. OPS VS. SPACE RACE: playing a non-Scoring "
+        "card is a three-way choice, made fresh every time: spend it for "
+        "its Event, spend its Ops value, or discard it to attempt a Space "
+        "Race advance instead (eligible whenever the card's Ops value "
+        "meets the next box's requirement and you haven't used up this "
+        "turn's Space Race attempt yet -- see SPACE RACE below). A card is "
+        "never split between two of these; exactly one applies. A Scoring "
+        "card must be played the turn it's drawn, for its Event (Scoring "
+        "cards have no Ops/Space Race use). IMPORTANT: if you play a card for Ops "
         "and that card's Event belongs to your OPPONENT, the Event still "
         "fires -- you (the phasing player) choose whether it resolves "
         "before or after your Ops are spent (the engine's EVENT_OPS_ORDER "
@@ -57,9 +63,10 @@ RULES_PRIMER = "\n".join(
         "it directly, no ordering choice. The China Card has no Event -- "
         "it is always Ops-only.",
         "",
-        "OPERATIONS -- WHAT OPS CAN BE SPENT ON: spending a card's Ops "
-        "picks exactly one of: place Influence, attempt Realignment rolls, "
-        "attempt a Coup, or attempt a Space Race advance.",
+        "OPERATIONS -- WHAT OPS CAN BE SPENT ON: once you've chosen to "
+        "spend a card's Ops (rather than its Event or a Space Race "
+        "attempt), that Ops value picks exactly one of: place Influence, "
+        "attempt Realignment rolls, or attempt a Coup.",
         "  - Influence placement: costs 1 Op per point in a country that's "
         "uncontrolled or friendly-Controlled, 2 Ops per point in a country "
         "the opponent Controls. You may only place Influence in a country "

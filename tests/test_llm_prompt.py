@@ -100,3 +100,20 @@ def test_build_user_turn_reports_current_decision_and_observation():
     assert f"kind={decision.kind.value}" in text
     assert "Current observation:" in text
     assert "decision_plan" in text
+
+
+def test_build_user_turn_includes_untouched_countries():
+    # A country neither side has ever placed Influence in (0-0) must still
+    # appear in the observation dump -- an earlier version of
+    # `_observation_to_text` filtered these out, which made empty-but-
+    # reachable Battlegrounds (e.g. West Germany) invisible to the model
+    # for the whole game.
+    engine = Engine.new_game(seed=1)
+    observation = engine.observe(engine.pending_decision.actor)
+    decision = observation.pending_decision
+
+    text = build_user_turn(observation, decision, [])
+
+    assert '"West_Germany"' in text
+    assert '"France"' in text
+    assert '"Italy"' in text

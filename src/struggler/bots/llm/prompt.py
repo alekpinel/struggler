@@ -29,7 +29,13 @@ _DECISION_KIND_MEANING: dict[DecisionKind, str] = {
     DecisionKind.REALIGNMENT_TARGET: "pick which country to attempt a Realignment roll against",
     DecisionKind.HEADLINE_PLAY: "pick which card from your hand to headline this turn",
     DecisionKind.ACTION_ROUND_PLAY: "pick which card to play for this action round",
-    DecisionKind.PLAY_MODE: "choose how to use the card just played",
+    DecisionKind.PLAY_MODE: (
+        "choose how to use the card just played -- normally a choice between "
+        "'ops' (spend its Ops), 'event' (fire its Event), and 'space_race' "
+        "(discard it for a Space Race advance attempt, if eligible); "
+        "'un_intervention' additionally appears only while holding the UN "
+        "Intervention card"
+    ),
     DecisionKind.OPS_TYPE: "choose how to spend this card's Ops",
     DecisionKind.EVENT_OPS_ORDER: "the opponent's card Event was triggered by your Ops play -- choose whether it resolves before or after your Ops",
     DecisionKind.WAR_TARGET: "pick the target country for a 'war' Event whose attacker chooses the target",
@@ -64,6 +70,49 @@ def _cards_text() -> str:
         )
     return "\n".join(lines)
 
+
+_STRATEGIC_GUIDANCE = "\n".join(
+    [
+        "STRATEGIC GUIDANCE (heuristics worth weighing, not hard rules -- "
+        "unlike the RULES PRIMER above, following these is a judgment call, "
+        "not a legality requirement):",
+        "  - Coups are not automatically dangerous: DEFCON only drops to "
+        "the CURRENT value minus 1 per Coup attempt, so at DEFCON 3+, "
+        "coup-ing a low-Stability (1-2) country is usually a strong, low-risk "
+        "play -- don't default to Influence out of reflexive DEFCON "
+        "caution; weigh a Coup explicitly every time you spend Ops.",
+        "  - Space Race is a real alternative use for a card, not a "
+        "fallback: if a card's Ops aren't needed for a strong Influence/"
+        "Coup/Realignment play this turn, or its Event would help your "
+        "OPPONENT, consider discarding it for a Space Race attempt instead "
+        "of defaulting to Ops.",
+        "  - The Mid War deck (Central America, Southeast Asia, Africa, "
+        "and South America Scoring, among other cards) only enters play "
+        "starting turn 4 -- Asia, Europe, and Middle East Scoring are the "
+        "only Scoring cards available turns 1-3. Weight your early "
+        "Influence investment toward the regions already in play, and "
+        "start shifting toward the Mid War regions as turn 4 approaches.",
+        "  - The full board (every country, including ones at 0-0 "
+        "Influence) is in every observation you're given -- actively check "
+        "it for empty Battlegrounds you can already reach (adjacent to "
+        "your home space or your existing Influence) before assuming a "
+        "region is settled. An uncontested Battleground is often the "
+        "cheapest VP on the board, and in Europe specifically, controlling "
+        "every country wins the game outright the instant Europe is "
+        "scored (see VICTORY above) -- don't leave that path unexplored "
+        "just because the opponent hasn't shown up there.",
+        "  - Diminishing returns on stacking: Ops spent adding Influence "
+        "to a country you already Control, beyond what's needed to keep "
+        "that Control safe from a single Coup/Realignment swing, usually "
+        "produce less value than the same Ops spent expanding to a new "
+        "country, on a Coup, or on a Space Race attempt.",
+        "  - Track your own running Military Operations total against the "
+        "current DEFCON over the course of a turn (both are in every "
+        "observation). Falling short at end of turn hands the opponent 1 "
+        "VP per point of shortfall -- an easy accident if every Ops spend "
+        "defaults to Influence and none to Coups or war Events.",
+    ]
+)
 
 _system_prompt_cache: str | None = None
 
@@ -107,6 +156,7 @@ def build_system_prompt() -> str:
         "consulted again -- you never roll dice yourself and never see a "
         "decision asking you to.",
         RULES_PRIMER,
+        _STRATEGIC_GUIDANCE,
         _payload_catalog_text(),
         f"Rules constants (JSON):\n{json.dumps(RULES, indent=2)}",
         "Countries (JSON). Each entry has: region, subregion (nullable), "
@@ -137,11 +187,6 @@ def _decision_to_text(decision: Decision) -> str:
 
 
 def _observation_to_text(observation: Observation) -> str:
-    nonzero_influence = {
-        cid: infl
-        for cid, infl in observation.influence.items()
-        if infl.get("US") or infl.get("USSR")
-    }
     payload = {
         "side": observation.side.value,
         "phase": observation.phase,
@@ -149,7 +194,7 @@ def _observation_to_text(observation: Observation) -> str:
         "vp": observation.vp,
         "turn": observation.turn,
         "action_round": observation.action_round,
-        "influence": nonzero_influence,
+        "influence": dict(observation.influence),
         "hand": list(observation.hand),
         "opponent_hand_size": observation.opponent_hand_size,
         "draw_pile_size": observation.draw_pile_size,
