@@ -70,7 +70,7 @@ def event(
 @event("Duck_and_Cover")
 def _duck_and_cover(engine: "Engine", side: Side) -> None:
     # Degrade DEFCON by 1, then the US gains VP equal to 5 minus the new DEFCON.
-    engine._change_defcon(-1, caused_by=Side.USSR)
+    engine._change_defcon(-1, caused_by=side)
     if not engine.is_terminal:
         engine._award_vp(Side.US, 5 - engine.defcon)
 
@@ -1098,8 +1098,13 @@ def _cuban_missile_crisis_choice(engine: "Engine", side: Side, choice: str, cont
 @event("We_Will_Bury_You")
 def _we_will_bury_you(engine: "Engine", side: Side) -> None:
     # Degrade DEFCON one level; the USSR scores 3 VP at end of turn unless the US
-    # plays UN Intervention (which clears the flag, see _handle_play_mode).
-    engine._change_defcon(-1, caused_by=Side.USSR)
+    # plays UN Intervention (which clears the flag, see _handle_play_mode). The
+    # DEFCON degrade is blamed on whoever played the card (`side`), like every
+    # other event-driven DEFCON change (Olympic Games, Summit, Salt
+    # Negotiations, Cuban Missile Crisis, ...) -- NOT on the card's own
+    # US/USSR alignment. If DEFCON hits 1 from this, the phasing player loses,
+    # even when that's the side the card's own effect otherwise favors.
+    engine._change_defcon(-1, caused_by=side)
     if not engine.is_terminal:
         engine.turn_effects["we_will_bury_you"] = True
 
@@ -1215,7 +1220,7 @@ def _glasnost(engine: "Engine", side: Side) -> None:
     engine._award_vp(Side.USSR, 2)
     if engine.is_terminal:
         return
-    engine._change_defcon(+1, caused_by=Side.USSR)
+    engine._change_defcon(+1, caused_by=side)
     if not engine.is_terminal and engine.game_effects.get("reformer"):
         engine.push_event_operations(Side.USSR, 4)
 
@@ -1268,7 +1273,7 @@ def _kal_007(engine: "Engine", side: Side) -> None:
     # Degrade DEFCON one level; the US gains 2 VP; if the US controls South Korea
     # it then conducts 4 Ops of Operations. (Restricted to Influence/Realignment
     # on the card; full Operations here — a documented rough edge.)
-    engine._change_defcon(-1, caused_by=Side.US)
+    engine._change_defcon(-1, caused_by=side)
     if engine.is_terminal:
         return
     engine._award_vp(Side.US, 2)
