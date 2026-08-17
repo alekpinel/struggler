@@ -2270,7 +2270,8 @@
           "marshall_or_warsaw": true
         },
         "our_man_queue": [],
-        "our_man_kept": []
+        "our_man_kept": [],
+        "ops_round_snapshot": null
       }
     },
     {
@@ -3382,7 +3383,8 @@
           "formosan_resolution": true
         },
         "our_man_queue": [],
-        "our_man_kept": []
+        "our_man_kept": [],
+        "ops_round_snapshot": null
       }
     },
     {
@@ -4512,11 +4514,13 @@
         "game_effects": {
           "degaulle_france": true,
           "marshall_or_warsaw": true,
+          "formosan_resolution": true,
           "us_japan_pact": true,
           "norad": true
         },
         "our_man_queue": [],
-        "our_man_kept": []
+        "our_man_kept": [],
+        "ops_round_snapshot": null
       }
     }
   ]

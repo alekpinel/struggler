@@ -41,6 +41,18 @@ def test_is_reachable_transitively_through_own_influence():
     assert board.is_reachable(Side.US, "Guatemala")  # Guatemala is adjacent to Mexico
 
 
+def test_is_reachable_influence_override_ignores_live_board_state():
+    # Rule 6.1.1: within one Operations spend, reachability is judged against
+    # the board as it stood at the *start* of the Action Round, not against
+    # influence placed earlier in that same spend.
+    board = Board()
+    snapshot = {cid: dict(v) for cid, v in board.influence.items()}  # nothing placed yet
+    board.influence["Finland"]["USSR"] = 1  # placed *during* the spend
+    assert board.is_reachable(Side.USSR, "Sweden")  # true against live state...
+    assert not board.is_reachable(Side.USSR, "Sweden", influence=snapshot)  # ...false at start
+    assert board.is_reachable(Side.USSR, "Finland", influence=snapshot)  # Finland itself: fine
+
+
 def test_influence_cost_doubles_in_opponent_controlled_country():
     board = Board()
     board.influence["Guatemala"]["USSR"] = 1  # stability 1 -> USSR controls it
