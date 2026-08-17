@@ -554,15 +554,15 @@ historical "Ops-only" toggle.
     transferred — the instant the second side also reaches it (6.4.4), via
     `Engine._update_space_race_ability` and the `game_effects` keys
     `space_race_discard_holder` / `space_race_extra_round_holder`.
-  - *Physical mode* (see "Bot framework" below): most hand-touching events
-    are wired for a physical hidden hand, but three are not yet — Aldrich
-    Ames Remix, Missile Envy, The Cambridge Five — because the *deciding*
-    side needs to inspect the *opponent's* hand, which requires overriding
-    `choose_side` to `Side.CHANCE` (so the operator, not the bot, answers)
-    plus, for Cambridge Five, a small bespoke multi-select query. Our Man in
-    Tehran is a documented no-op under physical mode too, since it needs the
-    draw pile's real contents, which physical mode makes unknown to the
-    engine itself. Left as the next incremental physical-mode slice.
+  - *Physical mode* (see "Bot framework" below): every hand-touching event
+    is now wired for a physical hidden hand, including the three where the
+    *deciding* side needs to inspect the *opponent's* hand — Aldrich Ames
+    Remix, Missile Envy (`choose_side` overridden to `Side.CHANCE` so the
+    operator, not the bot, answers), and The Cambridge Five (a per-scoring-
+    card yes/no query sequence instead of a single choice). Our Man in
+    Tehran remains a documented no-op under physical mode, since it needs
+    the draw pile's real contents, which physical mode makes unknown to the
+    engine itself, not just hidden from a player.
 
 ## Bot framework
 
@@ -670,27 +670,43 @@ same trust model any human player already gets for rules `HumanPlayer`
 doesn't independently re-verify. UN Intervention's mode is never offered to
 a physical-side player (the engine can't verify hidden-hand membership of
 a specific card), which fails safe (no crash, just an unavailable option)
-rather than being fixed here. M3 cards where the *deciding* side would need
-to inspect the *opponent's* physical hand — Aldrich Ames Remix, Missile
-Envy, The Cambridge Five — are not yet wired for physical mode (their
-`choose_side` would need overriding to `Side.CHANCE` so the operator, not
-the bot, answers); left as the next incremental slice, same discipline the
-rest of M3 uses. Our Man in Tehran is a deeper case of the same problem —
-it peeks at the *draw pile's* real contents, which physical mode makes
-unknown to the engine itself, not merely hidden from a player — so it is
-also a documented no-op under `physical_mode` rather than queuing
-`HIDDEN_CARD` placeholders as if they were real cards. Cards where the
-deciding side owns the hand being asked about (Blockade, Latin American
-Debt Crisis, Ask Not…, Nixon Plays the China Card, Quagmire/Bear Trap
-discard, Held Card discard) and the random-reveal cards (Grain Sales to
-Soviets, Five Year Plan, Terrorism) are wired. The one place the
-must-play-a-scoring-card rule *is* enforced for a physical hand: a
-trapped side's Ops-2+-less round (`_push_trap_step`'s fallback) offers
-any scoring-card candidates as a genuine `QUAGMIRE_DISCARD` decision
-(`context["forced_scoring"]`) instead of auto-resolving one the way the
-non-physical path does — auto-filing would risk firing a `hidden_pool`
-card that isn't actually in this hand, since the pool is a superset, not
-a location.
+rather than being fixed here. Our Man in Tehran is a documented no-op
+under `physical_mode`: it peeks at the *draw pile's* real contents, which
+physical mode makes unknown to the engine itself, not merely hidden from
+a player, so there is nothing to queue instead of `HIDDEN_CARD`
+placeholders. Every other M3 event is wired for a physical hand,
+including the three that need the *deciding* side's actor overridden to
+`Side.CHANCE` (the operator, not a bot that cannot see the target hand,
+answers): Aldrich Ames Remix and Missile Envy's giver-side pick source
+candidates from `_physical_hand_candidates`/route the choice to
+`Side.CHANCE` the same way `DEAL_CARD` does; The Cambridge Five instead
+asks one per-scoring-card yes/no `EVENT_CHOICE` query at a time
+(`_push_cambridge_five_query`), stopping the moment the hand's last open
+`HIDDEN_CARD` slot is filled (asking further would have nowhere left to
+reveal an answer into) — the same "candidates must respect the hand's
+*true*, always-public size" invariant `_physical_hand_candidates` and
+`push_random_discard`'s physical branch already enforce elsewhere.
+Missile Envy's picked card stays visible in the physical giver's hand
+(`_reveal_in_hand`, not an immediate removal) until `missile_envy_use`
+resolves it one or two decisions later — mirroring the non-physical path
+exactly, and, like Grain Sales' revealed-but-undecided card, avoiding a
+window where the card is tracked nowhere at all. `missile_envy_use`'s
+`_file_card` call passes `already_removed_from_hand=True` since the taken
+card was never genuinely in the *taker's* hand to begin with (same
+pattern as Star Wars' `play_card_from_discard`) — needed for a physical
+taker, since otherwise `_file_card` would misread an ordinary card
+transfer as one of the taker's own cards leaving and strip an unrelated
+placeholder. Cards where the deciding side owns the hand being asked
+about (Blockade, Latin American Debt Crisis, Ask Not…, Nixon Plays the
+China Card, Quagmire/Bear Trap discard, Held Card discard) and the
+random-reveal cards (Grain Sales to Soviets, Five Year Plan, Terrorism)
+are wired too. The one place the must-play-a-scoring-card rule *is*
+enforced for a physical hand: a trapped side's Ops-2+-less round
+(`_push_trap_step`'s fallback) offers any scoring-card candidates as a
+genuine `QUAGMIRE_DISCARD` decision (`context["forced_scoring"]`) instead
+of auto-resolving one the way the non-physical path does — auto-filing
+would risk firing a `hidden_pool` card that isn't actually in this hand,
+since the pool is a superset, not a location.
 
 ### Game-level logging
 

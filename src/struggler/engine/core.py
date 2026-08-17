@@ -1424,11 +1424,16 @@ class Engine:
         context = {"owner": owner.value, "purpose": purpose, "count": count}
         if self.physical_mode:
             # No RNG index to draw for a hand the engine can't see: for the
-            # physical owner, every option is a candidate from hidden_pool;
-            # for the bot owner (hand fully known), the real hand itself —
-            # either way the operator picks the one matching the physical
-            # card actually drawn.
-            candidates = self.hidden_pool if owner is self.physical_side else hand
+            # physical owner, candidates come from _physical_hand_candidates
+            # (revealed reals in hand, plus hidden_pool only while an actual
+            # open slot remains — never hidden_pool alone, which could
+            # include a card with nowhere left in this hand to have come
+            # from); for the bot owner (hand fully known), the real hand
+            # itself — either way the operator picks the one matching the
+            # physical card actually drawn.
+            candidates = (
+                self._physical_hand_candidates(owner) if owner is self.physical_side else hand
+            )
             options = tuple(Action(DecisionKind.RANDOM_DISCARD, {"card": cid}) for cid in candidates)
             if options:
                 self._push(Side.CHANCE, DecisionKind.RANDOM_DISCARD, options, context)
@@ -2272,7 +2277,11 @@ class Engine:
         card = self.cards[cid]
         if mode == "event":
             implemented = self._has_event(cid) and EVENTS[cid].eligible(self, taker)
-            self._file_card(taker, cid, fired=implemented)
+            # `cid` was never really in `taker`'s own hand (it came from the
+            # giver) -- `already_removed_from_hand` keeps a physical taker's
+            # `_file_card` from mistaking this for one of their own cards
+            # leaving and stripping an unrelated placeholder.
+            self._file_card(taker, cid, fired=implemented, already_removed_from_hand=True)
             if implemented:
                 self._fire_event(taker, cid)
         else:  # ops

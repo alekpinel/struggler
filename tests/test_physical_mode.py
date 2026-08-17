@@ -188,6 +188,126 @@ def test_ask_not_with_a_physical_hand_discards_and_redraws():
     assert len(engine.hands["US"]) == 2  # one discarded, one redealt
 
 
+# -- M3 Batch C: cross-hand events routed to the operator ---------------------
+
+
+def test_aldrich_ames_routes_to_operator_when_us_hand_is_physical():
+    engine = _bare_physical(Side.US, seed=1)
+    engine.hidden_pool = ["Duck_and_Cover", "Fidel"]
+    engine.hands["US"] = [HIDDEN_CARD, HIDDEN_CARD]
+    engine._fire_event(Side.USSR, "Aldrich_Ames_Remix")
+    decision = engine.pending_decision
+    # Not USSR: the USSR bot cannot see the physical US hand, so the choice
+    # is routed to the operator (CHANCE), same as manual dice / DEAL_CARD.
+    assert decision.actor is Side.CHANCE
+    assert {a.payload["choice"] for a in decision.options} == {"Duck_and_Cover", "Fidel"}
+    chosen = decision.options[0]
+    engine.step(chosen)
+    cid = chosen.payload["choice"]
+    assert cid in engine.discard_pile
+    assert cid not in engine.hidden_pool
+    assert engine.hands["US"].count(HIDDEN_CARD) == 1
+
+
+def test_aldrich_ames_unaffected_when_us_hand_is_not_physical():
+    engine = _bare_physical(Side.USSR, seed=1)  # USSR physical, US is the bot
+    engine.hands["US"] = ["Duck_and_Cover", "Fidel"]
+    engine._fire_event(Side.USSR, "Aldrich_Ames_Remix")
+    decision = engine.pending_decision
+    assert decision.actor is Side.USSR
+    assert {a.payload["choice"] for a in decision.options} == {"Duck_and_Cover", "Fidel"}
+
+
+def test_cambridge_five_queries_operator_per_scoring_card_when_us_is_physical():
+    engine = _bare_physical(Side.US, seed=1)
+    engine.hidden_pool = ["Asia_Scoring", "Europe_Scoring", "Duck_and_Cover"]
+    engine.hands["US"] = [HIDDEN_CARD, HIDDEN_CARD, HIDDEN_CARD]
+    engine._fire_event(Side.USSR, "The_Cambridge_Five")
+
+    decision = engine.pending_decision
+    assert decision.kind is DecisionKind.EVENT_CHOICE
+    assert decision.actor is Side.CHANCE
+    assert decision.context["scoring_id"] == "Asia_Scoring"
+    assert {a.payload["choice"] for a in decision.options} == {"yes", "no"}
+    engine.step(Action(DecisionKind.EVENT_CHOICE, {"choice": "yes"}))
+    # Answering "yes" reveals the card in hand (declared, no longer hidden).
+    assert "Asia_Scoring" in engine.hands["US"]
+    assert "Asia_Scoring" not in engine.hidden_pool
+
+    decision = engine.pending_decision
+    assert decision.context["scoring_id"] == "Europe_Scoring"
+    engine.step(Action(DecisionKind.EVENT_CHOICE, {"choice": "no"}))
+
+    # Only Asia applies: USSR's EVENT_INFLUENCE candidates are Asian countries.
+    decision = engine.pending_decision
+    assert decision.kind is DecisionKind.EVENT_INFLUENCE
+    assert decision.actor is Side.USSR
+    assert all(
+        engine.board.countries[a.payload["country"]].region.value == "ASIA"
+        for a in decision.options
+    )
+
+
+def test_cambridge_five_no_op_when_us_physical_hand_has_no_scoring_card():
+    engine = _bare_physical(Side.US, seed=1)
+    engine.hidden_pool = ["Duck_and_Cover", "Fidel"]
+    engine.hands["US"] = [HIDDEN_CARD, HIDDEN_CARD]
+    engine._fire_event(Side.USSR, "The_Cambridge_Five")
+    assert engine.pending_decision is None
+
+
+def test_missile_envy_giver_physical_routes_the_pick_to_operator():
+    engine = _bare_physical(Side.USSR, seed=1)  # USSR (giver) is physical
+    engine.hidden_pool = ["Duck_and_Cover"]  # US-aligned, 3 Ops: not ops_only
+    engine.hands["USSR"] = [HIDDEN_CARD]
+    engine._fire_event(Side.US, "Missile_Envy")  # US plays it (taker)
+
+    decision = engine.pending_decision
+    assert decision.kind is DecisionKind.EVENT_CHOICE
+    assert decision.actor is Side.CHANCE
+    assert {a.payload["choice"] for a in decision.options} == {"Duck_and_Cover"}
+    engine.step(decision.options[0])
+
+    # The picked card leaves the physical giver's hand; Missile Envy itself
+    # (a known, public card) moves into it, forcing USSR's next play.
+    assert "Duck_and_Cover" not in engine.hidden_pool
+    assert engine.hands["USSR"].count(HIDDEN_CARD) == 0
+    assert "Missile_Envy" in engine.hands["USSR"]
+    assert engine.game_effects["missile_envy_forced"] == "USSR"
+
+    # The US taker isn't physical here, so it gets the ordinary ops/event
+    # choice for the card it took.
+    decision = engine.pending_decision
+    assert decision.kind is DecisionKind.EVENT_CHOICE
+    assert decision.actor is Side.US
+    assert set(a.payload["choice"] for a in decision.options) == {"ops", "event"}
+
+
+def test_missile_envy_taker_physical_does_not_strip_a_stray_placeholder():
+    engine = _bare_physical(Side.US, seed=1)  # US (taker) is physical
+    engine.hands["USSR"] = ["Duck_and_Cover"]  # the bot giver's real hand
+    engine.hidden_pool = ["Fidel"]
+    engine.hands["US"] = [HIDDEN_CARD]  # one unrelated card, must stay untouched
+    engine._fire_event(Side.US, "Missile_Envy")  # US (physical) plays it
+
+    # Non-physical giver path: resolves directly, no operator query needed
+    # for the pick itself; US (taker, physical) gets the ops/event choice.
+    decision = engine.pending_decision
+    assert decision.kind is DecisionKind.EVENT_CHOICE
+    assert decision.actor is Side.US
+    assert engine.game_effects["missile_envy_forced"] == "USSR"
+
+    engine.step(Action(DecisionKind.EVENT_CHOICE, {"choice": "event"}))
+
+    # The card left the (bot) giver's real hand once actually used...
+    assert "Duck_and_Cover" not in engine.hands["USSR"]
+    # ...but was never really in the physical US hand -- the unrelated
+    # placeholder must survive untouched (the bug this guards against:
+    # _file_card mistaking this for a real hand departure).
+    assert engine.hands["US"] == [HIDDEN_CARD]
+    assert "Fidel" in engine.hidden_pool
+
+
 # -- serialization --------------------------------------------------------
 
 
