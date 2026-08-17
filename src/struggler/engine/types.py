@@ -88,6 +88,8 @@ class DecisionKind(Enum):
     QUAGMIRE_DISCARD = "quagmire_discard"  # a trapped player discards an Ops card to try to break free
     QUAGMIRE_ROLL = "quagmire_roll"        # CHANCE: the die that may free a trapped player
     HELD_CARD_DISCARD = "held_card_discard"  # Space Race box 6: may discard the Held Card at end of turn
+    # -- Physical mode: a real human plays the physical board game --
+    DEAL_CARD = "deal_card"  # CHANCE: operator declares a real card dealt to the non-physical hand
 
 
 class ScoringTier(Enum):

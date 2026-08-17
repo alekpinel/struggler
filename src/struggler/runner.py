@@ -39,13 +39,23 @@ def play_game(
     log_writer = GameLogWriter(log_path, engine) if log_path is not None else None
     while not engine.is_terminal:
         decision = engine.pending_decision
-        if decision.actor is Side.CHANCE:
-            # Chance decisions carry exactly one pre-rolled option — nothing
-            # for a Player to decide, so the runner resolves it directly.
+        if decision.actor is Side.CHANCE and Side.CHANCE not in players:
+            # Chance decisions normally carry exactly one pre-rolled option —
+            # nothing for a Player to decide, so the runner resolves it
+            # directly. Physical-mode games register a `Side.CHANCE` player
+            # (the operator console): see the branch below.
             action = decision.options[0]
         else:
-            observation = engine.observe(decision.actor)
-            action = players[decision.actor].choose_action(observation, history)
+            # In physical mode, `players[Side.CHANCE]` is the operator
+            # console, which also answers the physical side's own decisions
+            # (registered under `players[physical_side]` too) — it's the
+            # single source of truth for every dice roll, card deal, and
+            # physical move, regardless of which side or CHANCE they're
+            # nominally attributed to.
+            obs_side = decision.actor if decision.actor in (Side.US, Side.USSR) else engine.physical_side
+            observation = engine.observe(obs_side)
+            responder = decision.actor if decision.actor in players else Side.CHANCE
+            action = players[responder].choose_action(observation, history)
         engine.step(action)
 
         country = action.payload.get("country")

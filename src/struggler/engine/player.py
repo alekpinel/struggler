@@ -8,7 +8,10 @@ A player only ever sees an `Observation` (mandate #4: the per-player
 observation function is the sole sanctioned view of the game), and only
 ever returns one `Action` drawn from `observation.pending_decision.options`
 (mandate #2: atomic decisions). `Side.CHANCE` decisions never reach a
-`Player` at all — see `struggler.runner.play_game`.
+`Player` at all in an ordinary game — see `struggler.runner.play_game` —
+except in physical mode, where a `Side.CHANCE` entry in `players` is the
+operator console: it answers every dice roll and card-deal decision
+(nominally `Side.CHANCE`), in addition to the physical side's own moves.
 """
 
 from __future__ import annotations

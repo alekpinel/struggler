@@ -13,6 +13,7 @@ from collections import Counter
 
 from struggler.engine import Engine, Period
 from struggler.engine.cards import cards_entering
+from struggler.engine.core import HIDDEN_CARD
 from struggler.engine.rules import RULES
 
 
@@ -40,9 +41,12 @@ def cards_in_play(engine: Engine) -> Counter:
     one edit, not one per test file.
     """
     c: Counter = Counter()
+    # HIDDEN_CARD placeholders (physical mode) are not real card ids — skip
+    # them here and count `hidden_pool` instead (see below), the "no fixed
+    # location yet" bucket for a physical hand's true, unknown contents.
     for cards in engine.hands.values():
-        c.update(cards)
-    c.update(engine.draw_pile)
+        c.update(cid for cid in cards if cid != HIDDEN_CARD)
+    c.update(cid for cid in engine.draw_pile if cid != HIDDEN_CARD)
     c.update(engine.discard_pile)
     c.update(engine.removed_cards)
     for cid in engine._headline.values():
@@ -57,6 +61,7 @@ def cards_in_play(engine: Engine) -> Counter:
     # still be accounted for exactly once.
     c.update(engine._our_man_queue)
     c.update(engine._our_man_kept)
+    c.update(engine.hidden_pool)
     return c
 
 
@@ -83,3 +88,10 @@ def assert_invariants(engine: Engine) -> None:
     assert all(count == 1 for count in in_play.values())
     assert RULES["china_card_id"] not in in_play
     assert set(in_play) == expected_in_play(engine)
+
+    if engine.physical_mode:
+        placeholder_slots = sum(cards.count(HIDDEN_CARD) for cards in engine.hands.values())
+        placeholder_slots += engine.draw_pile.count(HIDDEN_CARD)
+        assert placeholder_slots == len(engine.hidden_pool)
+        assert HIDDEN_CARD not in engine.discard_pile
+        assert HIDDEN_CARD not in engine.removed_cards

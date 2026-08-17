@@ -56,10 +56,13 @@ def make_engine(log: dict[str, Any]) -> Engine:
     M2 logs (`new_game`) build a full game; M1 logs run their `setup`.
     """
     if log.get("new_game"):
+        physical_side = log.get("physical_side")
         return Engine.new_game(
             seed=log["seed"],
             include_optional=log.get("include_optional", False),
             events=log.get("events", False),
+            physical_mode=log.get("physical_mode", False),
+            physical_side=Side(physical_side) if physical_side else None,
         )
     engine = Engine(seed=log["seed"])
     apply_setup(engine, log["setup"])
@@ -157,6 +160,8 @@ class GameLogWriter:
         self._seed = state["seed"]
         self._include_optional = engine.include_optional
         self._events_enabled = engine.events_enabled
+        self._physical_mode = engine.physical_mode
+        self._physical_side = engine.physical_side.value if engine.physical_side is not None else None
         self._actions: list[dict[str, Any]] = []
         self._winner: str | None = None
 
@@ -175,6 +180,8 @@ class GameLogWriter:
             "new_game": True,
             "include_optional": self._include_optional,
             "events": self._events_enabled,
+            "physical_mode": self._physical_mode,
+            "physical_side": self._physical_side,
             "actions": self._actions,
             "winner": self._winner,
         }

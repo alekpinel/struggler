@@ -2271,6 +2271,9 @@
         },
         "our_man_queue": [],
         "our_man_kept": [],
+        "physical_mode": false,
+        "physical_side": null,
+        "hidden_pool": [],
         "ops_round_snapshot": null
       }
     },
@@ -3384,6 +3387,9 @@
         },
         "our_man_queue": [],
         "our_man_kept": [],
+        "physical_mode": false,
+        "physical_side": null,
+        "hidden_pool": [],
         "ops_round_snapshot": null
       }
     },
@@ -4520,6 +4526,9 @@
         },
         "our_man_queue": [],
         "our_man_kept": [],
+        "physical_mode": false,
+        "physical_side": null,
+        "hidden_pool": [],
         "ops_round_snapshot": null
       }
     }

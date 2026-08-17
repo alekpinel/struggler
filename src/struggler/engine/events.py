@@ -913,10 +913,18 @@ CONTEST_RESOLVERS: dict[str, Callable[["Engine", Side, Side], None]] = {
 def _aldrich_ames(engine: "Engine", side: Side) -> None:
     # The USSR sees the US hand and chooses one card the US must discard. (The
     # remix's ongoing "sees the hand for the turn" reveal is not modeled.)
-    us_hand = engine.hands["US"]
+    if engine.physical_mode and engine.physical_side is Side.US:
+        # The USSR bot can't inspect a hidden US hand -- route the choice to
+        # the operator instead (who can see it), sourcing candidates from
+        # the physical-hand pool rather than real ids known to the engine.
+        us_hand = engine._physical_hand_candidates(Side.US)
+        chooser = Side.CHANCE
+    else:
+        us_hand = engine.hands["US"]
+        chooser = Side.USSR
     if not us_hand:
         return
-    engine.push_event_choice("Aldrich_Ames_Remix", Side.USSR, tuple(us_hand))
+    engine.push_event_choice("Aldrich_Ames_Remix", chooser, tuple(us_hand))
 
 
 def _aldrich_ames_choice(engine: "Engine", side: Side, choice: str, context: dict) -> None:
@@ -957,8 +965,19 @@ def _ask_not(engine: "Engine", side: Side) -> None:
 
 
 def _push_ask_not(engine: "Engine", side: Side, discarded: int) -> None:
-    hand = engine.hands[side.value]
-    choices = tuple(cid for cid in hand if not engine.cards[cid].scoring) + ("stop",)
+    if engine.physical_mode and side is engine.physical_side and not engine.hands[side.value]:
+        # The physical hand's true (unknown-to-the-engine) card count has
+        # already reached 0: hidden_pool alone (cards elsewhere in the deck)
+        # would otherwise keep offering "more" discards forever, well past
+        # what this hand could actually hold.
+        engine.draw_cards_to_hand(side, discarded)
+        return
+    source = (
+        engine._physical_hand_candidates(side)
+        if engine.physical_mode and side is engine.physical_side
+        else engine.hands[side.value]
+    )
+    choices = tuple(cid for cid in source if not engine.cards[cid].scoring) + ("stop",)
     if len(choices) == 1:  # nothing left to discard -> draw and finish
         engine.draw_cards_to_hand(side, discarded)
         return
@@ -994,6 +1013,24 @@ def _scoring_card_countries(engine: "Engine", scoring_id: str) -> list[str]:
 def _cambridge_five(engine: "Engine", side: Side) -> None:
     # The US reveals its scoring cards; the USSR adds 1 Influence to a country
     # in one of those regions.
+    if engine.physical_mode and engine.physical_side is Side.US:
+        # The USSR bot can't inspect a hidden US hand to see which scoring
+        # cards it holds. Unlike a single-card choice (Aldrich Ames), this
+        # needs to know *which regions* apply, not one specific card -- ask
+        # the operator one scoring card at a time (_push_cambridge_five_query),
+        # only for the ones still genuinely unaccounted-for (hidden_pool);
+        # any already revealed in hand from an earlier reveal are already
+        # known, no need to ask again.
+        from struggler.engine.core import SCORING_CARD_REGION
+
+        scoring_ids = tuple(SCORING_CARD_REGION) + ("Southeast_Asia_Scoring",)
+        known: list[str] = []
+        for cid in engine.hands["US"]:
+            if cid in scoring_ids:
+                known += _scoring_card_countries(engine, cid)
+        pending = [cid for cid in scoring_ids if cid in engine.hidden_pool]
+        _push_cambridge_five_query(engine, pending, known)
+        return
     candidates: list[str] = []
     for cid in engine.hands["US"]:
         if engine.cards[cid].scoring:
@@ -1005,6 +1042,41 @@ def _cambridge_five(engine: "Engine", side: Side) -> None:
         event="The_Cambridge_Five", op="place", choose_side=Side.USSR,
         inf_side=Side.USSR, remaining=1, candidates=candidates,
     )
+
+
+def _push_cambridge_five_query(
+    engine: "Engine", pending: list[str], candidates: list[str]
+) -> None:
+    from struggler.engine.core import HIDDEN_CARD
+
+    # Once the hand has no open (HIDDEN_CARD) slot left, nothing further can
+    # be revealed into it -- stop asking, even if `pending` still has
+    # entries (a prior "yes" may have just filled the hand's last unknown
+    # slot; asking again would have _reveal_in_hand silently drop the card,
+    # since there'd be nowhere left to place it).
+    if not pending or HIDDEN_CARD not in engine.hands["US"]:
+        candidates = list(dict.fromkeys(candidates))  # dedupe, keep order
+        if candidates:
+            engine.push_event_influence(
+                event="The_Cambridge_Five", op="place", choose_side=Side.USSR,
+                inf_side=Side.USSR, remaining=1, candidates=candidates,
+            )
+        return
+    scoring_id = pending[0]
+    engine.push_event_choice(
+        "Cambridge_Five_query", Side.CHANCE, ("yes", "no"),
+        extra={"scoring_id": scoring_id, "pending": pending[1:], "candidates": candidates},
+    )
+
+
+def _cambridge_five_query_choice(
+    engine: "Engine", side: Side, choice: str, context: dict
+) -> None:
+    candidates = list(context["candidates"])
+    if choice == "yes":
+        engine._reveal_in_hand(Side.US, context["scoring_id"])
+        candidates += _scoring_card_countries(engine, context["scoring_id"])
+    _push_cambridge_five_query(engine, list(context["pending"]), candidates)
 
 
 # ---------------------------------------------------------------------------
@@ -1025,6 +1097,23 @@ def _missile_envy(engine: "Engine", side: Side) -> None:
     # _handle_action_round_play). The taker then uses the *taken* card for
     # Ops, or its Event when allowed.
     opp = side.opponent
+    if engine.physical_mode and engine.physical_side is opp:
+        # A physical giver's hand can't be inspected for the highest-Ops
+        # card -- the operator names the one being handed over directly,
+        # folding the max-Ops-then-tie-break computation into their answer
+        # (they can already see their own hand -- same trust model as other
+        # physical-hand simplifications). The taker-physical direction needs
+        # no such query: `missile_envy_use`'s `already_removed_from_hand`
+        # kwarg (core.py) already keeps it correct, since the taken card was
+        # never really in the taker's own hand to begin with.
+        candidates = engine._physical_hand_candidates(opp)
+        if not candidates:
+            return
+        engine.push_event_choice(
+            "Missile_Envy_physical_pick", Side.CHANCE, tuple(candidates),
+            extra={"taker": side.value},
+        )
+        return
     hand = engine.hands[opp.value]
     if not hand:
         return  # nothing to exchange: a no-op discard (Missile Envy stays filed)
@@ -1044,6 +1133,27 @@ def _missile_envy(engine: "Engine", side: Side) -> None:
 
 def _missile_envy_pick_choice(engine: "Engine", giver: Side, choice: str, context: dict) -> None:
     engine.missile_envy_take(giver.opponent, choice)
+
+
+def _missile_envy_physical_pick_choice(
+    engine: "Engine", side: Side, choice: str, context: dict
+) -> None:
+    taker = Side(context["taker"])
+    giver = taker.opponent
+    # Mirror the non-physical path exactly: the picked card stays visible
+    # in the giver's hand (as a revealed real id, replacing one HIDDEN_CARD
+    # slot) rather than being removed here -- `missile_envy_use`'s own
+    # `if cid in hand: hand.remove(cid)` check is what actually removes it,
+    # once resolution completes (it may take one more decision, ops-vs-
+    # event, before that happens; the card must stay tracked somewhere for
+    # that whole window, exactly like Grain Sales' revealed-but-undecided
+    # card).
+    engine._reveal_in_hand(giver, choice)
+    if "Missile_Envy" in engine.discard_pile:
+        engine.discard_pile.remove("Missile_Envy")
+    engine.hands[giver.value].append("Missile_Envy")
+    engine.game_effects["missile_envy_forced"] = giver.value
+    engine.missile_envy_take(taker, choice)
 
 
 def _missile_envy_use_choice(engine: "Engine", taker: Side, choice: str, context: dict) -> None:
@@ -1219,10 +1329,20 @@ def _south_african_unrest_adj_choice(engine: "Engine", side: Side, choice: str, 
 
 def _payable_cards(engine: "Engine", side: Side) -> list[str]:
     """`side`'s hand cards with a printed Ops value of 3 or more (the "discard a
-    3+ card to cancel" clause on Blockade and Latin American Debt Crisis)."""
+    3+ card to cancel" clause on Blockade and Latin American Debt Crisis).
+
+    In physical mode, `side`'s true hand may be unknown to the engine; source
+    candidates from the physical-hand pool instead (see
+    `Engine._physical_hand_candidates`) — the operator picks whichever one
+    matches the real physical card."""
+    source = (
+        engine._physical_hand_candidates(side)
+        if engine.physical_mode and side is engine.physical_side
+        else engine.hands[side.value]
+    )
     return [
         cid
-        for cid in engine.hands[side.value]
+        for cid in source
         if not engine.cards[cid].scoring and engine.cards[cid].ops >= 3
     ]
 
@@ -1432,6 +1552,19 @@ def _nixon_plays_the_china_card(engine: "Engine", side: Side) -> None:
         engine.china_card_available = False  # face down: not usable this turn
 
 
+@event("Nixon_Plays_The_China_Card")
+def _nixon_plays_the_china_card(engine: "Engine", side: Side) -> None:
+    # Physical card text, confirmed: "If USA has The China Card: +2 VP for
+    # USA. If CCCP has The China Card: USA gets the card, face down and
+    # unavailable for immediate play." Two exhaustive, unconditional
+    # branches -- no discard-to-keep option exists on the card.
+    if engine.china_card_owner == "US":
+        engine._award_vp(Side.US, 2)
+    else:
+        engine.china_card_owner = "US"
+        engine.china_card_available = False  # face down: not usable this turn
+
+
 @event("Our_Man_In_Tehran")
 def _our_man_in_tehran(engine: "Engine", side: Side) -> None:
     # The US (regardless of who phases this) looks at the top 5 cards of the
@@ -1441,6 +1574,13 @@ def _our_man_in_tehran(engine: "Engine", side: Side) -> None:
     # EVENT_CHOICE decision itself only ever offers "keep"/"remove", never the
     # card identity, so the opponent's observation never sees which card is
     # under consideration.
+    # Physical mode, not yet wired (see CLAUDE.md's M3 "Physical mode"
+    # limitation): the draw pile's real contents are unknown to the engine
+    # itself in physical mode (not just hidden from a player) — there is no
+    # "top card" to peek at, so this is a documented no-op rather than
+    # queuing HIDDEN_CARD placeholders as if they were real cards.
+    if engine.physical_mode:
+        return
     n = min(5, len(engine.draw_pile))
     if n == 0:
         return
@@ -1536,4 +1676,6 @@ CHOICE_ROUTERS: dict[str, Callable[["Engine", Side, str], None]] = {
     "Latin_American_Debt_Crisis_double": _latin_debt_double_choice,
     "De_Stalinization_remove": _de_stalinization_remove_choice,
     "Our_Man_In_Tehran": _our_man_in_tehran_choice,
+    "Cambridge_Five_query": _cambridge_five_query_choice,
+    "Missile_Envy_physical_pick": _missile_envy_physical_pick_choice,
 }

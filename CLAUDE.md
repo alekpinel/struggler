@@ -39,6 +39,18 @@ of legal options per decision, never thousands. If a legal-actions list
 is ever in the hundreds, that decision is decomposed wrong and needs to
 be broken down further.
 
+**Exception**: physical mode's `DEAL_CARD` and the physical-hand-sourced
+options on a few other kinds (`ACTION_ROUND_PLAY`/`HEADLINE_PLAY`/
+`RANDOM_DISCARD`/`QUAGMIRE_DISCARD`/`HELD_CARD_DISCARD`, plus a few M3
+`EVENT_CHOICE` candidate lists) may run into the hundreds early in a
+game. This is narrowly scoped to decisions that only ever reach the
+physical-mode operator console (see "Bot framework" below) — never a
+bot/RL `Player`, which is what this mandate exists to keep tractable for.
+The console presentation layer never dumps a giant numbered menu (it
+matches free text against a card's printed number or name instead); the
+`Decision.options`/`legal_actions()` contract itself is unchanged — still
+the literal, exhaustive, replay-log-faithful legal set.
+
 ### 3. Seeded, injectable RNG
 
 `Engine(seed=...)` takes (or is handed) a seeded RNG. Same seed + same
@@ -542,6 +554,15 @@ historical "Ops-only" toggle.
     transferred — the instant the second side also reaches it (6.4.4), via
     `Engine._update_space_race_ability` and the `game_effects` keys
     `space_race_discard_holder` / `space_race_extra_round_holder`.
+  - *Physical mode* (see "Bot framework" below): every hand-touching event
+    is now wired for a physical hidden hand, including the three where the
+    *deciding* side needs to inspect the *opponent's* hand — Aldrich Ames
+    Remix, Missile Envy (`choose_side` overridden to `Side.CHANCE` so the
+    operator, not the bot, answers), and The Cambridge Five (a per-scoring-
+    card yes/no query sequence instead of a single choice). Our Man in
+    Tehran remains a documented no-op under physical mode, since it needs
+    the draw pile's real contents, which physical mode makes unknown to the
+    engine itself, not just hidden from a player.
 
 ## Bot framework
 
@@ -572,10 +593,12 @@ class Player(Protocol):
   player *can* condition on what just happened without re-deriving it from
   `Observation` alone.
 - `Side.CHANCE` decisions (coup/realignment/space-race rolls, ...) never
-  reach a `Player` at all — `struggler.runner.play_game` resolves them
-  directly from the pre-drawn single option `Decision.options` already
-  carries (mandate #3: the roll already happened via the engine's seeded
-  RNG; there is nothing left to decide).
+  reach a `Player` at all in an ordinary game — `struggler.runner.play_game`
+  resolves them directly from the pre-drawn single option `Decision.options`
+  already carries (mandate #3: the roll already happened via the engine's
+  seeded RNG; there is nothing left to decide). The one exception is
+  physical mode (below), where a `Side.CHANCE` entry in `players` is the
+  operator console.
 - `struggler.runner.play_game(engine, {Side.US: ..., Side.USSR: ...})` runs
   a game to completion, building the shared `Event` history and dispatching
   each non-CHANCE decision to the registered `Player` for that decision's
@@ -593,6 +616,97 @@ directly (`HumanPlayer`, `FirstLegalPlayer`/`RandomPlayer` from
 implementing `Player` and adding one branch to `build_player` — no
 self-registration, no import-order dependency, no indirection between a
 name and the class it builds.
+
+### Physical mode
+
+`Engine.new_game(..., physical_mode=True, physical_side=Side.US | Side.USSR)`
+lets one seat be a real human playing the physical board game, with the
+engine as referee/state-tracker — the setup for testing a bot/AI against a
+physical opponent. `physical_mode` is a construction-time `Engine` flag, not
+a `build_player` kind, because it changes engine behavior (dealing, dice),
+not just which `Player` answers decisions; `src/main.py`'s `--physical
+{us,ussr}` flag builds the engine this way (the bot side is still built
+normally from `--us`/`--ussr`).
+
+Two things the engine cannot know on its own once one seat is physical:
+
+- **The physical side's hand is genuinely unknown to the engine itself**
+  (not merely hidden from the opponent via `observe()`, mandate #4's usual
+  guarantee) — there's no seeded RNG that can predict what a real shuffle
+  dealt. `Engine.hidden_pool` (a plain `list[str]`, mandate #5) tracks real
+  card ids not yet matched to a known location; the physical hand's own
+  entries are the `HIDDEN_CARD` (`"?"`) sentinel until a card is revealed
+  (played, discarded, or otherwise disclosed by an event), at which point
+  `Engine.declare_physical_card`/`_reveal_in_hand`/`_hand_remove_known`
+  move it out of the pool for good.
+- **Every dice roll — both sides' — is entered manually**, since there is
+  one physical board and real dice are used for every roll on it,
+  regardless of which side nominally triggered it. Each `*_ROLL` call site
+  uses `Engine._d6_actions`, which — under `physical_mode` — pushes all six
+  possible outcomes as `Decision.options` (still `actor=Side.CHANCE`)
+  instead of one pre-drawn value (mandate #3: chance is still fully exposed
+  as a decision, just resolved by a human instead of the seeded RNG).
+
+Because there is a **single shared physical deck**, the non-physical side's
+hand can't be auto-dealt by the seeded shuffle either: the operator declares
+it card by card too (`DecisionKind.DEAL_CARD`, `actor=Side.CHANCE`, since
+dealing isn't a strategic choice). The physical side's own hand is topped
+up silently (nothing new is *learned* by the engine, still just a count).
+
+All of this — both hands' dealing, every dice roll, and the physical side's
+own moves — is answered by one `struggler.engine.physical.OperatorConsolePlayer`
+instance, registered in `players` under **both** `physical_side` and
+`Side.CHANCE`; `runner.play_game` routes to it accordingly. The bot side's
+own `Player` is completely untouched — it still only ever computes its own
+strategic decisions from `Observation`/`history`, unaware anything is
+different about this game.
+
+**Known limitations** (documented simplifications, not missing
+subsystems): the engine can't enforce the "must play a scoring card" rule
+for a hand it can't see the true contents of, so every not-yet-accounted-for
+card is offered at `ACTION_ROUND_PLAY` regardless — the physical player
+(who can see their own hand) is trusted to honor that rule themselves, the
+same trust model any human player already gets for rules `HumanPlayer`
+doesn't independently re-verify. UN Intervention's mode is never offered to
+a physical-side player (the engine can't verify hidden-hand membership of
+a specific card), which fails safe (no crash, just an unavailable option)
+rather than being fixed here. Our Man in Tehran is a documented no-op
+under `physical_mode`: it peeks at the *draw pile's* real contents, which
+physical mode makes unknown to the engine itself, not merely hidden from
+a player, so there is nothing to queue instead of `HIDDEN_CARD`
+placeholders. Every other M3 event is wired for a physical hand,
+including the three that need the *deciding* side's actor overridden to
+`Side.CHANCE` (the operator, not a bot that cannot see the target hand,
+answers): Aldrich Ames Remix and Missile Envy's giver-side pick source
+candidates from `_physical_hand_candidates`/route the choice to
+`Side.CHANCE` the same way `DEAL_CARD` does; The Cambridge Five instead
+asks one per-scoring-card yes/no `EVENT_CHOICE` query at a time
+(`_push_cambridge_five_query`), stopping the moment the hand's last open
+`HIDDEN_CARD` slot is filled (asking further would have nowhere left to
+reveal an answer into) — the same "candidates must respect the hand's
+*true*, always-public size" invariant `_physical_hand_candidates` and
+`push_random_discard`'s physical branch already enforce elsewhere.
+Missile Envy's picked card stays visible in the physical giver's hand
+(`_reveal_in_hand`, not an immediate removal) until `missile_envy_use`
+resolves it one or two decisions later — mirroring the non-physical path
+exactly, and, like Grain Sales' revealed-but-undecided card, avoiding a
+window where the card is tracked nowhere at all. `missile_envy_use`'s
+`_file_card` call passes `already_removed_from_hand=True` since the taken
+card was never genuinely in the *taker's* hand to begin with (same
+pattern as Star Wars' `play_card_from_discard`) — needed for a physical
+taker, since otherwise `_file_card` would misread an ordinary card
+transfer as one of the taker's own cards leaving and strip an unrelated
+placeholder. Cards where the deciding side owns the hand being asked
+about (Blockade, Latin American Debt Crisis, Ask Not…, Nixon Plays the
+China Card, Quagmire/Bear Trap discard, Held Card discard) and the
+random-reveal cards (Grain Sales to Soviets, Five Year Plan, Terrorism)
+are wired too. The one place the must-play-a-scoring-card rule *is*
+enforced for a physical hand: a trapped side's Ops-2+-less round
+(`_push_trap_step`'s fallback) offers any scoring-card candidates as a
+genuine `QUAGMIRE_DISCARD` decision (`context["forced_scoring"]`) instead
+of auto-resolving one the way the non-physical path does — auto-filing
+would risk firing a `hidden_pool` card that isn't actually in this hand,
+since the pool is a superset, not a location.
 
 ### Game-level logging
 
