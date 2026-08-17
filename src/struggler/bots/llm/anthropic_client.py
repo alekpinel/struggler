@@ -11,7 +11,12 @@ from __future__ import annotations
 
 import json
 
-from struggler.bots.llm.client import LLMClientError, LLMRequest, LLMResponse
+from struggler.bots.llm.client import (
+    DEFAULT_MAX_TOKENS,
+    LLMClientError,
+    LLMRequest,
+    LLMResponse,
+)
 
 
 class AnthropicClient:
@@ -21,15 +26,13 @@ class AnthropicClient:
     -- no `tool_use`/`tool_result` bookkeeping to maintain across calls for
     a feature that never actually executes a tool.
 
-    NOTE: the exact SDK call shape (the structured-output parameter name,
-    the minimum package version that supports it) should be verified
-    against the `anthropic` package's current documentation before this is
-    first exercised against the real API -- it is a newer SDK feature and
-    may have moved since this was written. The rest of this class (and
-    everything else in `struggler.bots.llm`) does not depend on that detail.
+    The structured-output parameter is `output_config.format` with a
+    `json_schema`; the older top-level `output_format` is deprecated.
     """
 
-    def __init__(self, *, model: str, api_key: str | None = None, max_tokens: int = 4096) -> None:
+    def __init__(
+        self, *, model: str, api_key: str | None = None, max_tokens: int = DEFAULT_MAX_TOKENS
+    ) -> None:
         try:
             import anthropic
         except ImportError as exc:

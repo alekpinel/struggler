@@ -250,8 +250,8 @@ it has a replay-log regression test (see Testing strategy).
 
 The event layer is **opt-in**, so it never regresses M2 (whose defining
 proof is that *zero events fire*): `Engine.new_game(..., events=False)`
-— the default — is the M2 game, byte-identical to before; `events=True`
-turns the layer on. `serialize()` carries `events_enabled`,
+is the M2 game, byte-identical to before; `events=True` — now the
+default — turns the layer on. `serialize()` carries `events_enabled`,
 `turn_effects` (per-turn modifiers) and `game_effects` (persistent
 game-long effects), so a saved game round-trips its event state (mandate
 #5; the M2 golden logs were regenerated once for these additive keys —
@@ -587,11 +587,15 @@ class Player(Protocol):
 - A player only ever sees `observe(side)` (mandate #4) and returns one
   `Action` drawn verbatim from `pending_decision.options` (mandate #2) —
   the same constraints a human at the console has.
-- `history` is every resolved `(Decision, Action)` pair since this player
-  was last consulted (opponent moves and CHANCE rolls included), as a
-  `engine.player.Event` list. Bots are free to ignore it; it exists so a
-  player *can* condition on what just happened without re-deriving it from
-  `Observation` alone.
+- `history` is every resolved `(Decision, Action)` pair so far, oldest
+  first (opponent moves and CHANCE rolls included), as a
+  `engine.player.Event` list — one shared, ever-growing list, not a
+  per-player delta since that seat was last consulted. The one ordering
+  exception is the headline: both `HEADLINE_PLAY` events are buffered by
+  `runner.play_game` and appended together once the second pick is locked
+  in, so the second picker's `history` can't leak the first pick. Bots are
+  free to ignore it; it exists so a player *can* condition on what just
+  happened without re-deriving it from `Observation` alone.
 - `Side.CHANCE` decisions (coup/realignment/space-race rolls, ...) never
   reach a `Player` at all in an ordinary game — `struggler.runner.play_game`
   resolves them directly from the pre-drawn single option `Decision.options`
@@ -756,15 +760,17 @@ built:
    state, score every legal action of the *current* decision with
    hand-crafted heuristics, take the top score. No lookahead, no search, no
    opponent modeling — see "Greedy bot design" below.
-3. **LLM reasoning layer** (future): craft a prompt carrying the
+3. **LLM reasoning layer** (built — `bots/llm/`): a prompt carrying the
    `Observation`, the `Event` history (or a summarized form of it), and the
-   model's own prior reasoning for this game, and let the model pick an
+   model's own prior reasoning for this game lets the model pick an
    action each decision. The natural-language reasoning trace is itself
-   useful output (an explainable "why"), unlike Greedy or RL. Implementing
-   this is "only" prompt engineering plus response parsing into a legal
-   `Action` — it needs nothing new from the engine, since `Player` already
-   receives everything an LLM prompt would need and returns everything
-   `step()` needs to advance. The one new plumbing question this tier
+   useful output (an explainable "why"), unlike Greedy or RL. It needed
+   nothing new from the engine, since `Player` already receives everything
+   an LLM prompt would need and returns everything
+   `step()` needs to advance — the tier is prompt engineering
+   (`prompt.py`, `rules_primer.py`) plus response parsing into a legal
+   `Action` (`schema.py`), over a provider-agnostic `LLMClient` with
+   Anthropic and OpenAI adapters. The one new plumbing question this tier
    raised — do the model's reasoning turns count as "moves" in a replay
    log, or stay external to it — is answered in "Game-level logging"
    above: they stay external.
@@ -816,9 +822,10 @@ def board_value(weights: GreedyWeights, board: Board, side: Side) -> float:
   expectation (`own_bonus - opp_bonus`), since both sides roll.
 - **Ops type** (Influence vs. Coup vs. Realignment): reuses the same
   per-target scorers over a proxy target list built from public board data
-  (`Board.is_reachable`, `Board.influence_cost`, the `COUP_MIN_DEFCON`
-  table) — not a duplicate of the engine's exact legality (NATO-style locks
-  aren't replicated here), since a wrong guess here only costs a slightly
+  (`Board.is_reachable`, `Board.influence_cost`, the
+  `RULES["coup_min_defcon"]` table) — not a duplicate of the engine's exact
+  legality (NATO-style locks aren't replicated here), since a wrong guess
+  here only costs a slightly
   worse **choice**, never an illegal `Action` (the engine's real
   `legal_actions()` is always what's actually offered downstream).
 - **DEFCON safety** (CLAUDE.md's worked example, priority #1): any Coup

@@ -24,18 +24,31 @@ from struggler.engine.player import Player
 from struggler.runner import play_game
 
 
-def build_llm_client(provider: str = "openai", model: str = "gpt-5.6-luna"):
-    if provider == "anthropic":
-        from struggler.bots.llm.anthropic_client import AnthropicClient
-        client: LLMClient = AnthropicClient(model=model)
-    elif provider == "openai":
-        from struggler.bots.llm.openai_client import OpenAIClient
-        client = OpenAIClient(model=model)
-    else:
+DEFAULT_LLM_PROVIDER = "openai"
+DEFAULT_LLM_MODELS = {"anthropic": "claude-opus-5", "openai": "gpt-5.6-luna"}
+
+
+def build_llm_client(provider: str | None = None, model: str | None = None):
+    """Build an LLM client, defaulting to the STRUGGLER_LLM_* environment.
+
+    `provider` and `model` override the environment when given; otherwise
+    `STRUGGLER_LLM_PROVIDER` / `STRUGGLER_LLM_MODEL` are consulted, falling
+    back to this module's defaults.
+    """
+    provider = provider or os.environ.get("STRUGGLER_LLM_PROVIDER", DEFAULT_LLM_PROVIDER)
+    if provider not in DEFAULT_LLM_MODELS:
         raise ValueError(
             f"unknown STRUGGLER_LLM_PROVIDER: {provider!r} (expected 'anthropic' or 'openai')"
         )
+    model = model or os.environ.get("STRUGGLER_LLM_MODEL") or DEFAULT_LLM_MODELS[provider]
+    if provider == "anthropic":
+        from struggler.bots.llm.anthropic_client import AnthropicClient
+        client: LLMClient = AnthropicClient(model=model)
+    else:
+        from struggler.bots.llm.openai_client import OpenAIClient
+        client = OpenAIClient(model=model)
     return client
+
 
 def build_player(
     kind: str,

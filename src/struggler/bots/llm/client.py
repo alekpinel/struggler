@@ -39,12 +39,18 @@ class StructuredOutputSpec:
     schema: Mapping[str, Any]
 
 
+# Output-token budget for one call. Shared by `LLMRequest` and every adapter's
+# own constructor default, so the two can never silently disagree about what an
+# unconfigured client actually asks for.
+DEFAULT_MAX_TOKENS = 16000
+
+
 @dataclass(frozen=True)
 class LLMRequest:
     system: str
     messages: Sequence[LLMMessage]
     output: StructuredOutputSpec
-    max_tokens: int = 16000
+    max_tokens: int = DEFAULT_MAX_TOKENS
 
 
 @dataclass(frozen=True)

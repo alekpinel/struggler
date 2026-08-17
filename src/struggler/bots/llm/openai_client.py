@@ -11,7 +11,12 @@ from __future__ import annotations
 import json
 from typing import Any, Mapping
 
-from struggler.bots.llm.client import LLMClientError, LLMRequest, LLMResponse
+from struggler.bots.llm.client import (
+    DEFAULT_MAX_TOKENS,
+    LLMClientError,
+    LLMRequest,
+    LLMResponse,
+)
 
 
 class OpenAIClient:
@@ -27,7 +32,9 @@ class OpenAIClient:
     depends on this detail.
     """
 
-    def __init__(self, *, model: str, api_key: str | None = None, max_tokens: int = 4096) -> None:
+    def __init__(
+        self, *, model: str, api_key: str | None = None, max_tokens: int = DEFAULT_MAX_TOKENS
+    ) -> None:
         try:
             import openai
         except ImportError as exc:
