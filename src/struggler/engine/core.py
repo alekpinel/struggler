@@ -27,9 +27,7 @@ _DEFAULT_MIN_DEFCON = 1
 # data/cards.json ever looks like this, so it can never collide with one.
 HIDDEN_CARD = "?"
 
-# Every coup attempt, in any region, degrades DEFCON by 1, regardless of
-# success. Realignment is subject to the same COUP_MIN_DEFCON restriction above (8.1.5 restricts "Coup or
-# Realignment rolls" identically) — enforced in _usable_coup_realign_target.
+# Which region each scoring card scores, keyed by card id.
 SCORING_CARD_REGION: dict[str, Region] = {
     "Asia_Scoring": Region.ASIA,
     "Europe_Scoring": Region.EUROPE,

@@ -315,8 +315,8 @@ def _best_coup_value(
 ) -> float | None:
     """Best expected Coup value among proxy-legal targets, or None if every
     one of them would be a DEFCON self-kill. Region-lock effects beyond
-    `COUP_MIN_DEFCON` (NATO, The Reformer, ...) are not replicated here --
-    out of scope for v1 (core M1/M2); see the module docstring."""
+    `RULES["coup_min_defcon"]` (NATO, The Reformer, ...) are not replicated
+    here -- out of scope for v1 (core M1/M2); see the module docstring."""
     opponent = side.opponent
     best = None
     for cid, info in board.countries.items():
