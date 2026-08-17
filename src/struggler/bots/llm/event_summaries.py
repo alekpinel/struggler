@@ -133,8 +133,8 @@ EVENT_MECHANICAL_SUMMARIES: dict[str, str] = {
     # -- persistent per-player operating lock --
     "Bear_Trap": "Traps the USSR: each action round it must discard a 2+-Ops card and roll a die (1-4 frees it, 5-6 stays trapped); with no such card, the round is wasted with no roll (any scoring card in hand is still forced into play).",
     "Quagmire": "Traps the US: each action round it must discard a 2+-Ops card and roll a die (1-4 frees it, 5-6 stays trapped); with no such card, the round is wasted with no roll (any scoring card in hand is still forced into play).",
-    # -- headline-only mechanic (no EVENTS entry; see events.py's note) --
-    "Defectors": "Headline only: a US headline of Defectors discards the USSR's headlined card unresolved; a USSR headline instead gives the US 1 VP.",
+    # -- headline hook + a separate action-round trigger (no EVENTS entry; see events.py's note) --
+    "Defectors": "A US headline of Defectors discards the USSR's headlined card unresolved. Separately, if the USSR plays it in a normal action round (Event or Ops, not Space Race), US +1 VP. A USSR headline or a US action-round play have no effect.",
     # -- rule-modifier play mode (no EVENTS entry; see core.py's un_intervention play mode) --
     "UN_Intervention": "Play mode 'un_intervention': spend this card to use an opponent's already-implemented, eligible event card for its Ops value with that card's event cancelled.",
 }

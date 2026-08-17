@@ -585,10 +585,14 @@ class Engine:
     def _apply_defectors_headline(self, order: list[list[str]]) -> list[list[str]]:
         """Defectors, headlined by the US, cancels the USSR's headline — the
         USSR card is discarded without resolving (Defectors always acts first,
-        so this happens before any card in `order` resolves). If the USSR ever
-        headlines Defectors (only reachable via Missile Envy handing it over),
-        the US instead gains 1 VP. Only meaningful with the event layer on;
-        without it both headlines are no-op discards anyway."""
+        so this happens before any card in `order` resolves). Printed text:
+        "Play in Headline Phase to cancel USSR Headline event, including
+        Scoring Card." The USSR headlining Defectors itself has no printed
+        effect (a plain no-op headline, like an unimplemented event) -- the
+        card's *other* clause (US +1 VP) triggers only when the USSR plays it
+        in a normal action round, not at headline; see
+        _maybe_defectors_action_round. Only meaningful with the event layer
+        on; without it both headlines are no-op discards anyway."""
         if not self.events_enabled:
             return order
         picks = {side_str: cid for side_str, cid in order}
@@ -597,8 +601,6 @@ class Engine:
             if ussr_card is not None:
                 self._file_card(Side.USSR, ussr_card, fired=False)
                 order = [pair for pair in order if pair[0] != "USSR"]
-        elif picks.get("USSR") == "Defectors":
-            self._award_vp(Side.US, 1)
         return order
 
     def _maybe_flower_power(self, side: Side, cid: str) -> None:
@@ -606,6 +608,16 @@ class Engine:
         (for its Event or Operations), until An Evil Empire cancels it."""
         if side is Side.US and cid in RULES["war_cards"] and self.game_effects.get("flower_power"):
             self._award_vp(Side.USSR, 2)
+
+    def _maybe_defectors_action_round(self, side: Side, cid: str) -> None:
+        """Defectors: printed text -- "If Defectors played by USSR during
+        Soviet action round, US gains 1 VP (unless played on the Space
+        Race)." Triggers on a normal action-round play (Event or Ops; Space
+        Race is the one excluded mode), not on headlining it -- the opposite
+        of what the engine did before this was reconfirmed against the
+        physical card."""
+        if self.events_enabled and side is Side.USSR and cid == "Defectors":
+            self._award_vp(Side.US, 1)
 
     def _resolve_headline_card(self, side: Side, cid: str) -> None:
         """Resolve one headlined card for its owner. A scoring card scores; with
@@ -756,6 +768,7 @@ class Engine:
 
         if mode in ("event", "ops", "un_intervention"):
             self._maybe_flower_power(side, cid)
+            self._maybe_defectors_action_round(side, cid)
             if self.is_terminal:
                 return
 
