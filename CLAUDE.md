@@ -171,6 +171,17 @@ M3, and when implemented, must be designed against mandates #1–#2
 (decisions/actions), never adapted from the reference repo's
 single-action model.
 
+Each card entry also carries `event_summary`: a short, hand-maintained
+paraphrase of what `events.py` actually does mechanically for that
+card (used by the LLM prompt, see "LLM reasoning layer" below), `null`
+for a card with no implemented event yet. Unlike the other fields,
+this one is *not* a fact about the physical game — it is engine-derived
+documentation of `events.py`'s behavior, kept in `cards.json` because
+it belongs with the rest of a card's data, not because it is sourced
+from the physical card text. It can drift from `events.py` as M3
+evolves; there is no automated sync check in v1 (documented known
+limitation, see `bots/llm/player.py`).
+
 ## Milestones
 
 Each milestone is a hard gate: it must be fully correct and tested

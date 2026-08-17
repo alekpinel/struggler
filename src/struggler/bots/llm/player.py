@@ -50,9 +50,9 @@ Known limitations (v1, documented rather than engineered around):
   call; a pathological game could in theory approach the model's context
   limit.
 - No full card event/flavor text is available to the model, only the
-  mechanical facts in `cards.json` plus `event_summaries.py`'s hand-
-  maintained short mechanical summaries (which can drift from `events.py`
-  as M3 evolves -- no automated sync check in v1).
+  mechanical facts in `cards.json`, including its hand-maintained
+  `event_summary` field per card (which can drift from `events.py` as M3
+  evolves -- no automated sync check in v1).
 - Two concrete provider adapters ship (`anthropic_client.py`,
   `openai_client.py`), though `LLMClient` itself is provider-agnostic and
   a third is just another adapter module away.

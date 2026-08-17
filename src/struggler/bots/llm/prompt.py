@@ -9,7 +9,6 @@ from __future__ import annotations
 import json
 from typing import Sequence
 
-from struggler.bots.llm.event_summaries import EVENT_MECHANICAL_SUMMARIES
 from struggler.bots.llm.rules_primer import RULES_PRIMER
 from struggler.bots.llm.schema import PAYLOAD_KEY_BY_KIND, PLAYER_FACING_KINDS
 from struggler.engine import Action, Decision, DecisionKind, Observation, Side
@@ -61,8 +60,7 @@ def _cards_text() -> str:
     cards = load_cards()
     lines = []
     for cid, card in sorted(cards.items(), key=lambda kv: kv[1].number):
-        mechanic = EVENT_MECHANICAL_SUMMARIES.get(cid)
-        event_text = mechanic if mechanic else "not implemented (playing it as 'event' is a no-op discard)"
+        event_text = card.event_summary or "not implemented (playing it as 'event' is a no-op discard)"
         lines.append(
             f"  {cid} (#{card.number}): ops={card.ops} side={card.side.value} "
             f"period={card.period.value} scoring={card.scoring} "
