@@ -1,5 +1,4 @@
 {
-  "_disclaimer": "Card data for Twilight Struggle (GMT Games, 2005 / 2009 Deluxe). Entered independently from knowledge of the published physical game (source of truth per CLAUDE.md's card data policy), with the FACTUAL fields (ops, side, deck period, remove-after-event, scoring) cross-checked against the public reference implementation glowsplint/twilight-struggle-py used as a FACTS-ONLY reference (no code or files copied; that repo is all-rights-reserved). Card EVENT mechanics are intentionally NOT modeled here: M2 plays every card for Ops/Space Race only and never fires an event.",
   "_schema": {
     "id": "stable string key (also used in replay logs)",
     "number": "canonical GMT card number (1-110)",
@@ -12,12 +11,6 @@
     "optional": "true iff a Deluxe optional card, excluded from the default deck unless enabled",
     "in_deck": "false iff the card is never shuffled into the draw pile (only The China Card)"
   },
-  "_confirmed_facts_only": "ops, side, period and scoring for cards 1-91 were cross-checked against the reference and match the physical game to the best of current knowledge. Notably Five_Year_Plan is a US card (event forces a USSR discard), and Southeast_Asia_Scoring is the one scoring card that is removed after use.",
-  "_verify": [
-    "Cards 92-110 (Late War tail + optional cards) were NOT reachable via the reference cross-check (file truncated on fetch) and are entered from knowledge of the physical game; re-verify names, ops, remove_after_event and optional-card numbering (103-110) against the printed cards before M3.",
-    "Card #71 name 'Nixon Plays The China Card' comes from the reference's identifier and is not independently confirmed against the printed card; verify before M3.",
-    "remove_after_event flags matter only from M3 onward (M2 never fires events); the M2-critical fields are ops, period and scoring."
-  ],
   "cards": {
     "Asia_Scoring":                {"number": 1,  "name": "Asia Scoring",                          "ops": 0, "side": "NEUTRAL", "period": "EARLY_WAR", "scoring": true,  "remove_after_event": false, "optional": false, "in_deck": true},
     "Europe_Scoring":              {"number": 2,  "name": "Europe Scoring",                        "ops": 0, "side": "NEUTRAL", "period": "EARLY_WAR", "scoring": true,  "remove_after_event": false, "optional": false, "in_deck": true},

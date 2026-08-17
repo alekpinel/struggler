@@ -82,7 +82,7 @@ from struggler.bots.llm.schema import (
     PlanParseError,
     parse_plan_response,
 )
-from struggler.engine import Action, Decision, Observation
+from struggler.engine import Action, Decision, Observation, Side
 from struggler.engine.player import Event
 
 _MAX_RETRIES = 1  # one retry after an invalid response, then fall back to RNG
@@ -178,7 +178,7 @@ class LLMPlayer:
     ) -> Action:
         user_text = build_user_turn(observation, decision, new_events)
         plan, first_action, assistant_text, error, usage, raw_responses = self._request_plan_with_retry(
-            user_text, decision
+            observation.side, user_text, decision
         )
 
         # Exactly one user + one assistant turn is committed per call, no
@@ -220,7 +220,7 @@ class LLMPlayer:
         return action
 
     def _request_plan_with_retry(
-        self, user_text: str, decision: Decision
+        self, side: Side, user_text: str, decision: Decision
     ) -> tuple[DecisionPlan | None, Action | None, str, str | None, dict[str, int], tuple[str, ...]]:
         """Attempts the LLM call up to `_MAX_RETRIES + 1` times, using a
         local scratch message list so failed attempts never pollute the
@@ -253,7 +253,7 @@ class LLMPlayer:
 
         for _ in range(_MAX_RETRIES + 1):
             request = LLMRequest(
-                system=build_system_prompt(),
+                system=build_system_prompt(side),
                 messages=tuple(attempt_messages),
                 output=OUTPUT_SPEC,
             )

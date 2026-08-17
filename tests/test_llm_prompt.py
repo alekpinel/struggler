@@ -7,17 +7,17 @@ from __future__ import annotations
 
 from struggler.bots.llm.prompt import build_system_prompt, build_user_turn
 from struggler.bots.llm.schema import PLAYER_FACING_KINDS
-from struggler.engine import DecisionKind, Engine
+from struggler.engine import DecisionKind, Engine, Side
 
 
 def test_system_prompt_explains_control_formula():
-    prompt = build_system_prompt()
+    prompt = build_system_prompt(Side.US)
     assert "stability" in prompt
     assert "Influence there) - (opponent's Influence there) >= " in prompt
 
 
 def test_system_prompt_explains_regional_scoring_tiers():
-    prompt = build_system_prompt()
+    prompt = build_system_prompt(Side.US)
     for tier in ("Presence", "Domination", "Control"):
         assert tier in prompt
     assert "Battleground countries there" in prompt  # Domination definition
@@ -25,38 +25,38 @@ def test_system_prompt_explains_regional_scoring_tiers():
 
 
 def test_system_prompt_explains_defcon_coup_lock_table():
-    prompt = build_system_prompt()
+    prompt = build_system_prompt(Side.US)
     assert "Europe needs DEFCON >= 5" in prompt
     assert "Asia >= 4" in prompt
     assert "Middle East >= 3" in prompt
 
 
 def test_system_prompt_explains_coup_formula():
-    prompt = build_system_prompt()
+    prompt = build_system_prompt(Side.US)
     assert "die_roll + ops_spent - 2*country.stability" in prompt
 
 
 def test_system_prompt_explains_opponent_event_firing_on_ops_play():
-    prompt = build_system_prompt()
+    prompt = build_system_prompt(Side.US)
     assert "EVENT_OPS_ORDER" in prompt
     assert "Event still fires" in prompt
 
 
 def test_system_prompt_explains_china_card_bonus():
-    prompt = build_system_prompt()
+    prompt = build_system_prompt(Side.US)
     assert "China Card" in prompt
     assert "spent inside Asia" in prompt
 
 
 def test_system_prompt_explains_victory_conditions():
-    prompt = build_system_prompt()
+    prompt = build_system_prompt(Side.US)
     assert "+/-20" in prompt
     assert "DEFCON hits" in prompt
     assert "Controls every" in prompt and "Europe" in prompt
 
 
 def test_system_prompt_strips_internal_provenance_metadata():
-    prompt = build_system_prompt()
+    prompt = build_system_prompt(Side.US)
     for internal_key in (
         "_disclaimer",
         "_confirmed_against_physical_board",
@@ -67,7 +67,7 @@ def test_system_prompt_strips_internal_provenance_metadata():
 
 
 def test_system_prompt_still_carries_country_map_data():
-    prompt = build_system_prompt()
+    prompt = build_system_prompt(Side.US)
     # A representative Battleground country and a representative
     # adjacency entry must still be present in the (curated) dump.
     assert '"France"' in prompt
@@ -76,7 +76,7 @@ def test_system_prompt_still_carries_country_map_data():
 
 
 def test_payload_catalog_has_a_meaning_for_every_player_facing_kind():
-    prompt = build_system_prompt()
+    prompt = build_system_prompt(Side.US)
     for kind in PLAYER_FACING_KINDS:
         if kind is DecisionKind.EVENT_RESUME:
             continue  # single-option marker, never actually reaches the LLM

@@ -12,7 +12,7 @@ from typing import Sequence
 from struggler.bots.llm.event_summaries import EVENT_MECHANICAL_SUMMARIES
 from struggler.bots.llm.rules_primer import RULES_PRIMER
 from struggler.bots.llm.schema import PAYLOAD_KEY_BY_KIND, PLAYER_FACING_KINDS
-from struggler.engine import Action, Decision, DecisionKind, Observation
+from struggler.engine import Action, Decision, DecisionKind, Observation, Side
 from struggler.engine.cards import load_cards
 from struggler.engine.data_loader import load_json
 from struggler.engine.player import Event
@@ -71,64 +71,74 @@ def _cards_text() -> str:
     return "\n".join(lines)
 
 
-_STRATEGIC_GUIDANCE = "\n".join(
-    [
-        "STRATEGIC GUIDANCE (heuristics worth weighing, not hard rules -- "
-        "unlike the RULES PRIMER above, following these is a judgment call, "
-        "not a legality requirement):",
-        "  - Coups are not automatically dangerous: DEFCON only drops to "
-        "the CURRENT value minus 1 per Coup attempt, so at DEFCON 3+, "
-        "coup-ing a low-Stability (1-2) country is usually a strong, low-risk "
-        "play -- don't default to Influence out of reflexive DEFCON "
-        "caution; weigh a Coup explicitly every time you spend Ops.",
-        "  - Space Race is a real alternative use for a card, not a "
-        "fallback: if a card's Ops aren't needed for a strong Influence/"
-        "Coup/Realignment play this turn, or its Event would help your "
-        "OPPONENT, consider discarding it for a Space Race attempt instead "
-        "of defaulting to Ops. Remember: playing an opponent's card for "
-        "Ops does NOT stop their Event from firing (only its order changes) "
-        "-- Space Race is the only mode that actually denies it, so if "
-        "avoiding that Event is the whole point, choose Space Race, not Ops.",
-        "  - Read `vp` number -- a NEGATIVE vp is a big USSR lead (approaching "
-        "USSR's automatic win at -20); a large POSITIVE vp is a big US lead."
-        "  - The Mid War deck (Central America, Southeast Asia, Africa, "
-        "and South America Scoring, among other cards) only enters play "
-        "starting turn 4 -- Asia, Europe, and Middle East Scoring are the "
-        "only Scoring cards available turns 1-3. Weight your early "
-        "Influence investment toward the regions already in play, and "
-        "start shifting toward the Mid War regions as turn 4 approaches.",
-        "  - The full board (every country, including ones at 0-0 "
-        "Influence) is in every observation you're given -- actively check "
-        "it for empty Battlegrounds you can already reach (adjacent to "
-        "your home space or your existing Influence) before assuming a "
-        "region is settled. An uncontested Battleground is often the "
-        "cheapest VP on the board, and in Europe specifically, controlling "
-        "every country wins the game outright the instant Europe is "
-        "scored (see VICTORY above) -- don't leave that path unexplored "
-        "just because the opponent hasn't shown up there.",
-        "  - Diminishing returns on stacking: Ops spent adding Influence "
-        "to a country you already Control, beyond what's needed to keep "
-        "that Control safe from a single Coup/Realignment swing, usually "
-        "produce less value than the same Ops spent expanding to a new "
-        "country, on a Coup, or on a Space Race attempt.",
-        "  - Track your own running Military Operations total against the "
-        "current DEFCON over the course of a turn (both are in every "
-        "observation). Falling short at end of turn hands the opponent 1 "
-        "VP per point of shortfall -- an easy accident if every Ops spend "
-        "defaults to Influence and none to Coups or war Events.",
-    ]
-)
+_COMMON_GUIDANCE = [
+    "STRATEGIC GUIDANCE (heuristics, not rules):",
+    "  - Use events to open regions or make drastic changes, if not, usually Ops are a better use of cards.",
+    "  - Only Battleground coups degrade DEFCON. Non-BG coups are free tempo and still count as Military Ops.",
+    "  - 1 or 2 Stability battleground are cheap to coup and that's usually the best option if you have the opportunity.",
+    "  - Never trigger a DEFCON-degrading Event on your own AR at DEFCON 2. Same for opponent Events that hand them Ops.",
+    "  - Plan every turn to space one card: one with a nasty rival event but without high ops that makes it not worth it using as Ops.",
+    "  - Deck reshuffles on turns 3 and 7. From turn 7 on, discarding is removal.",
+    "  - Resolve the opponent Event first, then spend the Ops to repair it.",
+    "  - Military Ops requirement = DEFCON number; 1 VP to the opponent per point short. Coups and war Events count, Realignments don't.",
+    "  - `vp` negative = USSR lead (auto-win at -20); positive = US lead (+20).",
+    "  - Presence/Domination/Control are step functions. One Influence that crosses a threshold beats three that don't.",
+    "  - Breaking control without taking it wastes the round.",
+    "  - Don't overstack a country you control past one coup's worth of margin.",
+    "  - Scan 0-0 countries for reachable empty Battlegrounds. Cheapest VP on the board.",
+    "  - Controlling all of Europe wins outright when Europe Scoring is played.",
+    "  - Turns 1-3 only Asia, Europe and Middle East Scoring exist. Mid War regions arrive on turn 4.",
+]
 
-_system_prompt_cache: str | None = None
+_USSR_GUIDANCE = [
+    "USSR-SPECIFIC GUIDANCE:",
+    "  - Standard initial influence: 4 Poland, 1 East Germany, 1 Yugoslavia. Controls both, has access to Yugoslavia.",
+    "  - You act first every round: take the turn's Battleground coup and lock DEFCON at 2 before the US can.",
+    "  - Final Scoring favors the US. aim to win by Mid War or a turn-8 Wargames.",
+    "  - Turn 1 AR1 is coup Iran or play for Italy whatever is weaker.",
+    "  - Coup big. A weak coup the US can reverse is worse than none.",
+    "  - Best turn-1 headlines: Red Scare/Purge, Suez Crisis, Arab-Israeli War, Socialist Governments, Vietnam Revolts.",
+    "  - Suez (or a won Arab-Israeli War) plus a good Iran coup erases the US from the Middle East.",
+    "  - Early targets: Greece/Turkey, Egypt and Libya via Nasser, Jordan or Lebanon, then east into Pakistan and India.",
+    "  - Don't put 1 Op into Pakistan at DEFCON 4+. You can't coup back and you hand the US a target.",
+    "  - China Card is your 4 Ops (5 if every Op goes to Asia). Holding it lets you hold an extra card -- your insurance against DEFCON-suicide hands.",
+    "  - You have no natural access to the Americas. Don't invest there without an access Event.",
+]
+
+_US_GUIDANCE = [
+    "US-SPECIFIC GUIDANCE:",
+    "  - Standard initial influence: 4 West Germany, 3 Italy. Controls both.",
+    "  - Play the long game: Final Scoring favors you. Survive the Early War.",
+    "  - Losing one region is fine; losing all of them isn't. Cut losses where Ops can't repair and wait for an Event.",
+    "  - Military Ops is your weak spot. Plan a non-Battleground coup (Colombia, Syria) just to meet the DEFCON requirement if you couldn't coup before.",
+    "  - Turn 1: Jordan or Lebanon to shield Israel, Egypt toward Libya before Nasser, Malaysia toward Thailand, Greece for access.",
+    "  - Counter-coup Iran only if their coup was weak. Prefer holding the turn's last coup over the second-to-last.",
+    "  - Stay out of South Korea until Korean War is spent or you hold Japan. Triggering Korean War yourself early is usually right.",
+    "  - Trigger USSR starred Events while they're cheap: Korean War, Nasser, Warsaw Pact, Comecon, Blockade.",
+    "  - AR7 (AR6 on turns 1-3): make a play the USSR must answer on their first round next turn.",
+    "  - NATO only works after Marshall Plan or Warsaw Pact. Check before relying on it.",
+    "  - Never play NORAD or NATO for the Event.",
+]
 
 
-def build_system_prompt() -> str:
+def _strategic_guidance_text(side: Side) -> str:
+    lines = list(_COMMON_GUIDANCE)
+    lines += _USSR_GUIDANCE if side is Side.USSR else _US_GUIDANCE
+    return "\n".join(lines)
+
+
+_system_prompt_cache: dict[Side, str] = {}
+
+
+def build_system_prompt(side: Side) -> str:
     """The static part of the conversation: hard constraints, the payload
-    catalog, and every card's mechanical facts. Depends on nothing
-    per-call, so it's built once and cached."""
-    global _system_prompt_cache
-    if _system_prompt_cache is not None:
-        return _system_prompt_cache
+    catalog, and every card's mechanical facts, plus strategic guidance for
+    the given `side` only (its own-side guidance never leaks to the other
+    seat). Depends on nothing else per-call, so it's built once per side and
+    cached."""
+    cached = _system_prompt_cache.get(side)
+    if cached is not None:
+        return cached
 
     countries = load_json("countries.json")
     # The raw file carries dev-facing provenance/confidence notes
@@ -161,7 +171,7 @@ def build_system_prompt() -> str:
         "consulted again -- you never roll dice yourself and never see a "
         "decision asking you to.",
         RULES_PRIMER,
-        _STRATEGIC_GUIDANCE,
+        _strategic_guidance_text(side),
         _payload_catalog_text(),
         f"Rules constants (JSON):\n{json.dumps(RULES, indent=2)}",
         "Countries (JSON). Each entry has: region, subregion (nullable), "
@@ -176,8 +186,9 @@ def build_system_prompt() -> str:
         f"Cards (mechanical facts only -- no printed flavor/event text is "
         f"available to you, only what's summarized below):\n{_cards_text()}",
     ]
-    _system_prompt_cache = "\n\n".join(parts)
-    return _system_prompt_cache
+    text = "\n\n".join(parts)
+    _system_prompt_cache[side] = text
+    return text
 
 
 def _decision_to_text(decision: Decision) -> str:
