@@ -9,22 +9,50 @@ from __future__ import annotations
 import json
 from typing import Sequence
 
-from struggler.bots.llm.event_summaries import EVENT_MECHANICAL_SUMMARIES
+from struggler.bots.llm.rules_primer import RULES_PRIMER
 from struggler.bots.llm.schema import PAYLOAD_KEY_BY_KIND, PLAYER_FACING_KINDS
-from struggler.engine import Action, Decision, Observation
+from struggler.engine import Action, Decision, DecisionKind, Observation, Side
 from struggler.engine.cards import load_cards
 from struggler.engine.data_loader import load_json
 from struggler.engine.player import Event
 from struggler.engine.rules import RULES
 
+# One-line semantic meaning per player-facing DecisionKind -- what the
+# decision actually represents, not just its payload shape. Source of truth
+# is the inline comments already next to each DecisionKind member in
+# engine/types.py; kept here by hand since Python enums don't expose
+# adjacent source comments at runtime.
+_DECISION_KIND_MEANING: dict[DecisionKind, str] = {
+    DecisionKind.PLACE_INFLUENCE: "place one Influence point in the given country (one atomic point per decision)",
+    DecisionKind.COUP_TARGET: "pick which country to attempt a Coup against",
+    DecisionKind.REALIGNMENT_TARGET: "pick which country to attempt a Realignment roll against",
+    DecisionKind.HEADLINE_PLAY: "pick which card from your hand to headline this turn",
+    DecisionKind.ACTION_ROUND_PLAY: "pick which card to play for this action round",
+    DecisionKind.PLAY_MODE: (
+        "choose how to use the card just played -- normally a choice between "
+        "'ops' (spend its Ops), 'event' (fire its Event), and 'space_race' "
+        "(discard it for a Space Race advance attempt, if eligible); "
+        "'un_intervention' additionally appears only while holding the UN "
+        "Intervention card"
+    ),
+    DecisionKind.OPS_TYPE: "choose how to spend this card's Ops",
+    DecisionKind.EVENT_OPS_ORDER: "the opponent's card Event was triggered by your Ops play -- choose whether it resolves before or after your Ops",
+    DecisionKind.WAR_TARGET: "pick the target country for a 'war' Event whose attacker chooses the target",
+    DecisionKind.EVENT_INFLUENCE: "an Event-driven Influence placement/removal step -- pick the country",
+    DecisionKind.EVENT_CHOICE: "pick one of this Event's branching sub-options",
+    DecisionKind.QUAGMIRE_DISCARD: "discard an Ops-2+ card to try to break free from Bear Trap/Quagmire",
+    DecisionKind.HELD_CARD_DISCARD: "optionally discard your Held Card at end of turn (Space Race box 6 ability)",
+}
+
 
 def _payload_catalog_text() -> str:
-    lines = ["Decision kind -> the payload key you must fill in for that kind's step:"]
+    lines = ["Decision kind -> what it means, and the payload key you must fill in for that kind's step:"]
     for kind in PLAYER_FACING_KINDS:
         key = PAYLOAD_KEY_BY_KIND.get(kind)
         if key is None:  # EVENT_RESUME: always single-option, never actually reaches you
             continue
-        lines.append(f"  - {kind.value}: payload.{key}")
+        meaning = _DECISION_KIND_MEANING[kind]
+        lines.append(f"  - {kind.value}: {meaning} -- payload.{key}")
     return "\n".join(lines)
 
 
@@ -32,8 +60,7 @@ def _cards_text() -> str:
     cards = load_cards()
     lines = []
     for cid, card in sorted(cards.items(), key=lambda kv: kv[1].number):
-        mechanic = EVENT_MECHANICAL_SUMMARIES.get(cid)
-        event_text = mechanic if mechanic else "not implemented (playing it as 'event' is a no-op discard)"
+        event_text = card.event_summary or "not implemented (playing it as 'event' is a no-op discard)"
         lines.append(
             f"  {cid} (#{card.number}): ops={card.ops} side={card.side.value} "
             f"period={card.period.value} scoring={card.scoring} "
@@ -42,18 +69,83 @@ def _cards_text() -> str:
     return "\n".join(lines)
 
 
-_system_prompt_cache: str | None = None
+_COMMON_GUIDANCE = [
+    "STRATEGIC GUIDANCE (heuristics, not rules):",
+    "  - Use events to open regions or make drastic changes, if not, usually Ops are a better use of cards.",
+    "  - Only Battleground coups degrade DEFCON. Non-BG coups are free tempo and still count as Military Ops.",
+    "  - 1 or 2 Stability battleground are cheap to coup and that's usually the best option if you have the opportunity.",
+    "  - Never trigger a DEFCON-degrading Event on your own AR at DEFCON 2. Same for opponent Events that hand them Ops.",
+    "  - Plan every turn to space one card: one with a nasty rival event but without high ops that makes it not worth it using as Ops.",
+    "  - Deck reshuffles on turns 3 and 7. From turn 7 on, discarding is removal.",
+    "  - Resolve the opponent Event first, then spend the Ops to repair it.",
+    "  - Military Ops requirement = DEFCON number; 1 VP to the opponent per point short. Coups and war Events count, Realignments don't.",
+    "  - `vp` negative = USSR lead (auto-win at -20); positive = US lead (+20).",
+    "  - Presence/Domination/Control are step functions. One Influence that crosses a threshold beats three that don't.",
+    "  - Breaking control without taking it wastes the round.",
+    "  - Don't overstack a country you control past one coup's worth of margin.",
+    "  - Scan 0-0 countries for reachable empty Battlegrounds. Cheapest VP on the board.",
+    "  - Controlling all of Europe wins outright when Europe Scoring is played.",
+    "  - Turns 1-3 only Asia, Europe and Middle East Scoring exist. Mid War regions arrive on turn 4.",
+]
+
+_USSR_GUIDANCE = [
+    "USSR-SPECIFIC GUIDANCE:",
+    "  - Standard initial influence: 4 Poland, 1 East Germany, 1 Yugoslavia. Controls both, has access to Yugoslavia.",
+    "  - You act first every round: take the turn's Battleground coup and lock DEFCON at 2 before the US can.",
+    "  - Final Scoring favors the US. aim to win by Mid War or a turn-8 Wargames.",
+    "  - Turn 1 AR1 is coup Iran or play for Italy whatever is weaker.",
+    "  - Coup big. A weak coup the US can reverse is worse than none.",
+    "  - Best turn-1 headlines: Red Scare/Purge, Suez Crisis, Arab-Israeli War, Socialist Governments, Vietnam Revolts.",
+    "  - Suez (or a won Arab-Israeli War) plus a good Iran coup erases the US from the Middle East.",
+    "  - Early targets: Greece/Turkey, Egypt and Libya via Nasser, Jordan or Lebanon, then east into Pakistan and India.",
+    "  - Don't put 1 Op into Pakistan at DEFCON 4+. You can't coup back and you hand the US a target.",
+    "  - China Card is your 4 Ops (5 if every Op goes to Asia). Holding it lets you hold an extra card -- your insurance against DEFCON-suicide hands.",
+    "  - You have no natural access to the Americas. Don't invest there without an access Event.",
+]
+
+_US_GUIDANCE = [
+    "US-SPECIFIC GUIDANCE:",
+    "  - Standard initial influence: 4 West Germany, 3 Italy. Controls both.",
+    "  - Play the long game: Final Scoring favors you. Survive the Early War.",
+    "  - Losing one region is fine; losing all of them isn't. Cut losses where Ops can't repair and wait for an Event.",
+    "  - Military Ops is your weak spot. Plan a non-Battleground coup (Colombia, Syria) just to meet the DEFCON requirement if you couldn't coup before.",
+    "  - Turn 1: Jordan or Lebanon to shield Israel, Egypt toward Libya before Nasser, Malaysia toward Thailand, Greece for access.",
+    "  - Counter-coup Iran only if their coup was weak. Prefer holding the turn's last coup over the second-to-last.",
+    "  - Stay out of South Korea until Korean War is spent or you hold Japan. Triggering Korean War yourself early is usually right.",
+    "  - Trigger USSR starred Events while they're cheap: Korean War, Nasser, Warsaw Pact, Comecon, Blockade.",
+    "  - AR7 (AR6 on turns 1-3): make a play the USSR must answer on their first round next turn.",
+    "  - NATO only works after Marshall Plan or Warsaw Pact. Check before relying on it.",
+    "  - Never play NORAD or NATO for the Event.",
+]
 
 
-def build_system_prompt() -> str:
+def _strategic_guidance_text(side: Side) -> str:
+    lines = list(_COMMON_GUIDANCE)
+    lines += _USSR_GUIDANCE if side is Side.USSR else _US_GUIDANCE
+    return "\n".join(lines)
+
+
+_system_prompt_cache: dict[Side, str] = {}
+
+
+def build_system_prompt(side: Side) -> str:
     """The static part of the conversation: hard constraints, the payload
-    catalog, and every card's mechanical facts. Depends on nothing
-    per-call, so it's built once and cached."""
-    global _system_prompt_cache
-    if _system_prompt_cache is not None:
-        return _system_prompt_cache
+    catalog, and every card's mechanical facts, plus strategic guidance for
+    the given `side` only (its own-side guidance never leaks to the other
+    seat). Depends on nothing else per-call, so it's built once per side and
+    cached."""
+    cached = _system_prompt_cache.get(side)
+    if cached is not None:
+        return cached
 
     countries = load_json("countries.json")
+    # The raw file carries dev-facing provenance/confidence notes
+    # (_disclaimer, _confirmed_against_physical_board, _uncertain,
+    # _setup_influence_note) that are not meant for the model to reason
+    # about -- only the game-facing keys are included in the dump.
+    countries_for_model = {
+        key: countries[key] for key in ("superpowers", "setup_influence", "countries")
+    }
 
     parts = [
         "You are playing Twilight Struggle (GMT Games) as one seat in a "
@@ -76,14 +168,25 @@ def build_system_prompt() -> str:
         "4. Dice are rolled by the engine's own seeded RNG before you're ever "
         "consulted again -- you never roll dice yourself and never see a "
         "decision asking you to.",
+        RULES_PRIMER,
+        _strategic_guidance_text(side),
         _payload_catalog_text(),
         f"Rules constants (JSON):\n{json.dumps(RULES, indent=2)}",
-        f"Countries (JSON):\n{json.dumps(countries, indent=2)}",
+        "Countries (JSON). Each entry has: region, subregion (nullable), "
+        "stability (used in the Control/Coup/Realignment formulas above), "
+        "battleground (true/false, used in regional scoring), and "
+        "adjacent_to (country ids this country connects to for placement "
+        "reachability, Coup/Realignment eligibility bonuses, and event "
+        "targeting). \"US\" and \"USSR\" also appear as adjacency pseudo-"
+        "nodes representing each superpower's home space -- a country "
+        "adjacent to one of them is always a legal Influence-placement "
+        f"target for that side:\n{json.dumps(countries_for_model, indent=2)}",
         f"Cards (mechanical facts only -- no printed flavor/event text is "
         f"available to you, only what's summarized below):\n{_cards_text()}",
     ]
-    _system_prompt_cache = "\n\n".join(parts)
-    return _system_prompt_cache
+    text = "\n\n".join(parts)
+    _system_prompt_cache[side] = text
+    return text
 
 
 def _decision_to_text(decision: Decision) -> str:
@@ -98,11 +201,6 @@ def _decision_to_text(decision: Decision) -> str:
 
 
 def _observation_to_text(observation: Observation) -> str:
-    nonzero_influence = {
-        cid: infl
-        for cid, infl in observation.influence.items()
-        if infl.get("US") or infl.get("USSR")
-    }
     payload = {
         "side": observation.side.value,
         "phase": observation.phase,
@@ -110,7 +208,7 @@ def _observation_to_text(observation: Observation) -> str:
         "vp": observation.vp,
         "turn": observation.turn,
         "action_round": observation.action_round,
-        "influence": nonzero_influence,
+        "influence": dict(observation.influence),
         "hand": list(observation.hand),
         "opponent_hand_size": observation.opponent_hand_size,
         "draw_pile_size": observation.draw_pile_size,

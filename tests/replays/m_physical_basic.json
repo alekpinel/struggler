@@ -1357,7 +1357,8 @@
           "Nuclear_Test_Ban",
           "Formosan_Resolution",
           "Defectors"
-        ]
+        ],
+        "ops_round_snapshot": null
       }
     }
   ]

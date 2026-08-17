@@ -29,9 +29,29 @@ def test_realignment_pushes_actor_then_opponent_chance_rolls():
     assert engine.board.influence["Guatemala"]["USSR"] == expected
 
 
+def test_realignment_more_influence_modifier():
+    # 6.2.2's third modifier: +1 to a side's roll if it already holds more
+    # Influence in the target than its opponent does. Guatemala has no
+    # adjacency or controlled-neighbor bonus for either side here, so this
+    # isolates the new modifier from the other two.
+    engine = Engine(seed=1)
+    engine.board.influence["Guatemala"]["US"] = 3
+    engine.board.influence["Guatemala"]["USSR"] = 1
+    assert engine._realignment_bonus(Side.US, "Guatemala") == 1
+    assert engine._realignment_bonus(Side.USSR, "Guatemala") == 0
+
+    # Equal Influence grants neither side the modifier.
+    engine.board.influence["Guatemala"]["USSR"] = 3
+    assert engine._realignment_bonus(Side.US, "Guatemala") == 0
+    assert engine._realignment_bonus(Side.USSR, "Guatemala") == 0
+
+
 def test_realignment_negative_margin_reduces_actors_own_influence():
     # Confirmed rule: losing the realignment roll costs the acting side
     # their own influence in the target country (not just a wasted Op).
+    # (US=5 vs USSR=1 here also exercises the "more Influence" modifier
+    # from test_realignment_more_influence_modifier above -- US gets the
+    # +1 on top of the margin, on both branches below.)
     engine = Engine(seed=4)
     engine.board.influence["Guatemala"]["US"] = 5
     engine.board.influence["Guatemala"]["USSR"] = 1  # opponent Influence required to realign
@@ -69,9 +89,10 @@ def test_realignment_chains_attempts_until_exhausted():
     engine = Engine(seed=2)
     engine.board.influence["Guatemala"]["US"] = 1  # opponent Influence required to realign
     engine.begin_realignment_operations(Side.USSR, ops=2)
-    for expected_attempts_left in (2, 1):
+    for expected_spent in (0, 1):
         assert engine.pending_decision.kind is DecisionKind.REALIGNMENT_TARGET
-        assert engine.pending_decision.context["attempts_remaining"] == expected_attempts_left
+        assert engine.pending_decision.context["spent"] == expected_spent
+        assert engine.pending_decision.context["card_ops"] == 2
         engine.step(engine.pending_decision.options[0])  # target
         engine.step(engine.pending_decision.options[0])  # actor roll
         engine.step(engine.pending_decision.options[0])  # opponent roll

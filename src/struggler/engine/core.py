@@ -95,6 +95,14 @@ class Engine:
         # the flags they depend on. Never cleared at end of turn. JSON-native
         # values only (mandate #5).
         self.game_effects: dict[str, object] = {}
+        # Rule 6.1.1: within one Operations spend, every placed point must be
+        # adjacent to friendly markers that were in place at the *start* of
+        # the phasing player's Action Round -- not markers placed earlier in
+        # the same spend. Frozen the moment a placement chain begins (see
+        # _maybe_push_place_influence / _maybe_push_bonus_influence), reused
+        # for every point in that chain, and cleared once it ends. None
+        # outside of an Ops-driven placement chain.
+        self._ops_round_snapshot: dict[str, dict[str, int]] | None = None
 
         # -- Physical-mode state ------------------------------------------
         # physical_mode makes one seat a real human playing the physical
@@ -213,6 +221,11 @@ class Engine:
             "physical_mode": self.physical_mode,
             "physical_side": self.physical_side.value if self.physical_side is not None else None,
             "hidden_pool": list(self.hidden_pool),
+            "ops_round_snapshot": (
+                copy.deepcopy(self._ops_round_snapshot)
+                if self._ops_round_snapshot is not None
+                else None
+            ),
         }
 
     @classmethod
@@ -256,6 +269,8 @@ class Engine:
         physical_side = data.get("physical_side")
         engine.physical_side = Side(physical_side) if physical_side is not None else None
         engine.hidden_pool = list(data.get("hidden_pool", []))
+        snapshot = data.get("ops_round_snapshot")
+        engine._ops_round_snapshot = copy.deepcopy(snapshot) if snapshot is not None else None
         return engine
 
     # -- M1 test-harness entry points (no cards yet) -----------------------
@@ -276,7 +291,7 @@ class Engine:
     def begin_realignment_operations(self, side: Side, ops: int) -> None:
         if ops <= 0:
             raise ValueError("ops must be positive")
-        self._maybe_push_realignment_target(side, card_ops=ops, attempts_remaining=ops)
+        self._maybe_push_realignment_target(side, card_ops=ops, spent=0)
 
     # -- M2: full-game entry point -----------------------------------------
 
@@ -382,11 +397,13 @@ class Engine:
             side = self._side_for_play_index(idx)
             self.action_round = idx // 2 + 1
             self._ars_played += 1
-            trap_key = self._trap_key_for(side)
-            if trap_key is not None:
-                self._push_trap_step(side, trap_key)
+            if self.turn_effects.get("cuban_missile_crisis") == side.value:
+                # "May defuse at any point in the turn": offered fresh at the
+                # start of every one of this side's action rounds until they
+                # take it or the turn ends -- a free choice, not a spent round.
+                self._push_cmc_defuse_offer(side)
             else:
-                self._push_action_round_play(side)
+                self._dispatch_action_round(side)
             return
 
     # -- M2: turn boundaries ------------------------------------------------
@@ -719,10 +736,14 @@ class Engine:
     def _apply_defectors_headline(self, order: list[list[str]]) -> list[list[str]]:
         """Defectors, headlined by the US, cancels the USSR's headline — the
         USSR card is discarded without resolving (Defectors always acts first,
-        so this happens before any card in `order` resolves). If the USSR ever
-        headlines Defectors (only reachable via Missile Envy handing it over),
-        the US instead gains 1 VP. Only meaningful with the event layer on;
-        without it both headlines are no-op discards anyway."""
+        so this happens before any card in `order` resolves). Printed text:
+        "Play in Headline Phase to cancel USSR Headline event, including
+        Scoring Card." The USSR headlining Defectors itself has no printed
+        effect (a plain no-op headline, like an unimplemented event) -- the
+        card's *other* clause (US +1 VP) triggers only when the USSR plays it
+        in a normal action round, not at headline; see
+        _maybe_defectors_action_round. Only meaningful with the event layer
+        on; without it both headlines are no-op discards anyway."""
         if not self.events_enabled:
             return order
         picks = {side_str: cid for side_str, cid in order}
@@ -731,8 +752,6 @@ class Engine:
             if ussr_card is not None:
                 self._file_card(Side.USSR, ussr_card, fired=False, already_removed_from_hand=True)
                 order = [pair for pair in order if pair[0] != "USSR"]
-        elif picks.get("USSR") == "Defectors":
-            self._award_vp(Side.US, 1)
         return order
 
     def _maybe_flower_power(self, side: Side, cid: str) -> None:
@@ -740,6 +759,16 @@ class Engine:
         (for its Event or Operations), until An Evil Empire cancels it."""
         if side is Side.US and cid in RULES["war_cards"] and self.game_effects.get("flower_power"):
             self._award_vp(Side.USSR, 2)
+
+    def _maybe_defectors_action_round(self, side: Side, cid: str) -> None:
+        """Defectors: printed text -- "If Defectors played by USSR during
+        Soviet action round, US gains 1 VP (unless played on the Space
+        Race)." Triggers on a normal action-round play (Event or Ops; Space
+        Race is the one excluded mode), not on headlining it -- the opposite
+        of what the engine did before this was reconfirmed against the
+        physical card."""
+        if self.events_enabled and side is Side.USSR and cid == "Defectors":
+            self._award_vp(Side.US, 1)
 
     def _resolve_headline_card(self, side: Side, cid: str) -> None:
         """Resolve one headlined card for its owner. A scoring card scores; with
@@ -759,6 +788,29 @@ class Engine:
             self._file_card(side, cid, fired=False, already_removed_from_hand=True)
 
     # -- M2: action round: pick a card, then how to use it ------------------
+
+    def _dispatch_action_round(self, side: Side) -> None:
+        """`side`'s next action round: a trap step if it's caught in one,
+        otherwise its ordinary card play."""
+        trap_key = self._trap_key_for(side)
+        if trap_key is not None:
+            self._push_trap_step(side, trap_key)
+        else:
+            self._push_action_round_play(side)
+
+    def _push_cmc_defuse_offer(self, side: Side) -> None:
+        """Cuban Missile Crisis: `side` may remove 2 Influence from Cuba
+        (USSR) or West Germany/Turkey (US, its choice) to lift the
+        Coup-attempt ban for the rest of the turn. Offered as a free choice
+        -- it never costs the action round that follows it."""
+        candidates = ["Cuba"] if side is Side.USSR else ["West_Germany", "Turkey"]
+        eligible = [c for c in candidates if self.board.influence[c][side.value] >= 2]
+        if not eligible:
+            self._dispatch_action_round(side)
+            return
+        self.push_event_choice(
+            "Cuban_Missile_Crisis_defuse", side, tuple(eligible) + ("skip",)
+        )
 
     def _push_action_round_play(self, side: Side) -> None:
         if self.physical_mode and side is self.physical_side:
@@ -787,18 +839,37 @@ class Engine:
             scoring_in_hand
         ) >= self._remaining_action_rounds(side)
 
-        playable = scoring_in_hand if must_play_scoring else list(hand)
+        # Missile Envy: "next round your opponent must use this card for
+        # Operations" -- the scoring deadline still takes priority if both
+        # apply at once, since carrying a scoring card past end of turn isn't
+        # legal at all.
+        forced_missile_envy = (
+            not must_play_scoring
+            and self.game_effects.get("missile_envy_forced") == side.value
+            and "Missile_Envy" in hand
+        )
+
+        if forced_missile_envy:
+            playable = ["Missile_Envy"]
+        else:
+            playable = scoring_in_hand if must_play_scoring else list(hand)
         options = [
             Action(DecisionKind.ACTION_ROUND_PLAY, {"card": cid}) for cid in playable
         ]
         if (
             not must_play_scoring
+            and not forced_missile_envy
             and side.value == self.china_card_owner
             and self.china_card_available
         ):
             options.append(Action(DecisionKind.ACTION_ROUND_PLAY, {"card": RULES["china_card_id"]}))
         if options:
             self._push(side, DecisionKind.ACTION_ROUND_PLAY, tuple(options), {})
+
+    def _handle_missile_envy_forced_play(self, side: Side, cid: str) -> None:
+        self.game_effects.pop("missile_envy_forced", None)
+        self._file_card(side, cid, fired=False)
+        self._push_ops_type(side, self._effective_ops(side, self.cards[cid]))
 
     def _remaining_action_rounds(self, side: Side) -> int:
         """Action rounds `side` still has this turn, including the one now
@@ -815,6 +886,18 @@ class Engine:
     def _handle_action_round_play(self, decision: Decision, action: Action) -> None:
         side = decision.actor
         cid = action.payload["card"]
+        if cid == "Missile_Envy" and self.game_effects.get("missile_envy_forced") == side.value:
+            self._handle_missile_envy_forced_play(side, cid)
+            return
+        self.push_full_card_play(side, cid)
+
+    def push_full_card_play(self, side: Side, cid: str) -> None:
+        """Offer `side` the ordinary Event/Ops/Space-Race choice for `cid`,
+        exactly as if it were their action-round card play. Used both for a
+        normal action round and for Grain Sales to Soviets' "play the card"
+        outcome (a card taken from the opponent's hand is played in full,
+        not just for a fixed Ops amount) -- the card need not already be in
+        `side`'s hand; `_file_card` tolerates that."""
         modes = self._play_modes(side, cid)
         options = tuple(Action(DecisionKind.PLAY_MODE, {"mode": m}) for m in modes)
         self._push(side, DecisionKind.PLAY_MODE, options, {"card": cid})
@@ -853,6 +936,7 @@ class Engine:
 
         if mode in ("event", "ops", "un_intervention"):
             self._maybe_flower_power(side, cid)
+            self._maybe_defectors_action_round(side, cid)
             if self.is_terminal:
                 return
 
@@ -917,9 +1001,11 @@ class Engine:
         self._file_card(side, cid, fired=False)  # China Card passes here
         self._push_ops_type(side, ops, china=(cid == RULES["china_card_id"]))
 
-    def _push_ops_type(self, side: Side, ops: int, china: bool = False) -> None:
+    def _push_ops_type(
+        self, side: Side, ops: int, china: bool = False, allow_coup: bool = True
+    ) -> None:
         self._push(
-            side, DecisionKind.OPS_TYPE, self._ops_type_options(side, ops),
+            side, DecisionKind.OPS_TYPE, self._ops_type_options(side, ops, allow_coup),
             {"side": side.value, "ops": ops, "bonus": self._ops_bonus_region(side, china)},
         )
 
@@ -942,11 +1028,13 @@ class Engine:
             return info.subregion is Subregion.SOUTHEAST_ASIA
         return False
 
-    def _ops_type_options(self, side: Side, ops: int) -> tuple[Action, ...]:
+    def _ops_type_options(
+        self, side: Side, ops: int, allow_coup: bool = True
+    ) -> tuple[Action, ...]:
         types = []
         if self._place_influence_options(side, ops):
             types.append("influence")
-        if self._coup_target_options(side):
+        if allow_coup and self._coup_target_options(side):
             types.append("coup")
         if self._realignment_target_options(side):
             types.append("realignment")
@@ -972,9 +1060,11 @@ class Engine:
             self.military_ops[side.value] += ops
             self.begin_coup(side, ops, bonus=bonus)
         else:  # realignment
-            # (The region bonus is not modeled for realignment — rare; tracked
-            # in CLAUDE.md.)
-            self._maybe_push_realignment_target(side, card_ops=ops, attempts_remaining=ops)
+            # Region-bonus play (China Card -> Asia, Vietnam Revolts -> SE
+            # Asia): one extra Realignment attempt, all-or-nothing, if every
+            # attempt this Ops-spend targets a country inside the bonus
+            # region — mirrors _maybe_push_bonus_influence's rule.
+            self._maybe_push_realignment_target(side, card_ops=ops, spent=0, bonus=bonus)
 
     # -- M2: space race -----------------------------------------------------
 
@@ -998,11 +1088,13 @@ class Engine:
         if roll <= RULES["space_race_boxes"][str(next_box)]["roll_max"]:
             self.advance_space_race_box(side)
 
-    def advance_space_race_box(self, side: Side) -> None:
+    def advance_space_race_box(self, side: Side, award_vp: bool = True) -> None:
         """Move `side` one box up the Space Race track and award that box's VP
         (first vs second to reach it). Shared by a successful attempt roll and
         by events that advance the marker directly (e.g. Captured Nazi
-        Scientist). No-op at the top of the track."""
+        Scientist). No-op at the top of the track. `award_vp=False` still
+        moves the marker and grants/cancels the box's ability, but withholds
+        VP -- One Small Step's "get VP for the second step only"."""
         if self.space_race[side.value] >= RULES["space_race_max_box"]:
             return
         next_box = self.space_race[side.value] + 1
@@ -1010,7 +1102,7 @@ class Engine:
         first = self.space_race[side.opponent.value] < next_box
         self.space_race[side.value] = next_box
         vp = box["vp_first"] if first else box["vp_second"]
-        if vp:
+        if vp and award_vp:
             self._award_vp(side, vp)
         self._update_space_race_ability(side, next_box, first)
 
@@ -1089,15 +1181,26 @@ class Engine:
             return False
         if for_coup and ge.get("reformer") and region is Region.EUROPE:
             return False
-        if (
+        if self._nato_protects(cid):
+            return False
+        return True
+
+    def _nato_protects(self, cid: str) -> bool:
+        """Whether NATO currently shields `cid` from the USSR: "USA-controlled
+        countries in Europe are protected from CCCP Coup attempts, CCCP
+        Realignments, Brush War." Lifted per-country by De Gaulle (France) and
+        Willy Brandt (West Germany)."""
+        ge = self.game_effects
+        info = self.board.countries[cid]
+        if not (
             ge.get("nato")
-            and region is Region.EUROPE
+            and info.region is Region.EUROPE
             and self.board.control(cid) is Side.US
         ):
-            if cid == "France" and ge.get("degaulle_france"):
-                return True
-            if cid == "West_Germany" and ge.get("willy_brandt"):
-                return True
+            return False
+        if cid == "France" and ge.get("degaulle_france"):
+            return False
+        if cid == "West_Germany" and ge.get("willy_brandt"):
             return False
         return True
 
@@ -1293,11 +1396,13 @@ class Engine:
 
     # -- M3: events that grant "conduct Operations" -------------------------
 
-    def push_event_operations(self, side: Side, ops: int) -> None:
+    def push_event_operations(self, side: Side, ops: int, allow_coup: bool = True) -> None:
         """An event that has its beneficiary conduct `ops` Operations (CIA
-        Created, Lone Gunman, ABM Treaty, ...)."""
+        Created, Lone Gunman, ABM Treaty, ...). `allow_coup=False` restricts
+        the spend to Influence/Realignment only (Glasnost, KAL-007's printed
+        text names only those two, never Coup)."""
         if ops > 0:
-            self._push_ops_type(side, ops)
+            self._push_ops_type(side, ops, allow_coup=allow_coup)
 
     def set_defcon(self, level: int, caused_by: Side) -> None:
         """Set DEFCON to `level` (How I Learned to Stop Worrying, ...). Routed
@@ -1376,15 +1481,24 @@ class Engine:
     # -- M3: a two-die "both roll, higher wins" contest ---------------------
     #
     # Both sides roll (from the seeded RNG, logged as a single CHANCE option),
-    # a per-side modifier is added, ties reroll, and the winner takes `vp`.
+    # a per-side modifier is added, and the winner takes `vp`. By default ties
+    # reroll (Olympic Games); Summit's printed text says "do not reroll ties",
+    # so `reroll_ties=False` makes a tie a wash instead: no VP, no resolver.
     # An optional per-event follow-up (events.CONTEST_RESOLVERS) runs after.
 
     def push_dice_contest(
-        self, event: str, sponsor: Side, sponsor_mod: int, defender_mod: int, vp: int
+        self,
+        event: str,
+        sponsor: Side,
+        sponsor_mod: int,
+        defender_mod: int,
+        vp: int,
+        reroll_ties: bool = True,
     ) -> None:
         context = {
             "event": event, "sponsor": sponsor.value,
             "sponsor_mod": sponsor_mod, "defender_mod": defender_mod, "vp": vp,
+            "reroll_ties": reroll_ties,
         }
         if self.physical_mode:
             # Two physical dice, entered one at a time (a flat 36-option menu
@@ -1421,11 +1535,13 @@ class Engine:
         sponsor_roll = ctx.get("sponsor_roll", action.payload.get("sponsor_roll"))
         s_total = sponsor_roll + ctx["sponsor_mod"]
         d_total = action.payload["defender_roll"] + ctx["defender_mod"]
-        if s_total == d_total:  # tie: reroll
-            self.push_dice_contest(
-                ctx["event"], sponsor, ctx["sponsor_mod"], ctx["defender_mod"], ctx["vp"]
-            )
-            return
+        if s_total == d_total:
+            if ctx.get("reroll_ties", True):
+                self.push_dice_contest(
+                    ctx["event"], sponsor, ctx["sponsor_mod"], ctx["defender_mod"],
+                    ctx["vp"], reroll_ties=True,
+                )
+            return  # not rerolling: a tie is a wash -- no VP, no resolver
         winner = sponsor if s_total > d_total else sponsor.opponent
         if ctx["vp"]:
             self._award_vp(winner, ctx["vp"])
@@ -1614,16 +1730,17 @@ class Engine:
         return value_for(Side.US) - value_for(Side.USSR)
 
     def _score_southeast_asia(self) -> int:
-        # 1 VP per Southeast Asia country controlled, netted US-positive.
-        # VERIFY: the printed card gives Thailand extra weight (not modeled).
+        # Physical card text: +2 VP for control of Thailand, +1 VP per other
+        # controlled Southeast Asia country, netted US-positive.
         net = 0
         for cid, info in self.board.countries.items():
             if info.subregion is Subregion.SOUTHEAST_ASIA:
+                value = 2 if cid == "Thailand" else 1
                 controller = self.board.control(cid)
                 if controller is Side.US:
-                    net += 1
+                    net += value
                 elif controller is Side.USSR:
-                    net -= 1
+                    net -= value
         return net
 
     def _award_vp(self, side: Side, amount: int) -> None:
@@ -1652,9 +1769,11 @@ class Engine:
     ) -> None:
         if cid == RULES["china_card_id"]:
             # The China Card is never discarded: it passes to the opponent
-            # face-down and becomes available to them next turn. Playing it also
-            # nullifies Formosan Resolution for the rest of the game.
-            self.game_effects.pop("formosan_resolution", None)
+            # face-down and becomes available to them next turn. Formosan
+            # Resolution's printed text nullifies it specifically "when USA
+            # plays The China Card" -- not whenever it merely changes hands.
+            if side is Side.US:
+                self.game_effects.pop("formosan_resolution", None)
             self.china_card_owner = side.opponent.value
             self.china_card_available = False
             return
@@ -1797,9 +1916,10 @@ class Engine:
         )
 
     def _place_influence_options(self, side: Side, ops_remaining: int) -> tuple[Action, ...]:
+        snapshot = self._ops_round_snapshot
         options = []
         for cid in self.board.countries:
-            if not self.board.is_reachable(side, cid):
+            if not self.board.is_reachable(side, cid, influence=snapshot):
                 continue
             if self.board.influence_cost(side, cid) > ops_remaining:
                 continue
@@ -1810,9 +1930,16 @@ class Engine:
 
     def _maybe_push_place_influence(self, side: Side, ops_remaining: int) -> None:
         if self.is_terminal or ops_remaining <= 0:
+            self._ops_round_snapshot = None
             return
+        if self._ops_round_snapshot is None:
+            # First point of a fresh Operations spend: freeze the board as it
+            # stands right now -- this *is* "the start of the Action Round"
+            # for every subsequent point in this same spend (6.1.1).
+            self._ops_round_snapshot = copy.deepcopy(self.board.influence)
         options = self._place_influence_options(side, ops_remaining)
         if not options:
+            self._ops_round_snapshot = None
             return
         self._push(side, DecisionKind.PLACE_INFLUENCE, options, {"ops_remaining": ops_remaining})
 
@@ -1824,9 +1951,10 @@ class Engine:
         placed outside the bonus region: a placement of cost `c` is legal iff
         `spent + c <= base`, or all Ops (this one included) stay in the region
         and `spent + c <= base + 1`."""
+        snapshot = self._ops_round_snapshot
         options = []
         for cid in self.board.countries:
-            if not self.board.is_reachable(side, cid):
+            if not self.board.is_reachable(side, cid, influence=snapshot):
                 continue
             if self._chernobyl_blocks(side, cid):
                 continue
@@ -1842,9 +1970,13 @@ class Engine:
         self, side: Side, base: int, spent: int, non_bonus: int, bonus: str
     ) -> None:
         if self.is_terminal:
+            self._ops_round_snapshot = None
             return
+        if self._ops_round_snapshot is None:
+            self._ops_round_snapshot = copy.deepcopy(self.board.influence)
         options = self._bonus_influence_options(side, base, spent, non_bonus, bonus)
         if not options:
+            self._ops_round_snapshot = None
             return
         self._push(
             side, DecisionKind.PLACE_INFLUENCE, options,
@@ -1980,11 +2112,13 @@ class Engine:
     # -- M3: a free operation confined to a set of countries ----------------
 
     def push_free_coup_or_realign(
-        self, side: Side, event: str, ops: int, countries: list[str]
+        self, side: Side, event: str, ops: int, countries: list[str],
+        allow_realign: bool = True,
     ) -> None:
         """Offer `side` a free Coup or Realignment (or neither), restricted to
-        `countries` (Junta's "free Coup/Realignment in the Americas"). Coup is
-        offered only where DEFCON and the persistent locks allow it."""
+        `countries` (Junta's "free Coup/Realignment in the Americas"; Ortega
+        Elected in Nicaragua's Coup-only variant sets `allow_realign=False`).
+        Coup is offered only where DEFCON and the persistent locks allow it."""
         choices = ["none"]
         coupable = [
             cid for cid in countries
@@ -1992,7 +2126,7 @@ class Engine:
         ]
         realignable = [
             cid for cid in countries
-            if self._usable_coup_realign_target(side, cid, for_coup=False)
+            if allow_realign and self._usable_coup_realign_target(side, cid, for_coup=False)
         ]
         if coupable:
             choices.append("coup")
@@ -2031,7 +2165,7 @@ class Engine:
             if options:
                 self._push(
                     side, DecisionKind.REALIGNMENT_TARGET, options,
-                    {"card_ops": ops, "attempts_remaining": ops},
+                    {"card_ops": ops, "spent": 0, "bonus": None, "non_bonus": 0},
                 )
 
     # -- M3: reclaim a card from the (public) discard pile ------------------
@@ -2145,35 +2279,23 @@ class Engine:
             self.discard_pile.append(cid)
             self.push_event_operations(taker, card.ops)
 
-    # -- M3: Special Relationship — a free Realignment attempt --------------
-
-    def push_free_realignment(
-        self, side: Side, countries: list[str], attempts: int = 1
-    ) -> None:
-        """Offer `side` a free Realignment roll (no card-Ops bonus) against one
-        of `countries` (Special Relationship). No-op if nothing is a legal
-        target (e.g. NATO/The Reformer lock every candidate out)."""
-        options = tuple(
-            Action(DecisionKind.REALIGNMENT_TARGET, {"country": cid})
-            for cid in countries
-            if self._usable_coup_realign_target(side, cid, for_coup=False)
-        )
-        if options:
-            self._push(
-                side, DecisionKind.REALIGNMENT_TARGET, options,
-                {"card_ops": 0, "attempts_remaining": attempts},
-            )
-
     # -- M3: Bear Trap / Quagmire — a persistent per-player operating lock --
     #
-    # While trapped, `side` may not play cards normally: each of its action
-    # rounds instead offers (mandatorily, when possible) a discard of an Ops-2+
-    # card, followed by a seeded CHANCE die that frees it on a 5-6. No legal
-    # discard simply wastes that action round (a documented simplification —
-    # the printed text's exact wording on that edge case is not reconfirmed
-    # here). Bear Trap traps the USSR; Quagmire traps the US — independent of
-    # who actually plays the card, exactly like Duck and Cover always favors
-    # the US regardless of who plays it.
+    # Physical card text (Bear Trap #44, Quagmire identical with US/USSR
+    # swapped): "On the next action round, [side] must discard an Operations
+    # card worth 2 or more and roll 1-4 to cancel this event." So, on each
+    # forthcoming round for the trapped side:
+    #   - If it holds a card with Ops 2+: it must discard one, then rolls a
+    #     die. 1-4 frees it (event cancelled); 5-6 leaves it trapped for next
+    #     round. The action round is spent either way -- never also a normal
+    #     play.
+    #   - If it holds no such card: the round is wasted with *no* roll at
+    #     all (the trap persists untouched into the next round) -- except any
+    #     scoring card still in hand must still be played (a scoring card may
+    #     never be held past end of turn; this is the one exception).
+    # Bear Trap traps the USSR; Quagmire traps the US -- independent of who
+    # actually plays the card, exactly like Duck and Cover always favors the
+    # US regardless of who plays it.
 
     _TRAP_KEYS: dict[str, Side] = {"bear_trap": Side.USSR, "quagmire": Side.US}
 
@@ -2193,17 +2315,54 @@ class Engine:
             cid for cid in source
             if not self.cards[cid].scoring and self.cards[cid].ops >= 2
         ]
-        if not payable:
-            return  # nothing to discard: the action round is simply wasted
-        options = tuple(
-            Action(DecisionKind.QUAGMIRE_DISCARD, {"card": cid}) for cid in payable
-        )
-        self._push(side, DecisionKind.QUAGMIRE_DISCARD, options, {"key": key})
+        if payable:
+            options = tuple(
+                Action(DecisionKind.QUAGMIRE_DISCARD, {"card": cid}) for cid in payable
+            )
+            self._push(side, DecisionKind.QUAGMIRE_DISCARD, options, {"key": key})
+            return
+        # No Ops-2+ card: no roll this round -- but any scoring card in hand
+        # must still be played.
+        if self.physical_mode and side is self.physical_side:
+            # Unlike `payable` (which only ever feeds a genuine operator
+            # decision), `source`'s hidden_pool candidates might not
+            # actually be in THIS hand at all -- so, unlike the bot branch
+            # below, we must not auto-file one of them. Offer them as an
+            # explicit choice instead (plus "none"), so the physical
+            # player -- who can see their own hand -- confirms which, if
+            # any, applies.
+            scoring_candidates = [cid for cid in source if self.cards[cid].scoring]
+            if scoring_candidates:
+                options = tuple(
+                    Action(DecisionKind.QUAGMIRE_DISCARD, {"card": cid})
+                    for cid in scoring_candidates
+                ) + (Action(DecisionKind.QUAGMIRE_DISCARD, {"card": "none"}),)
+                self._push(
+                    side, DecisionKind.QUAGMIRE_DISCARD, options,
+                    {"key": key, "forced_scoring": True},
+                )
+            return
+        for cid in list(self.hands[side.value]):
+            if self.cards[cid].scoring:
+                self._resolve_scoring_card(cid)
+                self._file_card(side, cid, fired=True)
+                if self.is_terminal:
+                    return
 
     def _handle_quagmire_discard(self, decision: Decision, action: Action) -> None:
         side = decision.actor
         key = decision.context["key"]
         cid = action.payload["card"]
+        if decision.context.get("forced_scoring"):
+            # Physical mode's must-play-a-scoring-card fallback (see
+            # _push_trap_step): a genuine operator decision, not an
+            # automatic resolution -- no roll this round either way.
+            if cid != "none":
+                self._resolve_scoring_card(cid)
+                self._file_card(side, cid, fired=True)
+                if not self.is_terminal:
+                    self._push_trap_step(side, key)  # any further scoring card?
+            return
         self._file_card(side, cid, fired=False)
         self._push(
             Side.CHANCE, DecisionKind.QUAGMIRE_ROLL,
@@ -2211,7 +2370,7 @@ class Engine:
         )
 
     def _handle_quagmire_roll(self, decision: Decision, action: Action) -> None:
-        if action.payload["value"] >= 5:  # break free
+        if action.payload["value"] <= 4:  # 1-4: break free
             self.game_effects.pop(decision.context["key"], None)
 
     # -- realignment ---------------------------------------------------------
@@ -2224,9 +2383,22 @@ class Engine:
         )
 
     def _maybe_push_realignment_target(
-        self, side: Side, card_ops: int, attempts_remaining: int
+        self,
+        side: Side,
+        card_ops: int,
+        spent: int,
+        bonus: str | None = None,
+        non_bonus: int = 0,
     ) -> None:
-        if self.is_terminal or attempts_remaining <= 0:
+        """Push the next Realignment-attempt decision, if any attempts are
+        still available. `spent` attempts are always allowed up to
+        `card_ops`; one extra attempt (`card_ops + 1`) is allowed on top of
+        that only while `bonus` is active and every attempt so far has
+        stayed inside the bonus region (`non_bonus == 0`) -- the same
+        all-or-nothing rule `_maybe_push_bonus_influence` uses."""
+        if self.is_terminal:
+            return
+        if not (spent < card_ops or (bonus and non_bonus == 0 and spent < card_ops + 1)):
             return
         options = self._realignment_target_options(side)
         if not options:
@@ -2235,7 +2407,7 @@ class Engine:
             side,
             DecisionKind.REALIGNMENT_TARGET,
             options,
-            {"card_ops": card_ops, "attempts_remaining": attempts_remaining},
+            {"card_ops": card_ops, "spent": spent, "bonus": bonus, "non_bonus": non_bonus},
         )
 
     def _handle_realignment_target(self, decision: Decision, action: Action) -> None:
@@ -2249,7 +2421,9 @@ class Engine:
                 "side": side.value,
                 "country": country,
                 "card_ops": decision.context["card_ops"],
-                "attempts_remaining": decision.context["attempts_remaining"],
+                "spent": decision.context["spent"],
+                "bonus": decision.context["bonus"],
+                "non_bonus": decision.context["non_bonus"],
             },
         )
 
@@ -2266,7 +2440,9 @@ class Engine:
         opponent = side.opponent
         country = decision.context["country"]
         card_ops = decision.context["card_ops"]
-        attempts_remaining = decision.context["attempts_remaining"]
+        spent = decision.context["spent"]
+        bonus = decision.context["bonus"]
+        non_bonus = decision.context["non_bonus"]
         actor_roll = decision.context["actor_roll"]
         opp_roll = action.payload["value"]
 
@@ -2287,11 +2463,17 @@ class Engine:
             removed = min(-margin, self.board.influence[country][side.value])
             self.board.influence[country][side.value] -= removed
 
-        self._maybe_push_realignment_target(side, card_ops, attempts_remaining - 1)
+        if bonus and not self._in_bonus_region(country, bonus):
+            non_bonus += 1
+        self._maybe_push_realignment_target(side, card_ops, spent + 1, bonus, non_bonus)
 
     def _realignment_bonus(self, side: Side, country: str) -> int:
         bonus = 1 if self.board.is_adjacent(side.value, country) else 0
         bonus += sum(1 for n in self.board.neighbors(country) if self.board.control(n) is side)
+        # 6.2.2's third modifier: +1 if this side already holds more
+        # Influence in the target than their opponent does.
+        if self.board.influence[country][side.value] > self.board.influence[country][side.opponent.value]:
+            bonus += 1
         return bonus
 
     def _realignment_modifier(self, side: Side) -> int:
@@ -2309,9 +2491,14 @@ class Engine:
         if self.defcon == 1:
             self._win(caused_by.opponent, "defcon_1")
             return
-        # NORAD: as long as it is in effect, the US adds 1 Influence to a
-        # country where it already has some, each time DEFCON MOVES to level 2.
-        if self.defcon == 2 and before != 2 and self.game_effects.get("norad"):
+        # NORAD: "If Canada is US-controlled", each time DEFCON MOVES to level
+        # 2 the US adds 1 Influence to a country where it already has some.
+        if (
+            self.defcon == 2
+            and before != 2
+            and self.game_effects.get("norad")
+            and self.board.control("Canada") is Side.US
+        ):
             self._push_norad_influence()
 
     def _push_norad_influence(self) -> None:

@@ -15,19 +15,19 @@
     {
       "kind": "place_influence",
       "payload": {
-        "country": "Sweden"
+        "country": "Poland"
       }
     },
     {
       "kind": "place_influence",
       "payload": {
-        "country": "Norway"
+        "country": "Romania"
       }
     },
     {
       "kind": "place_influence",
       "payload": {
-        "country": "UK"
+        "country": "Afghanistan"
       }
     }
   ],
@@ -683,7 +683,7 @@
             },
             "Sweden": {
               "US": 0,
-              "USSR": 1
+              "USSR": 0
             },
             "Denmark": {
               "US": 0,
@@ -731,7 +731,7 @@
             },
             "Poland": {
               "US": 0,
-              "USSR": 0
+              "USSR": 1
             },
             "Czechoslovakia": {
               "US": 0,
@@ -1025,24 +1025,6 @@
               {
                 "kind": "place_influence",
                 "payload": {
-                  "country": "Norway"
-                }
-              },
-              {
-                "kind": "place_influence",
-                "payload": {
-                  "country": "Sweden"
-                }
-              },
-              {
-                "kind": "place_influence",
-                "payload": {
-                  "country": "Denmark"
-                }
-              },
-              {
-                "kind": "place_influence",
-                "payload": {
                   "country": "Finland"
                 }
               },
@@ -1121,7 +1103,349 @@
         "our_man_kept": [],
         "physical_mode": false,
         "physical_side": null,
-        "hidden_pool": []
+        "hidden_pool": [],
+        "ops_round_snapshot": {
+          "Canada": {
+            "US": 0,
+            "USSR": 0
+          },
+          "UK": {
+            "US": 0,
+            "USSR": 0
+          },
+          "Norway": {
+            "US": 0,
+            "USSR": 0
+          },
+          "Sweden": {
+            "US": 0,
+            "USSR": 0
+          },
+          "Denmark": {
+            "US": 0,
+            "USSR": 0
+          },
+          "Benelux": {
+            "US": 0,
+            "USSR": 0
+          },
+          "France": {
+            "US": 0,
+            "USSR": 0
+          },
+          "Spain_Portugal": {
+            "US": 0,
+            "USSR": 0
+          },
+          "Italy": {
+            "US": 0,
+            "USSR": 0
+          },
+          "Greece": {
+            "US": 0,
+            "USSR": 0
+          },
+          "Turkey": {
+            "US": 0,
+            "USSR": 0
+          },
+          "Austria": {
+            "US": 0,
+            "USSR": 0
+          },
+          "Finland": {
+            "US": 0,
+            "USSR": 0
+          },
+          "West_Germany": {
+            "US": 0,
+            "USSR": 0
+          },
+          "East_Germany": {
+            "US": 0,
+            "USSR": 0
+          },
+          "Poland": {
+            "US": 0,
+            "USSR": 0
+          },
+          "Czechoslovakia": {
+            "US": 0,
+            "USSR": 0
+          },
+          "Hungary": {
+            "US": 0,
+            "USSR": 0
+          },
+          "Yugoslavia": {
+            "US": 0,
+            "USSR": 0
+          },
+          "Romania": {
+            "US": 0,
+            "USSR": 0
+          },
+          "Bulgaria": {
+            "US": 0,
+            "USSR": 0
+          },
+          "Libya": {
+            "US": 0,
+            "USSR": 0
+          },
+          "Egypt": {
+            "US": 0,
+            "USSR": 0
+          },
+          "Israel": {
+            "US": 0,
+            "USSR": 0
+          },
+          "Lebanon": {
+            "US": 0,
+            "USSR": 0
+          },
+          "Syria": {
+            "US": 0,
+            "USSR": 0
+          },
+          "Iraq": {
+            "US": 0,
+            "USSR": 0
+          },
+          "Iran": {
+            "US": 0,
+            "USSR": 0
+          },
+          "Jordan": {
+            "US": 0,
+            "USSR": 0
+          },
+          "Gulf_States": {
+            "US": 0,
+            "USSR": 0
+          },
+          "Saudi_Arabia": {
+            "US": 0,
+            "USSR": 0
+          },
+          "Afghanistan": {
+            "US": 0,
+            "USSR": 0
+          },
+          "Pakistan": {
+            "US": 0,
+            "USSR": 0
+          },
+          "India": {
+            "US": 0,
+            "USSR": 0
+          },
+          "Australia": {
+            "US": 0,
+            "USSR": 0
+          },
+          "Japan": {
+            "US": 0,
+            "USSR": 0
+          },
+          "Taiwan": {
+            "US": 0,
+            "USSR": 0
+          },
+          "South_Korea": {
+            "US": 0,
+            "USSR": 0
+          },
+          "North_Korea": {
+            "US": 0,
+            "USSR": 0
+          },
+          "Chinese_Civil_War": {
+            "US": 0,
+            "USSR": 0
+          },
+          "Burma": {
+            "US": 0,
+            "USSR": 0
+          },
+          "Laos_Cambodia": {
+            "US": 0,
+            "USSR": 0
+          },
+          "Thailand": {
+            "US": 0,
+            "USSR": 0
+          },
+          "Vietnam": {
+            "US": 0,
+            "USSR": 0
+          },
+          "Malaysia": {
+            "US": 0,
+            "USSR": 0
+          },
+          "Indonesia": {
+            "US": 0,
+            "USSR": 0
+          },
+          "Philippines": {
+            "US": 0,
+            "USSR": 0
+          },
+          "Algeria": {
+            "US": 0,
+            "USSR": 0
+          },
+          "Morocco": {
+            "US": 0,
+            "USSR": 0
+          },
+          "Tunisia": {
+            "US": 0,
+            "USSR": 0
+          },
+          "West_African_States": {
+            "US": 0,
+            "USSR": 0
+          },
+          "Ivory_Coast": {
+            "US": 0,
+            "USSR": 0
+          },
+          "Saharan_States": {
+            "US": 0,
+            "USSR": 0
+          },
+          "Nigeria": {
+            "US": 0,
+            "USSR": 0
+          },
+          "Cameroon": {
+            "US": 0,
+            "USSR": 0
+          },
+          "Zaire": {
+            "US": 0,
+            "USSR": 0
+          },
+          "Angola": {
+            "US": 0,
+            "USSR": 0
+          },
+          "South_Africa": {
+            "US": 0,
+            "USSR": 0
+          },
+          "Botswana": {
+            "US": 0,
+            "USSR": 0
+          },
+          "Zimbabwe": {
+            "US": 0,
+            "USSR": 0
+          },
+          "SE_African_States": {
+            "US": 0,
+            "USSR": 0
+          },
+          "Kenya": {
+            "US": 0,
+            "USSR": 0
+          },
+          "Somalia": {
+            "US": 0,
+            "USSR": 0
+          },
+          "Ethiopia": {
+            "US": 0,
+            "USSR": 0
+          },
+          "Sudan": {
+            "US": 0,
+            "USSR": 0
+          },
+          "Mexico": {
+            "US": 0,
+            "USSR": 0
+          },
+          "Guatemala": {
+            "US": 0,
+            "USSR": 0
+          },
+          "El_Salvador": {
+            "US": 0,
+            "USSR": 0
+          },
+          "Honduras": {
+            "US": 0,
+            "USSR": 0
+          },
+          "Costa_Rica": {
+            "US": 0,
+            "USSR": 0
+          },
+          "Panama": {
+            "US": 0,
+            "USSR": 0
+          },
+          "Nicaragua": {
+            "US": 0,
+            "USSR": 0
+          },
+          "Cuba": {
+            "US": 0,
+            "USSR": 0
+          },
+          "Haiti": {
+            "US": 0,
+            "USSR": 0
+          },
+          "Dominican_Republic": {
+            "US": 0,
+            "USSR": 0
+          },
+          "Colombia": {
+            "US": 0,
+            "USSR": 0
+          },
+          "Ecuador": {
+            "US": 0,
+            "USSR": 0
+          },
+          "Peru": {
+            "US": 0,
+            "USSR": 0
+          },
+          "Chile": {
+            "US": 0,
+            "USSR": 0
+          },
+          "Argentina": {
+            "US": 0,
+            "USSR": 0
+          },
+          "Uruguay": {
+            "US": 0,
+            "USSR": 0
+          },
+          "Paraguay": {
+            "US": 0,
+            "USSR": 0
+          },
+          "Bolivia": {
+            "US": 0,
+            "USSR": 0
+          },
+          "Brazil": {
+            "US": 0,
+            "USSR": 0
+          },
+          "Venezuela": {
+            "US": 0,
+            "USSR": 0
+          }
+        }
       }
     },
     {
@@ -1767,15 +2091,15 @@
             },
             "UK": {
               "US": 0,
-              "USSR": 1
+              "USSR": 0
             },
             "Norway": {
               "US": 0,
-              "USSR": 1
+              "USSR": 0
             },
             "Sweden": {
               "US": 0,
-              "USSR": 1
+              "USSR": 0
             },
             "Denmark": {
               "US": 0,
@@ -1823,7 +2147,7 @@
             },
             "Poland": {
               "US": 0,
-              "USSR": 0
+              "USSR": 1
             },
             "Czechoslovakia": {
               "US": 0,
@@ -1839,7 +2163,7 @@
             },
             "Romania": {
               "US": 0,
-              "USSR": 0
+              "USSR": 1
             },
             "Bulgaria": {
               "US": 0,
@@ -1887,7 +2211,7 @@
             },
             "Afghanistan": {
               "US": 0,
-              "USSR": 0
+              "USSR": 1
             },
             "Pakistan": {
               "US": 0,
@@ -2148,7 +2472,8 @@
         "our_man_kept": [],
         "physical_mode": false,
         "physical_side": null,
-        "hidden_pool": []
+        "hidden_pool": [],
+        "ops_round_snapshot": null
       }
     }
   ]

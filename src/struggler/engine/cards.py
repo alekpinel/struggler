@@ -39,6 +39,7 @@ def load_cards() -> dict[str, Card]:
             remove_after_event=entry["remove_after_event"],
             optional=entry["optional"],
             in_deck=entry["in_deck"],
+            event_summary=entry["event_summary"],
         )
     return cards
 

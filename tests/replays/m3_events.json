@@ -285,6 +285,24 @@
       }
     },
     {
+      "kind": "realignment_target",
+      "payload": {
+        "country": "Syria"
+      }
+    },
+    {
+      "kind": "realignment_actor_roll",
+      "payload": {
+        "value": 5
+      }
+    },
+    {
+      "kind": "realignment_opponent_roll",
+      "payload": {
+        "value": 1
+      }
+    },
+    {
       "kind": "action_round_play",
       "payload": {
         "card": "The_China_Card"
@@ -299,7 +317,7 @@
     {
       "kind": "space_race_roll",
       "payload": {
-        "value": 5
+        "value": 6
       }
     },
     {
@@ -449,13 +467,13 @@
     {
       "kind": "realignment_actor_roll",
       "payload": {
-        "value": 1
+        "value": 6
       }
     },
     {
       "kind": "realignment_opponent_roll",
       "payload": {
-        "value": 6
+        "value": 5
       }
     },
     {
@@ -467,13 +485,13 @@
     {
       "kind": "realignment_actor_roll",
       "payload": {
-        "value": 6
+        "value": 1
       }
     },
     {
       "kind": "realignment_opponent_roll",
       "payload": {
-        "value": 5
+        "value": 6
       }
     },
     {
@@ -569,7 +587,7 @@
     {
       "kind": "war_roll",
       "payload": {
-        "value": 1
+        "value": 2
       }
     },
     {
@@ -591,13 +609,13 @@
     {
       "kind": "realignment_actor_roll",
       "payload": {
-        "value": 6
+        "value": 3
       }
     },
     {
       "kind": "realignment_opponent_roll",
       "payload": {
-        "value": 2
+        "value": 4
       }
     },
     {
@@ -615,7 +633,7 @@
     {
       "kind": "space_race_roll",
       "payload": {
-        "value": 3
+        "value": 5
       }
     },
     {
@@ -633,7 +651,7 @@
     {
       "kind": "space_race_roll",
       "payload": {
-        "value": 4
+        "value": 1
       }
     },
     {
@@ -663,7 +681,7 @@
     {
       "kind": "space_race_roll",
       "payload": {
-        "value": 5
+        "value": 3
       }
     },
     {
@@ -699,13 +717,13 @@
     {
       "kind": "realignment_actor_roll",
       "payload": {
-        "value": 1
+        "value": 4
       }
     },
     {
       "kind": "realignment_opponent_roll",
       "payload": {
-        "value": 3
+        "value": 6
       }
     },
     {
@@ -811,13 +829,31 @@
     {
       "kind": "headline_play",
       "payload": {
-        "card": "Europe_Scoring"
+        "card": "Socialist_Governments"
       }
     },
     {
       "kind": "headline_play",
       "payload": {
         "card": "NORAD"
+      }
+    },
+    {
+      "kind": "event_influence",
+      "payload": {
+        "country": "Canada"
+      }
+    },
+    {
+      "kind": "event_influence",
+      "payload": {
+        "country": "Canada"
+      }
+    },
+    {
+      "kind": "event_influence",
+      "payload": {
+        "country": "UK"
       }
     },
     {
@@ -835,7 +871,7 @@
     {
       "kind": "space_race_roll",
       "payload": {
-        "value": 4
+        "value": 3
       }
     },
     {
@@ -877,24 +913,6 @@
     {
       "kind": "realignment_actor_roll",
       "payload": {
-        "value": 4
-      }
-    },
-    {
-      "kind": "realignment_opponent_roll",
-      "payload": {
-        "value": 3
-      }
-    },
-    {
-      "kind": "realignment_target",
-      "payload": {
-        "country": "Italy"
-      }
-    },
-    {
-      "kind": "realignment_actor_roll",
-      "payload": {
         "value": 2
       }
     },
@@ -907,13 +925,31 @@
     {
       "kind": "realignment_target",
       "payload": {
-        "country": "Australia"
+        "country": "Italy"
       }
     },
     {
       "kind": "realignment_actor_roll",
       "payload": {
         "value": 3
+      }
+    },
+    {
+      "kind": "realignment_opponent_roll",
+      "payload": {
+        "value": 3
+      }
+    },
+    {
+      "kind": "realignment_target",
+      "payload": {
+        "country": "Australia"
+      }
+    },
+    {
+      "kind": "realignment_actor_roll",
+      "payload": {
+        "value": 4
       }
     },
     {
@@ -931,7 +967,7 @@
     {
       "kind": "realignment_actor_roll",
       "payload": {
-        "value": 4
+        "value": 6
       }
     },
     {
@@ -1049,13 +1085,13 @@
     {
       "kind": "realignment_actor_roll",
       "payload": {
-        "value": 6
+        "value": 3
       }
     },
     {
       "kind": "realignment_opponent_roll",
       "payload": {
-        "value": 3
+        "value": 2
       }
     },
     {
@@ -1067,13 +1103,13 @@
     {
       "kind": "realignment_actor_roll",
       "payload": {
-        "value": 3
+        "value": 4
       }
     },
     {
       "kind": "realignment_opponent_roll",
       "payload": {
-        "value": 2
+        "value": 4
       }
     }
   ],
@@ -1081,7 +1117,7 @@
   "include_optional": true,
   "checkpoints": [
     {
-      "after_step": 60,
+      "after_step": 63,
       "state": {
         "seed": 20260812,
         "rng_state": [
@@ -1711,7 +1747,7 @@
             3250785179,
             908570166,
             3110049594,
-            62
+            64
           ],
           null
         ],
@@ -1823,7 +1859,7 @@
             },
             "Iraq": {
               "US": 0,
-              "USSR": 0
+              "USSR": 1
             },
             "Iran": {
               "US": 1,
@@ -2063,10 +2099,10 @@
         "vp": 4,
         "turn": 1,
         "action_round": 5,
-        "next_decision_id": 61,
+        "next_decision_id": 64,
         "decision_stack": [
           {
-            "id": 61,
+            "id": 64,
             "actor": "US",
             "kind": "event_influence",
             "options": [
@@ -2237,11 +2273,12 @@
         "our_man_kept": [],
         "physical_mode": false,
         "physical_side": null,
-        "hidden_pool": []
+        "hidden_pool": [],
+        "ops_round_snapshot": null
       }
     },
     {
-      "after_step": 120,
+      "after_step": 123,
       "state": {
         "seed": 20260812,
         "rng_state": [
@@ -2871,7 +2908,7 @@
             3250785179,
             908570166,
             3110049594,
-            80
+            82
           ],
           null
         ],
@@ -2983,10 +3020,10 @@
             },
             "Iraq": {
               "US": 0,
-              "USSR": 0
+              "USSR": 1
             },
             "Iran": {
-              "US": 0,
+              "US": 1,
               "USSR": 0
             },
             "Jordan": {
@@ -3167,7 +3204,7 @@
             },
             "Cuba": {
               "US": 0,
-              "USSR": 0
+              "USSR": 3
             },
             "Haiti": {
               "US": 0,
@@ -3220,13 +3257,13 @@
           }
         },
         "defcon": 4,
-        "vp": -5,
+        "vp": -2,
         "turn": 2,
         "action_round": 4,
-        "next_decision_id": 121,
+        "next_decision_id": 124,
         "decision_stack": [
           {
-            "id": 121,
+            "id": 124,
             "actor": "US",
             "kind": "action_round_play",
             "options": [
@@ -3321,8 +3358,8 @@
         "china_card_owner": "USSR",
         "china_card_available": false,
         "space_race": {
-          "US": 2,
-          "USSR": 1
+          "US": 3,
+          "USSR": 0
         },
         "space_race_attempts": {
           "US": 2,
@@ -3352,11 +3389,12 @@
         "our_man_kept": [],
         "physical_mode": false,
         "physical_side": null,
-        "hidden_pool": []
+        "hidden_pool": [],
+        "ops_round_snapshot": null
       }
     },
     {
-      "after_step": 180,
+      "after_step": 186,
       "state": {
         "seed": 20260812,
         "rng_state": [
@@ -3986,18 +4024,18 @@
             3250785179,
             908570166,
             3110049594,
-            113
+            115
           ],
           null
         ],
         "board": {
           "influence": {
             "Canada": {
-              "US": 4,
+              "US": 2,
               "USSR": 0
             },
             "UK": {
-              "US": 4,
+              "US": 3,
               "USSR": 0
             },
             "Norway": {
@@ -4021,7 +4059,7 @@
               "USSR": 1
             },
             "Spain_Portugal": {
-              "US": 0,
+              "US": 1,
               "USSR": 0
             },
             "Italy": {
@@ -4098,10 +4136,10 @@
             },
             "Iraq": {
               "US": 0,
-              "USSR": 0
+              "USSR": 1
             },
             "Iran": {
-              "US": 0,
+              "US": 1,
               "USSR": 0
             },
             "Jordan": {
@@ -4181,7 +4219,7 @@
               "USSR": 0
             },
             "Algeria": {
-              "US": 0,
+              "US": 1,
               "USSR": 0
             },
             "Morocco": {
@@ -4273,7 +4311,7 @@
               "USSR": 0
             },
             "Panama": {
-              "US": 0,
+              "US": 1,
               "USSR": 0
             },
             "Nicaragua": {
@@ -4282,7 +4320,7 @@
             },
             "Cuba": {
               "US": 0,
-              "USSR": 0
+              "USSR": 3
             },
             "Haiti": {
               "US": 0,
@@ -4335,16 +4373,22 @@
           }
         },
         "defcon": 4,
-        "vp": -13,
+        "vp": -4,
         "turn": 3,
         "action_round": 4,
-        "next_decision_id": 181,
+        "next_decision_id": 187,
         "decision_stack": [
           {
-            "id": 181,
+            "id": 187,
             "actor": "USSR",
             "kind": "realignment_target",
             "options": [
+              {
+                "kind": "realignment_target",
+                "payload": {
+                  "country": "Iran"
+                }
+              },
               {
                 "kind": "realignment_target",
                 "payload": {
@@ -4355,6 +4399,12 @@
                 "kind": "realignment_target",
                 "payload": {
                   "country": "Philippines"
+                }
+              },
+              {
+                "kind": "realignment_target",
+                "payload": {
+                  "country": "Algeria"
                 }
               },
               {
@@ -4374,11 +4424,19 @@
                 "payload": {
                   "country": "Zimbabwe"
                 }
+              },
+              {
+                "kind": "realignment_target",
+                "payload": {
+                  "country": "Panama"
+                }
               }
             ],
             "context": {
               "card_ops": 3,
-              "attempts_remaining": 1
+              "spent": 2,
+              "bonus": null,
+              "non_bonus": 0
             }
           }
         ],
@@ -4387,19 +4445,19 @@
         "phase": "action_rounds",
         "include_optional": true,
         "draw_pile": [
-          "NATO",
-          "Five_Year_Plan",
-          "Special_Relationship",
-          "Indo_Pakistani_War",
-          "The_Cambridge_Five",
-          "Red_Scare_Purge",
-          "Nuclear_Test_Ban",
+          "Defectors",
           "Olympic_Games",
-          "De_Stalinization",
-          "Middle_East_Scoring"
+          "NATO",
+          "Containment",
+          "Five_Year_Plan",
+          "Nuclear_Test_Ban",
+          "The_Cambridge_Five",
+          "Indo_Pakistani_War",
+          "Red_Scare_Purge",
+          "Europe_Scoring"
         ],
         "discard_pile": [
-          "Europe_Scoring",
+          "Socialist_Governments",
           "Independent_Reds",
           "Asia_Scoring",
           "UN_Intervention",
@@ -4427,20 +4485,20 @@
           "US": [
             "Nasser",
             "Romanian_Abdication",
-            "Containment"
+            "Middle_East_Scoring"
           ],
           "USSR": [
-            "Socialist_Governments",
             "COMECON",
             "Decolonization",
-            "Defectors"
+            "Special_Relationship",
+            "De_Stalinization"
           ]
         },
         "china_card_owner": "US",
         "china_card_available": false,
         "space_race": {
-          "US": 2,
-          "USSR": 3
+          "US": 3,
+          "USSR": 2
         },
         "space_race_attempts": {
           "US": 0,
@@ -4462,6 +4520,7 @@
         "game_effects": {
           "degaulle_france": true,
           "marshall_or_warsaw": true,
+          "formosan_resolution": true,
           "us_japan_pact": true,
           "norad": true
         },
@@ -4469,7 +4528,8 @@
         "our_man_kept": [],
         "physical_mode": false,
         "physical_side": null,
-        "hidden_pool": []
+        "hidden_pool": [],
+        "ops_round_snapshot": null
       }
     }
   ]

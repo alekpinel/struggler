@@ -106,6 +106,9 @@ class Card:
     `side` is the event's allegiance; `ops` is 0 for scoring cards, which
     cannot be played for operations. `in_deck` is False only for The China
     Card, which is tracked separately and never shuffled into the draw pile.
+    `event_summary` is None iff the card has no implemented event yet (see
+    CLAUDE.md's Card data policy); when present it is a hand-maintained
+    paraphrase of `events.py`'s mechanics, not the physical card's text.
     """
 
     id: str
@@ -118,6 +121,7 @@ class Card:
     remove_after_event: bool
     optional: bool
     in_deck: bool
+    event_summary: str | None
 
 
 @dataclass(frozen=True)

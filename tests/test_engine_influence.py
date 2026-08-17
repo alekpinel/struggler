@@ -2,7 +2,7 @@
 
 import pytest
 
-from struggler.engine import DecisionKind, Engine, Side
+from struggler.engine import Action, DecisionKind, Engine, Side
 
 
 def test_begin_influence_operations_pushes_one_decision_per_point():
@@ -55,6 +55,38 @@ def test_leftover_ops_are_wasted_when_no_legal_targets_remain():
     engine.begin_influence_operations(Side.USSR, 1)
     decision = engine.pending_decision
     assert all(a.payload["country"] != "Finland" for a in decision.options)
+
+
+def test_placement_within_one_ops_spend_cannot_chain_through_itself():
+    # Rule 6.1.1: markers must be placed with/adjacent to friendly markers
+    # that were in place at the *start* of the Action Round. Finland is
+    # adjacent to the USSR; Sweden is adjacent only to Finland (not to the
+    # USSR, and the USSR starts with no influence there) -- so placing in
+    # Finland first must NOT unlock Sweden within this same 2-Ops spend.
+    engine = Engine(seed=1)
+    engine.begin_influence_operations(Side.USSR, 2)
+    decision = engine.pending_decision
+    assert all(a.payload["country"] != "Sweden" for a in decision.options)
+    finland = next(a for a in decision.options if a.payload["country"] == "Finland")
+    engine.step(finland)
+    # Still within the same spend: Sweden remains unreachable even though
+    # Finland now has USSR influence.
+    decision = engine.pending_decision
+    assert decision is not None
+    assert all(a.payload["country"] != "Sweden" for a in decision.options)
+
+
+def test_placement_reaches_further_in_a_fresh_ops_spend_next_time():
+    # The same chain IS legal once Finland's influence from a prior spend is
+    # already on the board at the *start* of a later Action Round.
+    engine = Engine(seed=1)
+    engine.begin_influence_operations(Side.USSR, 1)
+    engine.step(Action(DecisionKind.PLACE_INFLUENCE, {"country": "Finland"}))
+    assert engine.pending_decision is None  # first spend fully consumed
+
+    engine.begin_influence_operations(Side.USSR, 1)
+    decision = engine.pending_decision
+    assert any(a.payload["country"] == "Sweden" for a in decision.options)
 
 
 def test_observe_reflects_influence_and_pending_decision():

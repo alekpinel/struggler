@@ -4586,7 +4586,8 @@
         "our_man_kept": [],
         "physical_mode": false,
         "physical_side": null,
-        "hidden_pool": []
+        "hidden_pool": [],
+        "ops_round_snapshot": null
       }
     },
     {
@@ -5227,7 +5228,7 @@
         "board": {
           "influence": {
             "Canada": {
-              "US": 1,
+              "US": 2,
               "USSR": 0
             },
             "UK": {
@@ -5618,7 +5619,9 @@
             ],
             "context": {
               "card_ops": 3,
-              "attempts_remaining": 2
+              "spent": 1,
+              "bonus": null,
+              "non_bonus": 0
             }
           }
         ],
@@ -5746,7 +5749,8 @@
         "our_man_kept": [],
         "physical_mode": false,
         "physical_side": null,
-        "hidden_pool": []
+        "hidden_pool": [],
+        "ops_round_snapshot": null
       }
     },
     {
@@ -6387,7 +6391,7 @@
         "board": {
           "influence": {
             "Canada": {
-              "US": 1,
+              "US": 2,
               "USSR": 0
             },
             "UK": {
@@ -6507,7 +6511,7 @@
               "USSR": 0
             },
             "Saudi_Arabia": {
-              "US": 0,
+              "US": 1,
               "USSR": 0
             },
             "Afghanistan": {
@@ -6882,7 +6886,8 @@
         "our_man_kept": [],
         "physical_mode": false,
         "physical_side": null,
-        "hidden_pool": []
+        "hidden_pool": [],
+        "ops_round_snapshot": null
       }
     },
     {
@@ -7523,7 +7528,7 @@
         "board": {
           "influence": {
             "Canada": {
-              "US": 1,
+              "US": 2,
               "USSR": 0
             },
             "UK": {
@@ -7643,7 +7648,7 @@
               "USSR": 0
             },
             "Saudi_Arabia": {
-              "US": 2,
+              "US": 3,
               "USSR": 0
             },
             "Afghanistan": {
@@ -8016,7 +8021,8 @@
         "our_man_kept": [],
         "physical_mode": false,
         "physical_side": null,
-        "hidden_pool": []
+        "hidden_pool": [],
+        "ops_round_snapshot": null
       }
     }
   ]
