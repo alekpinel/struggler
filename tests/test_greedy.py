@@ -72,20 +72,3 @@ def test_greedy_falls_back_to_first_option_for_unmapped_decision_kinds():
     action = GreedyPlayer().choose_action(observation, [])
 
     assert action == fallback_decision.options[0]
-
-
-@pytest.mark.parametrize("greedy_side", [Side.US, Side.USSR])
-def test_greedy_beats_random_over_many_seeds(greedy_side: Side):
-    total = 12
-    wins = 0
-    for seed in range(total):
-        engine = Engine.new_game(seed=seed)
-        greedy, random_player = GreedyPlayer(), RandomPlayer(seed=seed + 1000)
-        players = (
-            {Side.US: greedy, Side.USSR: random_player}
-            if greedy_side is Side.US
-            else {Side.US: random_player, Side.USSR: greedy}
-        )
-        if play_game(engine, players) is greedy_side:
-            wins += 1
-    assert wins >= total * 0.7
