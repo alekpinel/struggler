@@ -405,15 +405,19 @@ historical "Ops-only" toggle.
       `pending_decision` is otherwise shared (mandate #4). Kept cards return to
       the draw pile and it is reshuffled through the seeded RNG once all (up
       to 5) cards are decided.
-    - A headline-cancellation interaction: Defectors has no `EVENTS` entry —
-      its entire effect only makes sense at headline time (a documented
-      restriction of the physical card), so it is implemented purely as a
-      headline-order hook, `_apply_defectors_headline`, called from
-      `_advance_once` once both headline picks are frozen: a US headline of
-      Defectors discards the USSR's headlined card unresolved; a USSR headline
-      of Defectors instead gives the US 1 VP. Playing it in an ordinary action
-      round is therefore correctly a no-op discard, exactly like an
-      unimplemented event.
+    - A headline-cancellation interaction, plus a separate action-round
+      trigger: Defectors has no `EVENTS` entry — neither of its two printed
+      clauses is an ordinary `resolve(engine, side)` event. Headlined by the
+      US, `_apply_defectors_headline` (called from `_advance_once` once both
+      headline picks are frozen, since it must act before either headline
+      card resolves) discards the USSR's headlined card unresolved. Played by
+      the USSR in a normal action round — Event or Ops, not Space Race —
+      `_maybe_defectors_action_round` (hooked into `_handle_play_mode`
+      alongside Flower Power) instead gives the US 1 VP. The USSR headlining
+      it, or the US playing it in an action round, have no printed effect and
+      are correctly no-ops. (This was flipped in an earlier pass — the VP
+      previously fired on a USSR *headline* instead of a USSR action-round
+      play — corrected after re-confirming the physical card's wording.)
     - A persistent per-player operating lock: Bear Trap (traps the USSR) and
       Quagmire (traps the US) — independent of who actually plays the card,
       the same way Duck and Cover always favors the US regardless of who plays
@@ -488,7 +492,13 @@ historical "Ops-only" toggle.
     Germany). Star Wars was re-examined and found already correct — it was
     flagged as a "simplification" in error; its behavior (event-only, no
     scoring cards, filed exactly like a normal event play) already matches
-    the printed card.
+    the printed card. Defectors' +1 VP clause was inverted: it had fired on
+    the USSR *headlining* the card, but the printed text ties it to the USSR
+    playing it in a normal action round (Event or Ops, not Space Race)
+    instead — the headline clause is Defectors-cancels-headline only, with no
+    separate USSR-headline effect (`Engine._maybe_defectors_action_round`,
+    hooked into `_handle_play_mode` next to Flower Power; corrected after
+    the user supplied the exact physical card text, #103).
   - *Documented simplifications that remain* (noted in `events.py`
     docstrings at the card in question): Shuttle Diplomacy is filed to the
     discard when played rather than kept "in front of you" until its delayed

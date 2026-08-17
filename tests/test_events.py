@@ -1944,21 +1944,42 @@ def test_defectors_cancels_the_ussr_headline():
     assert engine.phase == "action_rounds"
 
 
-def test_defectors_headlined_by_ussr_gives_the_us_one_vp():
+def test_defectors_headlined_by_ussr_has_no_printed_effect():
+    # Unlike the old (wrong) behavior, headlining it as the USSR is a plain
+    # no-op headline -- the +1 VP clause is for a normal action-round play,
+    # not headlining (see below).
     engine = _bare(seed=1)
     engine.defcon = 5
     _headline_setup(engine, "Defectors", "Nasser")
     engine.step(Action(DecisionKind.HEADLINE_PLAY, {"card": "Defectors"}))
     engine.step(Action(DecisionKind.HEADLINE_PLAY, {"card": "Nasser"}))
-    assert engine.vp == 1
+    assert engine.vp == 0
     assert engine.phase == "action_rounds"
 
 
-def test_defectors_played_in_an_action_round_is_a_plain_discard():
+def test_defectors_played_by_us_in_an_action_round_is_a_plain_discard():
     engine = _bare()
     engine.hands["US"] = ["Defectors"]
     _play_card_for(engine, Side.US, "Defectors", "event")
     assert "Defectors" in engine.discard_pile  # no headline: no cancellation effect
+    assert engine.vp == 0  # the VP clause is specifically for the USSR playing it
+
+
+def test_defectors_played_by_ussr_in_an_action_round_gives_the_us_one_vp():
+    # Printed text: "If Defectors played by USSR during Soviet action round,
+    # US gains 1 VP (unless played on the Space Race)."
+    for mode in ("event", "ops"):
+        engine = _bare()
+        engine.hands["USSR"] = ["Defectors"]
+        _play_card_for(engine, Side.USSR, "Defectors", mode)
+        assert engine.vp == 1, f"mode={mode}"
+
+
+def test_defectors_played_by_ussr_on_the_space_race_gives_no_vp():
+    engine = _bare()
+    engine.hands["USSR"] = ["Defectors"]
+    _play_card_for(engine, Side.USSR, "Defectors", "space_race")
+    assert engine.vp == 0
 
 
 def test_bear_trap_traps_the_ussr_not_the_us():

@@ -1484,12 +1484,15 @@ def _quagmire(engine: "Engine", side: Side) -> None:
     engine.game_effects["quagmire"] = True
 
 
-# Defectors has no EVENTS entry: its entire effect (cancel the USSR's headline,
-# or +1 VP for the US if the USSR ever headlines it) only makes sense at
-# headline time and is a documented restriction of the physical card, so it is
-# implemented purely as a headline-order hook
-# (Engine._apply_defectors_headline). Playing it in an action round is
-# therefore correctly a no-op discard, exactly as for an unimplemented event.
+# Defectors has no EVENTS entry: it has two printed clauses, neither of which
+# is an ordinary "resolve(engine, side)" event. Headlined by the US, it
+# cancels the USSR's headline card unresolved (Engine._apply_defectors_
+# headline, hooked into the headline-order machinery, since it must act
+# before any other headline card resolves). Played by the USSR in a normal
+# action round (Event or Ops -- not Space Race), it instead gives the US 1 VP
+# (Engine._maybe_defectors_action_round, hooked into _handle_play_mode
+# alongside Flower Power). The USSR headlining it, or the US playing it in an
+# action round, have no printed effect and are correctly no-ops.
 
 
 # -- shared helpers ---------------------------------------------------------
