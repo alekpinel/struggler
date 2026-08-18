@@ -198,7 +198,7 @@ def _drain_event_influence(engine: Engine, taker=lambda opts: opts[0]) -> int:
 
 def _eastern_europe(engine: Engine) -> list[str]:
     return [c for c, i in engine.board.countries.items()
-            if i.subregion is not None and i.subregion.value == "EASTERN_EUROPE"]
+            if Subregion.EASTERN_EUROPE in i.subregions]
 
 
 def test_comecon_places_four_in_non_us_eastern_europe():
@@ -777,8 +777,8 @@ def test_vietnam_revolts_places_and_grants_se_asia_ops_bonus():
     def se_asia(opts):
         return next(
             a for a in opts
-            if engine.board.countries[a.payload["country"]].subregion is not None
-            and engine.board.countries[a.payload["country"]].subregion.value == "SOUTHEAST_ASIA"
+            if Subregion.SOUTHEAST_ASIA
+            in engine.board.countries[a.payload["country"]].subregions
         )
     steps = 0
     while (engine.pending_decision is not None
@@ -1885,7 +1885,7 @@ def test_special_relationship_under_nato_places_two_in_western_europe_and_scores
     d = engine.pending_decision
     assert d.kind is DecisionKind.EVENT_INFLUENCE and d.actor is Side.US
     assert all(
-        engine.board.countries[a.payload["country"]].subregion is Subregion.WESTERN_EUROPE
+        Subregion.WESTERN_EUROPE in engine.board.countries[a.payload["country"]].subregions
         for a in d.options
     )
     engine.step(Action(DecisionKind.EVENT_INFLUENCE, {"country": "France"}))
@@ -2087,7 +2087,7 @@ def test_southeast_asia_scoring_weighs_thailand_double():
 
     other = next(
         cid for cid, info in engine.board.countries.items()
-        if info.subregion is Subregion.SOUTHEAST_ASIA and cid != "Thailand"
+        if Subregion.SOUTHEAST_ASIA in info.subregions and cid != "Thailand"
     )
     engine.board.influence[other] = {
         "US": engine.board.countries[other].stability, "USSR": 0

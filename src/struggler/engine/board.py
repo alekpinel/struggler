@@ -15,9 +15,22 @@ class CountryInfo:
     id: str
     name: str
     region: Region
-    subregion: Subregion | None
+    # Almost every country belongs to zero or one subregion; Austria and
+    # Finland are the exception (Twilight Struggle FAQ ruling: both are
+    # historically-neutral countries counted as part of both Western Europe
+    # and Eastern Europe for every card/rule that references either).
+    subregions: frozenset[Subregion]
     stability: int
     battleground: bool
+
+
+def _load_subregions(raw: str | list[str] | None) -> frozenset[Subregion]:
+    """Country data stores `subregion` as null, a single name, or (for
+    Austria/Finland) a list of names -- normalize all three to a set."""
+    if raw is None:
+        return frozenset()
+    names = [raw] if isinstance(raw, str) else raw
+    return frozenset(Subregion[name] for name in names)
 
 
 class Board:
@@ -40,7 +53,7 @@ class Board:
                 id=cid,
                 name=entry["name"],
                 region=Region[entry["region"]],
-                subregion=Subregion[entry["subregion"]] if entry.get("subregion") else None,
+                subregions=_load_subregions(entry.get("subregion")),
                 stability=entry["stability"],
                 battleground=entry["battleground"],
             )

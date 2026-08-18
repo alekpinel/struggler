@@ -193,7 +193,7 @@ def _red_scare_purge(engine: "Engine", side: Side) -> None:
 
 def _in_subregion(engine: "Engine", subregion: Subregion) -> list[str]:
     return [
-        cid for cid, info in engine.board.countries.items() if info.subregion is subregion
+        cid for cid, info in engine.board.countries.items() if subregion in info.subregions
     ]
 
 

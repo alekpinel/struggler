@@ -24,8 +24,8 @@
     "Greece":               {"name": "Greece",                "region": "EUROPE",          "subregion": "WESTERN_EUROPE", "stability": 2, "battleground": false, "adjacent_to": ["Italy", "Yugoslavia", "Bulgaria", "Turkey"]},
     "Turkey":                {"name": "Turkey",                "region": "EUROPE",          "subregion": "WESTERN_EUROPE", "stability": 2, "battleground": false, "adjacent_to": ["Greece", "Bulgaria", "Romania", "Syria"]},
 
-    "Austria":              {"name": "Austria",               "region": "EUROPE",          "subregion": null, "stability": 4, "battleground": false, "adjacent_to": ["West_Germany", "East_Germany", "Hungary", "Italy"]},
-    "Finland":              {"name": "Finland",               "region": "EUROPE",          "subregion": null, "stability": 4, "battleground": false, "adjacent_to": ["Sweden", "USSR"]},
+    "Austria":              {"name": "Austria",               "region": "EUROPE",          "subregion": ["EASTERN_EUROPE", "WESTERN_EUROPE"], "stability": 4, "battleground": false, "adjacent_to": ["West_Germany", "East_Germany", "Hungary", "Italy"]},
+    "Finland":              {"name": "Finland",               "region": "EUROPE",          "subregion": ["EASTERN_EUROPE", "WESTERN_EUROPE"], "stability": 4, "battleground": false, "adjacent_to": ["Sweden", "USSR"]},
     "West_Germany":         {"name": "West Germany",          "region": "EUROPE",          "subregion": "WESTERN_EUROPE", "stability": 4, "battleground": true,  "adjacent_to": ["France", "Benelux", "Denmark", "East_Germany", "Austria"]},
     "East_Germany":         {"name": "East Germany",          "region": "EUROPE",          "subregion": "EASTERN_EUROPE", "stability": 3, "battleground": true,  "adjacent_to": ["West_Germany", "Austria", "Czechoslovakia", "Poland"]},
     "Poland":               {"name": "Poland",                "region": "EUROPE",          "subregion": "EASTERN_EUROPE", "stability": 3, "battleground": true,  "adjacent_to": ["East_Germany", "Czechoslovakia", "USSR"]},

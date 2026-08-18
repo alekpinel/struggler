@@ -2153,6 +2153,18 @@
                 "payload": {
                   "country": "Greece"
                 }
+              },
+              {
+                "kind": "event_influence",
+                "payload": {
+                  "country": "Austria"
+                }
+              },
+              {
+                "kind": "event_influence",
+                "payload": {
+                  "country": "Finland"
+                }
               }
             ],
             "context": {
@@ -2173,6 +2185,8 @@
                 "Italy",
                 "Greece",
                 "Turkey",
+                "Austria",
+                "Finland",
                 "West_Germany"
               ],
               "cap": 1,

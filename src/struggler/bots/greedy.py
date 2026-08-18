@@ -42,7 +42,16 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Callable, Sequence
 
-from struggler.engine import Action, Decision, DecisionKind, Observation, Region, ScoringTier, Side
+from struggler.engine import (
+    Action,
+    Decision,
+    DecisionKind,
+    Observation,
+    Region,
+    ScoringTier,
+    Side,
+    Subregion,
+)
 from struggler.engine.board import Board, CountryInfo
 from struggler.engine.cards import load_cards
 from struggler.engine.core import SCORING_CARD_REGION
@@ -141,7 +150,7 @@ def _in_bonus_region(info: CountryInfo, bonus: str | None) -> bool:
     if bonus == "asia":
         return info.region is Region.ASIA
     if bonus == "se_asia":
-        return info.subregion is not None and info.subregion.value == "SOUTHEAST_ASIA"
+        return Subregion.SOUTHEAST_ASIA in info.subregions
     return False
 
 

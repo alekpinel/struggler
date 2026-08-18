@@ -563,7 +563,7 @@ class Engine:
         options = tuple(
             Action(DecisionKind.PLACE_INFLUENCE, {"country": cid})
             for cid, info in self.board.countries.items()
-            if info.subregion is subregion
+            if subregion in info.subregions
         )
         self._push(
             side,
@@ -1027,7 +1027,7 @@ class Engine:
         if bonus == "asia":
             return info.region is Region.ASIA
         if bonus == "se_asia":
-            return info.subregion is Subregion.SOUTHEAST_ASIA
+            return Subregion.SOUTHEAST_ASIA in info.subregions
         return False
 
     def _ops_type_options(
@@ -1741,7 +1741,7 @@ class Engine:
         # controlled Southeast Asia country, netted US-positive.
         net = 0
         for cid, info in self.board.countries.items():
-            if info.subregion is Subregion.SOUTHEAST_ASIA:
+            if Subregion.SOUTHEAST_ASIA in info.subregions:
                 value = 2 if cid == "Thailand" else 1
                 controller = self.board.control(cid)
                 if controller is Side.US:

@@ -172,7 +172,9 @@ def build_system_prompt(side: Side) -> str:
         _strategic_guidance_text(side),
         _payload_catalog_text(),
         f"Rules constants (JSON):\n{json.dumps(RULES, indent=2)}",
-        "Countries (JSON). Each entry has: region, subregion (nullable), "
+        "Countries (JSON). Each entry has: region, subregion (null, a single "
+        "name, or -- for Austria and Finland, which the rules count as both "
+        "Western and Eastern Europe -- a list of two names), "
         "stability (used in the Control/Coup/Realignment formulas above), "
         "battleground (true/false, used in regional scoring), and "
         "adjacent_to (country ids this country connects to for placement "

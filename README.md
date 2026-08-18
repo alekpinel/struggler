@@ -49,6 +49,21 @@ Every seat — human, scripted bot, LLM, or a human playing the physical
 board with the engine as referee — plugs in through the same `Player`
 interface, so all of those are one code path.
 
+Every game defaults to a saved replay log under `./logs/`
+(`--game-log-path` to pick a location, `--no-game-log` to disable). Resume
+one later with `--resume-game-log`, which rebuilds the game from that file
+and keeps appending to it — useful as-is, or after hand-trimming the file's
+`actions` to undo a bad play before continuing:
+
+```sh
+python src/main.py --resume-game-log logs/2026-08-18_10-58_game.json \
+  --ussr llm --ussr-log-path logs/2026-08-18_10-58_ussr.json --resume
+```
+
+`--resume` additionally reloads an LLM player's own conversation memory
+from its log — see [docs/BOTS.md](docs/BOTS.md) for the resumption
+contract, including keeping that memory in sync if you trim the game log.
+
 ## What makes it different
 
 Five mandates the implementation is held to, described in full in
