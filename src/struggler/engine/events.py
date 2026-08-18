@@ -1,7 +1,7 @@
-"""M3 card-event mechanics.
+"""Card-event mechanics.
 
-This module owns the *event text* of cards — deliberately kept out of the M1/M2
-data layer (see CLAUDE.md's card data policy and the M3 milestone). Each event is
+This module owns the *event text* of cards — deliberately kept out of the
+card data layer (see docs/CARDS.md). Each event is
 a small function that mutates game state through the same primitives the board
 mechanics already expose (influence, control, DEFCON, VP, Space Race, the seeded
 dice-as-CHANCE decisions), never by reaching around the decision stack.
@@ -14,8 +14,8 @@ Design (mandates #1-#2):
   a persistent per-turn modifier the engine consults later (tier 3). Player-choice
   events (tier 2) enqueue their own player decisions and are added incrementally.
 - `EVENTS` maps a card id to its `Event`. A card absent from this map has no
-  implemented event yet: in events mode it is a no-op discard, exactly as in M2.
-  This is what lets M3 grow card-by-card without ever regressing the M2 loop.
+  implemented event yet: in events mode it is a no-op discard.
+  This is what lets the deck grow card-by-card without touching the game loop.
 
 Every numeric effect below is taken from the physical card text (GMT Games,
 2005 / 2009 Deluxe), not from any reference implementation.
@@ -324,7 +324,7 @@ def _willy_brandt(engine: "Engine", side: Side) -> None:
 # physical card text. Cards whose text needs a subsystem we do not model yet
 # (random discard from a hidden hand, revealing/taking hand cards, per-turn
 # regional Ops bonuses, taking cards from the discard pile, DEFCON-status
-# restrictions) are intentionally left unregistered — see CLAUDE.md.
+# restrictions) are intentionally left unregistered — see docs/CARDS.md.
 # ---------------------------------------------------------------------------
 
 # -- immediate, fixed board/VP/DEFCON/space effects -------------------------
@@ -1080,9 +1080,9 @@ def _cambridge_five_query_choice(
 
 
 # ---------------------------------------------------------------------------
-# M3 tail cards — the most idiosyncratic events, each reusing/extending the
+# Tail cards — the most idiosyncratic events, each reusing/extending the
 # primitives above. Documented simplifications are noted per card and mirrored
-# in CLAUDE.md's "Known limitations" list.
+# in docs/LIMITATIONS.md.
 # ---------------------------------------------------------------------------
 
 # -- Missile Envy: take the opponent's top-Ops card, then use it -------------
@@ -1574,7 +1574,7 @@ def _our_man_in_tehran(engine: "Engine", side: Side) -> None:
     # EVENT_CHOICE decision itself only ever offers "keep"/"remove", never the
     # card identity, so the opponent's observation never sees which card is
     # under consideration.
-    # Physical mode, not yet wired (see CLAUDE.md's M3 "Physical mode"
+    # Physical mode, not yet wired (see docs/LIMITATIONS.md's "Physical mode"
     # limitation): the draw pile's real contents are unknown to the engine
     # itself in physical mode (not just hidden from a player) — there is no
     # "top card" to peek at, so this is a documented no-op rather than

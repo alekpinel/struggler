@@ -1,4 +1,4 @@
-"""Deterministic replay logs: the primary testing strategy (CLAUDE.md)."""
+"""Deterministic replay logs: the primary testing strategy (docs/TESTING.md)."""
 
 import json
 from pathlib import Path
@@ -17,7 +17,7 @@ def _load(name: str) -> dict:
 
 
 def test_golden_replay_matches_recorded_checkpoints():
-    log = _load("m1_influence_basic.json")
+    log = _load("influence_basic.json")
     recorded = run_with_checkpoints(log)
     assert len(recorded) == len(log["checkpoints"])
     for rec, checkpoint in zip(recorded, log["checkpoints"]):
@@ -26,7 +26,7 @@ def test_golden_replay_matches_recorded_checkpoints():
 
 
 def test_golden_physical_replay_matches_recorded_checkpoints():
-    log = _load("m_physical_basic.json")
+    log = _load("physical_basic.json")
     recorded = run_with_checkpoints(log)
     assert len(recorded) == len(log["checkpoints"])
     for rec, checkpoint in zip(recorded, log["checkpoints"]):
@@ -38,7 +38,7 @@ def test_golden_physical_replay_matches_recorded_checkpoints():
 
 
 def test_replay_is_deterministic_across_independent_runs():
-    log = _load("m1_influence_basic.json")
+    log = _load("influence_basic.json")
     engine_a = run_replay(log)
     engine_b = run_replay(log)
     assert engine_a.serialize() == engine_b.serialize()

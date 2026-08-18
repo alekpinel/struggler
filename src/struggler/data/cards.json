@@ -7,10 +7,10 @@
     "side": "US | USSR | NEUTRAL (the side the event favors; NEUTRAL = playable by either)",
     "period": "EARLY_WAR | MID_WAR | LATE_WAR (when the card enters the deck)",
     "scoring": "true iff this is a regional scoring card (0 Ops, cannot be held past end of turn)",
-    "remove_after_event": "true iff removed from the game once its event fires (only matters from M3 on)",
+    "remove_after_event": "true iff the card is removed from the game once its event fires",
     "optional": "true iff a Deluxe optional card, excluded from the default deck unless enabled",
     "in_deck": "false iff the card is never shuffled into the draw pile (only The China Card)",
-    "event_summary": "null if this card has no implemented event yet (a no-op discard when played as event); otherwise a short, hand-maintained paraphrase of what events.py does mechanically -- NOT the physical card's printed text, and may drift from events.py (see CLAUDE.md Card data policy)"
+    "event_summary": "null if this card has no implemented event yet (a no-op discard when played as event); otherwise a short, hand-maintained paraphrase of what events.py does mechanically -- NOT the physical card's printed text, and may drift from events.py (see docs/CARDS.md)"
   },
   "cards": {
     "Asia_Scoring": {

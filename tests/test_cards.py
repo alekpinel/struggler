@@ -1,4 +1,4 @@
-"""Card data loading and deck-composition tests (M2 foundation)."""
+"""Card data loading and deck-composition tests."""
 
 from struggler.engine import CardSide, Period
 from struggler.engine.cards import (

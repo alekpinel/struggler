@@ -13,7 +13,7 @@ with `resume` left at its default (`False`) always starts with empty
 memory, even if `path` already holds a snapshot from an earlier game --
 loading must be an explicit choice, never a side effect of reusing a path.
 The caller is independently responsible for reconstructing a matching `Engine`
-(via `Engine.serialize()`/`deserialize()` or a replay log, see CLAUDE.md's
+(via `Engine.serialize()`/`deserialize()` or a replay log, see docs/ARCHITECTURE.md's
 Testing strategy) and for building a `history: Sequence[Event]` of at
 least `last_seen` entries, in the same order as before persistence, to
 pass into `choose_action`. If `history` is shorter than the restored
@@ -21,7 +21,7 @@ pass into `choose_action`. If `history` is shorter than the restored
 silently losing context.
 
 This file is deliberately separate from the Engine's own serialize()/
-replay-log machinery -- CLAUDE.md mandate #5's "flat, serializable state"
+replay-log machinery -- mandate #5's "flat, serializable state"
 is about `GameState`, not `Player` state; resuming a game means loading
 BOTH the Engine and each `LLMPlayer`, independently.
 """

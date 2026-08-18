@@ -75,8 +75,8 @@ class Engine:
         self._headline_pending: list[list[str]] = []
 
         # -- Card-event state --------------------------------------------
-        # `events_enabled` gates the whole event layer: False reproduces M2
-        # (every card is Ops-only, no event ever fires). `turn_effects` holds
+        # `events_enabled` gates the whole event layer: with it False every
+        # card is Ops-only and no event ever fires. `turn_effects` holds
         # persistent per-turn modifiers set by events (e.g. Containment) and is
         # cleared at end of turn; its values are JSON primitives (mandate #5).
         self.events_enabled = False
@@ -107,7 +107,7 @@ class Engine:
         # board game: the engine cannot know their hand's contents (a real
         # shuffle, not the seeded RNG), and every dice roll on the table —
         # both sides' — is entered manually instead of drawn from `_rng`.
-        # See CLAUDE.md's "Bot framework" section for the full design.
+        # See docs/BOTS.md for the full design.
         self.physical_mode = False
         self.physical_side: Side | None = None
         # Real card ids not yet matched to a known location: the physical
@@ -165,7 +165,7 @@ class Engine:
             china_card_available=self.china_card_available,
             space_race=dict(self.space_race),
             military_ops=dict(self.military_ops),
-            # Public M3 modifiers only (e.g. NATO, Containment) — the
+            # Public event modifiers only (e.g. NATO, Containment) — the
             # in-progress secret headline pick lives on `self._headline`
             # and is never surfaced here.
             turn_effects=copy.deepcopy(self.turn_effects),
@@ -195,7 +195,7 @@ class Engine:
             "decision_stack": [_encode_decision(d) for d in self._decision_stack],
             "winner": self._winner.value if self._winner is not None else None,
             "game_over_reason": self._game_over_reason,
-            # -- M2 full-game state --
+            # -- full-game state --
             "phase": self.phase,
             "include_optional": self.include_optional,
             "draw_pile": list(self.draw_pile),
@@ -239,7 +239,7 @@ class Engine:
         engine._decision_stack = [_decode_decision(d) for d in data["decision_stack"]]
         engine._winner = Side(data["winner"]) if data["winner"] is not None else None
         engine._game_over_reason = data["game_over_reason"]
-        # -- M2 full-game state (absent in pre-M2 logs: fall back to M1 sandbox) --
+        # -- full-game state (absent in board-only logs: fall back to the sandbox) --
         engine.phase = data.get("phase", "idle")
         engine.include_optional = data.get("include_optional", False)
         engine.draw_pile = list(data.get("draw_pile", []))
@@ -271,7 +271,7 @@ class Engine:
         engine._ops_round_snapshot = copy.deepcopy(snapshot) if snapshot is not None else None
         return engine
 
-    # -- M1 test-harness entry points (no cards yet) -----------------------
+    # -- test-harness entry points (no cards yet) --------------------------
 
     def begin_influence_operations(self, side: Side, ops: int) -> None:
         if ops <= 0:
@@ -291,7 +291,7 @@ class Engine:
             raise ValueError("ops must be positive")
         self._maybe_push_realignment_target(side, card_ops=ops, spent=0)
 
-    # -- M2: full-game entry point -----------------------------------------
+    # -- full-game entry point ---------------------------------------------
 
     @classmethod
     def new_game(
@@ -315,7 +315,7 @@ class Engine:
         playing the physical board game (see the "Physical-mode state"
         fields on `__init__`) — its hand is unknown to the engine until
         revealed, and all dice (both sides') are entered manually. See
-        CLAUDE.md's "Bot framework" section.
+        docs/BOTS.md.
         """
         if physical_mode and physical_side not in (Side.US, Side.USSR):
             raise ValueError("physical_mode requires physical_side to be Side.US or Side.USSR")
@@ -331,15 +331,15 @@ class Engine:
         engine._advance()  # drains physical-mode dealing if any, then runs setup -> first headline
         return engine
 
-    # -- M2: turn director --------------------------------------------------
+    # -- turn director ------------------------------------------------------
 
     def _advance(self) -> None:
         """Push the next top-level decision whenever the stack drains.
 
         The decision stack holds only genuine pending choices; between them
         (start of an action round, headline resolution, end of turn) this
-        director decides what happens next. It is a no-op in the M1 sandbox
-        (phase 'idle') and once the game is over ('complete').
+        director decides what happens next. It is a no-op in the board-only
+        sandbox (phase 'idle') and once the game is over ('complete').
         """
         # 'predeal' is turn 1 only, set by _start_turn(initial=True): once
         # the opening deal has fully drained (a no-op wait for physical
@@ -404,7 +404,7 @@ class Engine:
                 self._dispatch_action_round(side)
             return
 
-    # -- M2: turn boundaries ------------------------------------------------
+    # -- turn boundaries ----------------------------------------------------
 
     def _start_turn(self, *, initial: bool = False) -> None:
         """Add the period's cards to the deck (as the war escalates), deal
@@ -540,7 +540,7 @@ class Engine:
             return Side.USSR if idx % 2 == 0 else Side.US
         return self._extra_action_round_sides()[idx - base]
 
-    # -- M2: opening setup --------------------------------------------------
+    # -- opening setup ------------------------------------------------------
 
     def _begin_setup(self) -> None:
         """Apply printed at-start influence, then hand control to the players
@@ -573,7 +573,7 @@ class Engine:
              "remaining": remaining},
         )
 
-    # -- M2: deck operations (shuffle via the injected RNG, mandate #3) -----
+    # -- deck operations (shuffle via the injected RNG, mandate #3) ---------
 
     def _add_period_to_deck(self, period: Period) -> None:
         entering = cards_entering(self.cards, period, self.include_optional)
@@ -692,7 +692,7 @@ class Engine:
         self.hands[side_str].append(cid)
         self._push_deal_card(Side(side_str), decision.context["remaining"] - 1)
 
-    # -- M2: headline phase -------------------------------------------------
+    # -- headline phase -----------------------------------------------------
 
     def _push_headline(self, side: Side) -> None:
         # The China Card cannot be headlined; scoring cards can.
@@ -721,7 +721,7 @@ class Engine:
 
     def _headline_resolution_order(self) -> list[list[str]]:
         """Freeze the order the two headlined cards resolve in: higher Ops
-        first, ties US-first. Returns [side_value, card_id] pairs. (In M2 only
+        first, ties US-first. Returns [side_value, card_id] pairs. (With events off only
         scoring events act, so order is cosmetic; with events on it decides
         which event — and its interrupts — happens first.)"""
         picks = {s: self._headline[s.value] for s in (Side.US, Side.USSR)}
@@ -771,7 +771,7 @@ class Engine:
     def _resolve_headline_card(self, side: Side, cid: str) -> None:
         """Resolve one headlined card for its owner. A scoring card scores; with
         events on, a card with an implemented event fires it (and may enqueue
-        sub-decisions); otherwise it is a no-op discard (M2 behavior)."""
+        sub-decisions); otherwise it is a no-op discard."""
         self._maybe_flower_power(side, cid)
         if self.is_terminal:
             return
@@ -785,7 +785,7 @@ class Engine:
         else:
             self._file_card(side, cid, fired=False, already_removed_from_hand=True)
 
-    # -- M2: action round: pick a card, then how to use it ------------------
+    # -- action round: pick a card, then how to use it ----------------------
 
     def _dispatch_action_round(self, side: Side) -> None:
         """`side`'s next action round: a trap step if it's caught in one,
@@ -905,7 +905,7 @@ class Engine:
         if card.scoring:
             return ("event",)  # a scoring card can only be played as its event
         modes = ["ops"]
-        # The event-vs-ops choice is enumerated per the M2 spec even though no
+        # The event-vs-ops choice is still enumerated with events off even though no
         # non-scoring event fires yet (choosing it is a no-op discard). The
         # China Card has no event, so it is Ops-only.
         if cid != RULES["china_card_id"]:
@@ -948,7 +948,7 @@ class Engine:
                 self._file_card(side, cid, fired=True)
                 self._fire_event(side, cid)
             else:
-                # M2 behavior: an unfired/unimplemented event is a no-op discard.
+                # An unfired/unimplemented event is a no-op discard.
                 self._file_card(side, cid, fired=False)
             return
 
@@ -1064,7 +1064,7 @@ class Engine:
             # region — mirrors _maybe_push_bonus_influence's rule.
             self._maybe_push_realignment_target(side, card_ops=ops, spent=0, bonus=bonus)
 
-    # -- M2: space race -----------------------------------------------------
+    # -- space race ---------------------------------------------------------
 
     def _space_attempts_allowed(self, side: Side) -> int:
         if self.space_race[side.value] >= RULES["space_race_two_attempts_from_box"]:
@@ -1120,7 +1120,7 @@ class Engine:
         else:
             self.game_effects.pop(key, None)
 
-    # -- M3: card events ----------------------------------------------------
+    # -- card events --------------------------------------------------------
 
     def _has_event(self, cid: str) -> bool:
         return cid in EVENTS
@@ -1244,7 +1244,7 @@ class Engine:
         else:  # "event"
             self._fire_event(side, ctx["card"])
 
-    # -- M3: player-choice event steps (tier 2) -----------------------------
+    # -- player-choice event steps (tier 2) ---------------------------------
     #
     # An event that lets a player distribute influence enqueues its own
     # decisions through one generic, fully serializable step type
@@ -1372,7 +1372,7 @@ class Engine:
         side = Side(decision.context["choose_side"])
         CHOICE_ROUTERS[event](self, side, action.payload["choice"], decision.context)
 
-    # -- M3: influence / control helpers used by events ---------------------
+    # -- influence / control helpers used by events -------------------------
 
     def add_influence(self, country: str, side: Side, amount: int) -> None:
         self.board.influence[country][side.value] += amount
@@ -1392,7 +1392,7 @@ class Engine:
         if self.board.influence[country][side.value] < stability:
             self.board.influence[country][side.value] = stability
 
-    # -- M3: events that grant "conduct Operations" -------------------------
+    # -- events that grant "conduct Operations" -----------------------------
 
     def push_event_operations(self, side: Side, ops: int, allow_coup: bool = True) -> None:
         """An event that has its beneficiary conduct `ops` Operations (CIA
@@ -1408,7 +1408,7 @@ class Engine:
         the caller is blamed for it."""
         self._change_defcon(level - self.defcon, caused_by=caused_by)
 
-    # -- M3: forced random discard from a hidden hand (a CHANCE decision) ----
+    # -- forced random discard from a hidden hand (a CHANCE decision) --------
     #
     # The discard is drawn from the seeded RNG and exposed as a CHANCE decision
     # with a *single* option — the drawn card (which is about to become public
@@ -1481,7 +1481,7 @@ class Engine:
                 break
             self.hands[side.value].append(card)
 
-    # -- M3: a two-die "both roll, higher wins" contest ---------------------
+    # -- a two-die "both roll, higher wins" contest -------------------------
     #
     # Both sides roll (from the seeded RNG, logged as a single CHANCE option),
     # a per-side modifier is added, and the winner takes `vp`. By default ties
@@ -1563,7 +1563,7 @@ class Engine:
             in (ScoringTier.DOMINATION, ScoringTier.CONTROL)
         )
 
-    # -- M3: the "war" family (seeded CHANCE roll) --------------------------
+    # -- the "war" family (seeded CHANCE roll) ------------------------------
 
     def push_war_target_choice(
         self,
@@ -1654,7 +1654,7 @@ class Engine:
             self.board.influence[target][defender.value] = 0
             self.board.influence[target][attacker.value] += seized
 
-    # -- M2: scoring & VP ---------------------------------------------------
+    # -- scoring & VP -------------------------------------------------------
 
     def _resolve_scoring_card(self, cid: str) -> None:
         if cid == "Southeast_Asia_Scoring":
@@ -2112,7 +2112,7 @@ class Engine:
             mod -= 1
         return mod
 
-    # -- M3: a free operation confined to a set of countries ----------------
+    # -- a free operation confined to a set of countries --------------------
 
     def push_free_coup_or_realign(
         self, side: Side, event: str, ops: int, countries: list[str],
@@ -2171,7 +2171,7 @@ class Engine:
                     {"card_ops": ops, "spent": 0, "bonus": None, "non_bonus": 0},
                 )
 
-    # -- M3: reclaim a card from the (public) discard pile ------------------
+    # -- reclaim a card from the (public) discard pile ----------------------
 
     def push_take_from_discard(self, side: Side, event: str) -> None:
         """Offer `side` a non-scoring card from the discard pile to take back to
@@ -2206,7 +2206,7 @@ class Engine:
         else:
             self._file_card(side, cid, fired=False, already_removed_from_hand=True)
 
-    # -- M3: Che — a free coup with a conditional repeat --------------------
+    # -- Che — a free coup with a conditional repeat ------------------------
 
     def push_che_coup(
         self, side: Side, ops: int, candidates: list[str], used: tuple[str, ...] = ()
@@ -2246,7 +2246,7 @@ class Engine:
             },
         )
 
-    # -- M3: Missile Envy — take the opponent's top-Ops card and use it -----
+    # -- Missile Envy — take the opponent's top-Ops card and use it ---------
 
     def missile_envy_take(self, taker: Side, cid: str) -> None:
         """`taker` takes `cid` from the giver and either uses it (a neutral card
@@ -2286,7 +2286,7 @@ class Engine:
             self.discard_pile.append(cid)
             self.push_event_operations(taker, card.ops)
 
-    # -- M3: Bear Trap / Quagmire — a persistent per-player operating lock --
+    # -- Bear Trap / Quagmire — a persistent per-player operating lock ------
     #
     # Physical card text (Bear Trap #44, Quagmire identical with US/USSR
     # swapped): "On the next action round, [side] must discard an Operations

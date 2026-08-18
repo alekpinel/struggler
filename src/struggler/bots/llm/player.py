@@ -33,7 +33,7 @@ Design:
   snapshot already exists at `log_path` (a stale file from an earlier,
   unrelated game must never be picked up silently -- the engine itself
   always starts a new game unless the caller explicitly reconstructs one,
-  see CLAUDE.md mandate #5, and this bot's memory follows the same rule).
+  see mandate #5 in docs/ARCHITECTURE.md, and this bot's memory follows the same rule).
   Pass `resume=True` to load the existing snapshot at construction time
   instead -- see `conversation_log.py`'s module docstring for the exact
   resumption contract (this only covers the bot's own state; the caller is
@@ -51,7 +51,7 @@ Known limitations (v1, documented rather than engineered around):
   limit.
 - No full card event/flavor text is available to the model, only the
   mechanical facts in `cards.json`, including its hand-maintained
-  `event_summary` field per card (which can drift from `events.py` as M3
+  `event_summary` field per card (which can drift from `events.py` as it
   evolves -- no automated sync check in v1).
 - Two concrete provider adapters ship (`anthropic_client.py`,
   `openai_client.py`), though `LLMClient` itself is provider-agnostic and

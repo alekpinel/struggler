@@ -1,7 +1,7 @@
 """OperatorConsolePlayer: the console interface for physical-mode games.
 
 In physical mode (see `Engine.new_game(physical_mode=..., physical_side=...)`
-and CLAUDE.md's "Bot framework" section) one seat is a real human playing
+and docs/BOTS.md) one seat is a real human playing
 the physical board game. The operator — the person at the table running
 this tool — is the single source of truth for everything the engine can't
 know on its own: both hands' card-by-card dealing, every dice roll (both

@@ -15,8 +15,8 @@ line-by-line. Where the two disagree, this primer describes the engine's
 *actual* behavior -- the model plays against the engine, not the printed
 rulebook -- and the deviation is called out below.
 
-Only mechanics this engine actually implements are covered (M1-M3, see
-CLAUDE.md). The rulebook's Tournament Play, Chinese Civil War Variant, and
+Only mechanics this engine actually implements are covered (see
+docs/CARDS.md). The rulebook's Tournament Play, Chinese Civil War Variant, and
 Late War Scenario sections describe rules this engine does not implement
 and are deliberately omitted -- including them would mislead the model
 about what's actually in play.

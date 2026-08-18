@@ -1,4 +1,4 @@
-"""M2: full game through the public API — cards played for Ops, no events fire.
+"""Full game through the public API — cards played for Ops, no events fire.
 
 These tests prove the milestone's headline claim: a complete game is playable
 start-to-finish via Engine.new_game / legal_actions / step, with the mandated
@@ -88,7 +88,7 @@ def test_random_full_game_terminates_with_invariants(seed, driver_seed):
 
 
 def test_observe_exposes_public_track_state():
-    # Military ops, phase, and the M3 modifier maps are all public board
+    # Military ops, phase, and the event modifier maps are all public board
     # state; a player needs them to reason about the game, not just the
     # bare minimum required to stay legal.
     engine = Engine.new_game(seed=1, events=False)
@@ -177,7 +177,7 @@ def test_scoring_card_can_only_be_played_as_its_event():
 def test_non_scoring_card_offers_the_event_vs_ops_choice():
     engine = Engine.new_game(seed=3, events=False)
     # A plain 3-Ops card: Ops and Event are both enumerated (event is a no-op
-    # in M2, but the choice must exist per the milestone).
+    # with events off, but the choice must still be offered).
     modes = engine._play_modes(Side.US, "Duck_and_Cover")
     assert "ops" in modes and "event" in modes
 
@@ -191,7 +191,7 @@ def test_china_card_passes_to_the_opponent_when_played():
 
 
 def test_golden_full_game_replay_matches_checkpoints():
-    with (REPLAY_DIR / "m2_full_game.json").open(encoding="utf-8") as f:
+    with (REPLAY_DIR / "full_game_ops_only.json").open(encoding="utf-8") as f:
         log = json.load(f)
     recorded = run_with_checkpoints(log)
     assert len(recorded) == len(log["checkpoints"])

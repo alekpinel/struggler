@@ -1,6 +1,6 @@
 """Shared test fixtures/helpers.
 
-Centralized here so a mechanic that grows (e.g. the M3 headline-pending
+Centralized here so a mechanic that grows (e.g. the headline-pending
 state or Our Man in Tehran's peek queue) only needs to be taught to one
 "where do cards live" helper instead of several near-duplicate copies
 drifting out of sync (see the ``_headline_pending`` incident in

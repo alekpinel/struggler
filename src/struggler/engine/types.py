@@ -2,7 +2,7 @@
 
 These types are the vocabulary the rest of the engine is built on:
 Side/Region are fixed facts about the game; DecisionKind/Action/Decision
-are the pending-decision-stack primitives mandated by CLAUDE.md.
+are the pending-decision-stack primitives mandated by docs/ARCHITECTURE.md.
 """
 
 from __future__ import annotations
@@ -70,13 +70,13 @@ class DecisionKind(Enum):
     REALIGNMENT_TARGET = "realignment_target"
     REALIGNMENT_ACTOR_ROLL = "realignment_actor_roll"
     REALIGNMENT_OPPONENT_ROLL = "realignment_opponent_roll"
-    # -- M2: cards & the full game loop --
+    # -- cards & the full game loop ------
     HEADLINE_PLAY = "headline_play"        # pick a card from hand for the headline
     ACTION_ROUND_PLAY = "action_round_play"  # pick which card to play this action round
     PLAY_MODE = "play_mode"                # use the chosen card for ops / event / space race
     OPS_TYPE = "ops_type"                  # spend the ops on influence / coup / realignment
     SPACE_RACE_ROLL = "space_race_roll"    # CHANCE: the space-race attempt die
-    # -- M3: card events fire --
+    # -- card events fire ------
     EVENT_OPS_ORDER = "event_ops_order"    # opponent's card played for Ops: event- or ops-first
     EVENT_RESUME = "event_resume"          # forced continuation after the first half resolves
     WAR_ROLL = "war_roll"                  # CHANCE: a "war" event's success die
@@ -101,13 +101,13 @@ class ScoringTier(Enum):
 
 @dataclass(frozen=True)
 class Card:
-    """A single card as data only (mandate: M2 models no event mechanics).
+    """A single card as data only; event mechanics live in `events.py`.
 
     `side` is the event's allegiance; `ops` is 0 for scoring cards, which
     cannot be played for operations. `in_deck` is False only for The China
     Card, which is tracked separately and never shuffled into the draw pile.
     `event_summary` is None iff the card has no implemented event yet (see
-    CLAUDE.md's Card data policy); when present it is a hand-maintained
+    docs/CARDS.md); when present it is a hand-maintained
     paraphrase of `events.py`'s mechanics, not the physical card's text.
     """
 
@@ -152,7 +152,7 @@ class Observation:
     objects, not one object with a redaction flag.
 
     `military_ops`, `turn_effects`, and `game_effects` are public board
-    state (the Military Operations track, and the M3 event modifiers
+    state (the Military Operations track, and the event modifiers
     currently in force, e.g. NATO or Containment) — every value ever
     stored in them is a fact both players already know once the event
     that set it has resolved, so surfacing them here is not a leak. The

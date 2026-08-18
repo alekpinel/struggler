@@ -1,30 +1,30 @@
 """GreedyPlayer: a hand-crafted heuristic bot with no lookahead or search.
 
-Per CLAUDE.md's bot framework: observe the current state, score every legal
-action of the current decision, take the top-scoring one. Nothing more --
-no simulating future turns, no search tree, no opponent modeling.
+Per docs/BOTS.md: observe the current state, score every legal action of
+the current decision, take the top-scoring one. Nothing more -- no
+simulating future turns, no search tree, no opponent modeling.
 
 Deliberately built as *weighted features* rather than an if/elif priority
 cascade: almost every heuristic funnels through `board_value()`, a single
 scalar "how good is this board for `side`" evaluation, and per-action scores
 are (mostly) the marginal change to that value from taking the action, or
 its dice-free expectation for chance-driven actions (coups, realignment).
-This is the intended bridge to a future RL agent (CLAUDE.md's roadmap): a
-linear model over the same features, with learned instead of hand-set
-weights, is a drop-in replacement for `GreedyWeights`.
+This is the intended bridge to a future RL agent (see docs/BOTS.md's
+roadmap): a linear model over the same features, with learned instead of
+hand-set weights, is a drop-in replacement for `GreedyWeights`.
 
-Coverage: full heuristics for every core M1/M2 decision kind -- where to
+Coverage: full heuristics for every core board decision kind -- where to
 place Influence, which country to Coup or Realign against, which Ops type
 to spend on, which card to headline or play, and Ops vs Event vs Space Race
-mode. M3's event-specific decision kinds (WAR_TARGET, EVENT_CHOICE,
+mode. The event-specific decision kinds (WAR_TARGET, EVENT_CHOICE,
 EVENT_INFLUENCE, EVENT_OPS_ORDER, QUAGMIRE_DISCARD, HELD_CARD_DISCARD,
 EVENT_RESUME, RANDOM_DISCARD's non-CHANCE siblings, ...) fall back to the
 first legal option. This is a documented gap, not a bug -- the same
-card-by-card growth pattern M3 itself used; extend `_SCORERS` as each one
-gets a heuristic worth writing.
+card-by-card growth pattern the event layer itself used; extend
+`_SCORERS` as each one gets a heuristic worth writing.
 
-Priority ordering (CLAUDE.md's worked example) falls directly out of the
-weight magnitudes, not out of branch order:
+Priority ordering falls directly out of the weight magnitudes, not out of
+branch order:
   1. Never choose a Coup (or an Ops type / Coup target that could become
      one) that would drop DEFCON to 1 -- an instant loss for the acting
      side (`defcon_self_kill_penalty`, orders of magnitude above every
@@ -76,7 +76,7 @@ class GreedyWeights:
     country_control: float = 2.0
     battleground_control: float = 5.0
 
-    # -- DEFCON safety (CLAUDE.md priority #1: never die to DEFCON 1) --
+    # -- DEFCON safety (priority #1: never die to DEFCON 1) --
     defcon_self_kill_penalty: float = 1_000_000.0
     defcon_caution: float = 4.0  # scaled by (5 - defcon): risk-aversion as DEFCON drops, short of the fatal case
 
@@ -91,7 +91,7 @@ class GreedyWeights:
     space_race_vp_weight: float = 3.0
     space_race_ops_penalty: float = 1.5  # a high-Ops card is worth more spent on Ops than "wasted" on the Space Race
     ops_mode_per_point: float = 3.0
-    event_mode_penalty: float = 30.0  # M2 (or an unimplemented M3 event): playing "event" is a no-op discard
+    event_mode_penalty: float = 30.0  # events off / unimplemented event: playing "event" is a no-op discard
     scoring_card_weight: float = 2.0  # per net VP the region would score, signed favorably/unfavorably
     hold_high_ops_weight: float = 0.5  # prefer headlining a low-Ops card, keeping high-Ops ones for Operations
     action_round_ops_weight: float = 1.0
@@ -316,7 +316,7 @@ def _best_coup_value(
     """Best expected Coup value among proxy-legal targets, or None if every
     one of them would be a DEFCON self-kill. Region-lock effects beyond
     `RULES["coup_min_defcon"]` (NATO, The Reformer, ...) are not replicated
-    here -- out of scope for v1 (core M1/M2); see the module docstring."""
+    here -- out of scope for v1 (core board decisions); see the module docstring."""
     opponent = side.opponent
     best = None
     for cid, info in board.countries.items():
@@ -363,7 +363,7 @@ def _score_ops_type(weights: GreedyWeights, board: Board, observation: Observati
         if best is None:
             # No Coup target is safe at the current DEFCON: refuse "coup" as
             # an Ops type outright, rather than let COUP_TARGET default into
-            # a self-kill (CLAUDE.md priority #1).
+            # a self-kill (priority #1).
             return -weights.defcon_self_kill_penalty
         caution = weights.defcon_caution * (5 - observation.defcon)
         return weights.coup_base + best - caution
@@ -377,7 +377,7 @@ def _score_headline(weights: GreedyWeights, board: Board, observation: Observati
     if card.scoring:
         return weights.scoring_card_weight * _scoring_card_favorability(board, side, cid)
     # Non-scoring: headlining is a no-op discard while its event is unfired
-    # (M2, or an unimplemented M3 event) -- spend a low-Ops card here and
+    # (events off, or an unimplemented event) -- spend a low-Ops card here and
     # keep higher-Ops ones for Operations.
     return -weights.hold_high_ops_weight * card.ops
 
@@ -412,7 +412,7 @@ def _score_play_mode(weights: GreedyWeights, board: Board, observation: Observat
         return weights.ops_mode_per_point * ops
     # mode == "event": with the event layer off (or for a card with no
     # implemented event yet) this is a no-op discard -- always worse than
-    # spending the card. GreedyPlayer does not attempt M3 event-value
+    # spending the card. GreedyPlayer does not attempt event-value
     # heuristics (out of scope for v1; see the module docstring).
     return -weights.event_mode_penalty
 

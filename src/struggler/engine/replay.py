@@ -1,12 +1,12 @@
-"""Deterministic replay: the primary testing strategy per CLAUDE.md.
+"""Deterministic replay: the primary testing strategy (docs/TESTING.md).
 
 A replay log is {seed, actions, checkpoints} plus a start descriptor:
 
-- M2 full games set ``"new_game": true`` (optionally ``"include_optional"``);
+- Full games set ``"new_game": true`` (optionally ``"include_optional"``);
   the whole game — headline picks, card plays, and dice — lives in
   ``actions``, since chance is a logged CHANCE decision (mandate #3).
-  Adding ``"events": true`` turns on the M3 event layer (see events.py).
-- M1 sandbox logs instead carry a ``setup`` object naming one of the
+  Adding ``"events": true`` turns on the card-event layer (see events.py).
+- Board-only sandbox logs instead carry a ``setup`` object naming one of the
   begin_* Ops-only entry points, a scaffold for the pre-card milestone.
 
 Because chance is replayed from the same seeded RNG, either kind of log is
@@ -53,7 +53,7 @@ def apply_setup(engine: Engine, setup: dict) -> None:
 def make_engine(log: dict[str, Any]) -> Engine:
     """Create and prime the engine for a log, before any `actions` replay.
 
-    M2 logs (`new_game`) build a full game; M1 logs run their `setup`.
+    Full-game logs (`new_game`) build a game; sandbox logs run their `setup`.
     """
     if log.get("new_game"):
         physical_side = log.get("physical_side")

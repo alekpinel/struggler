@@ -82,8 +82,8 @@ def test_change_defcon_clamps_at_five():
 
 def test_full_control_of_europe_does_not_auto_win():
     # Confirmed rule: controlling all of Europe wins only when the Europe
-    # Scoring card is played (out of scope until M2/M3) — it must NOT end
-    # the game immediately in M1.
+    # Scoring card is played (out of scope for this board-only test) — it
+    # must NOT end the game immediately.
     engine = Engine(seed=1)
     europe = engine.board.countries_in(Region.EUROPE)
     for cid in europe[:-1]:

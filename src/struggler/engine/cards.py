@@ -1,6 +1,6 @@
-"""Card data loading and deck construction for M2.
+"""Card data loading and deck construction.
 
-Cards are pure data (see CLAUDE.md's card data policy and data/cards.json);
+Cards are pure data (see docs/CARDS.md and data/cards.json);
 no event mechanics live here. This module owns:
 
 - loading data/cards.json into immutable `Card` objects, and

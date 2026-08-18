@@ -1,6 +1,6 @@
 """Physical/external-player mode: hidden hand, manual dealing, manual dice.
 
-See CLAUDE.md's "Bot framework" -> "Physical mode" section for the design.
+See docs/BOTS.md's "Physical mode" section for the design.
 """
 
 from __future__ import annotations
@@ -143,7 +143,7 @@ def test_push_random_discard_physical_owner_offers_hidden_pool():
     assert engine.hands["USSR"].count(HIDDEN_CARD) == 1
 
 
-# -- M3 Batch A: own-hand choice sourced from hidden_pool ----------------------
+# -- own-hand choice sourced from hidden_pool ---------------------------------
 
 
 def test_payable_cards_sources_from_hidden_pool_for_physical_side():
@@ -188,7 +188,7 @@ def test_ask_not_with_a_physical_hand_discards_and_redraws():
     assert len(engine.hands["US"]) == 2  # one discarded, one redealt
 
 
-# -- M3 Batch C: cross-hand events routed to the operator ---------------------
+# -- cross-hand events routed to the operator ---------------------------------
 
 
 def test_aldrich_ames_routes_to_operator_when_us_hand_is_physical():

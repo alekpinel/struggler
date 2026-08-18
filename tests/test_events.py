@@ -1,4 +1,4 @@
-"""M3: card events fire.
+"""Card events fire.
 
 Unit tests pin each implemented event's effect; the property test proves a
 full game with events enabled still terminates and keeps every mandated
@@ -1252,7 +1252,7 @@ def test_headline_event_interrupt_drains_before_the_second_card():
 def test_headline_non_event_card_is_still_a_no_op_discard():
     engine = _bare(seed=2)
     # Quagmire and Defectors have no implemented event yet: headlining them must
-    # be a plain discard, exactly as in M2, even with events on.
+    # be a plain discard even with events on.
     _headline_setup(engine, "Quagmire", "Defectors")
     engine.step(Action(DecisionKind.HEADLINE_PLAY, {"card": "Quagmire"}))
     engine.step(Action(DecisionKind.HEADLINE_PLAY, {"card": "Defectors"}))
@@ -1261,7 +1261,7 @@ def test_headline_non_event_card_is_still_a_no_op_discard():
     assert engine.phase == "action_rounds"
 
 
-# -- events off (M2) is untouched -------------------------------------------
+# -- events off is untouched -------------------------------------------------
 
 
 def test_events_disabled_never_fires_an_event_on_ops_play():
@@ -1312,7 +1312,7 @@ def test_events_game_serializes_and_never_leaks(seed, driver_seed):
         steps += 1
 
 
-# -- M3 tail cards ----------------------------------------------------------
+# -- tail cards -------------------------------------------------------------
 #
 # The most idiosyncratic events: taking cards from a hand/discard and playing
 # them, a conditional-repeat coup, deferred per-turn conditions, and
@@ -2099,7 +2099,7 @@ def test_quagmire_nullifies_norad():
 
 
 def test_golden_events_replay_matches_checkpoints():
-    with (REPLAY_DIR / "m3_events.json").open(encoding="utf-8") as f:
+    with (REPLAY_DIR / "events.json").open(encoding="utf-8") as f:
         log = json.load(f)
     assert log.get("events") is True
     recorded = run_with_checkpoints(log)
@@ -2114,7 +2114,7 @@ def test_golden_events_replay_actually_fires_events():
     # A fired event shows up as any of: an opponent-Ops order choice, an
     # event-mode action-round play, or a headline of an implemented-event card
     # (every id in EVENTS is a non-scoring event card).
-    with (REPLAY_DIR / "m3_events.json").open(encoding="utf-8") as f:
+    with (REPLAY_DIR / "events.json").open(encoding="utf-8") as f:
         log = json.load(f)
     fired = any(
         a["kind"] == DecisionKind.EVENT_OPS_ORDER.value

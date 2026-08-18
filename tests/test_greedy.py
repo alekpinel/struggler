@@ -37,7 +37,7 @@ def test_board_value_rewards_controlling_a_battleground_over_a_non_battleground(
 
 def test_greedy_avoids_coup_as_an_ops_type_at_defcon_2():
     """DEFCON 2 -> 1 loses the game for whoever caused the drop (mandate:
-    CLAUDE.md's worked example, priority #1: never die to DEFCON). Even
+    priority #1: never die to DEFCON). Even
     with a juicy Coup target on offer, GreedyPlayer must pick something
     else at the OPS_TYPE decision."""
     engine = Engine(seed=1)
