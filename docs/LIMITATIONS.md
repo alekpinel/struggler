@@ -72,8 +72,14 @@ the hand's last open `HIDDEN_CARD` slot is filled).
   scope, not an oversight: extend `_SCORERS` as each one earns a heuristic
   worth writing, rather than guessing at all ~13 up front.
 - **`LLMPlayer` resends its whole conversation every call** and has no
-  context-budget safety valve; a pathological game could in theory approach
-  the model's context limit.
+  context-budget safety valve. What gets *persisted* per turn is trimmed to
+  the event delta only (`prompt.build_history_entry`) -- the board report,
+  hand dossier, and cards-in-play a call was answered against are a snapshot
+  of that instant and are never resent from history, only ever recomputed
+  fresh for the live call -- but the event history and the model's own past
+  responses still grow without bound. A long enough game can still in theory
+  approach the model's context limit or a provider's tokens-per-minute rate
+  limit.
 - **Resuming an `LLMPlayer` from its log does not restore `_rng`'s exact
   position.** Acceptable because `_rng` is only consulted on the fallback
   path (picking *a* legal action after total LLM failure); mandate #3's

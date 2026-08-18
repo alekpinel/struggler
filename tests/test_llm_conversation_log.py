@@ -179,6 +179,46 @@ def test_turn_plan_round_trips_through_save_and_load(tmp_path):
     assert loaded.turn_plan == snapshot.turn_plan
 
 
+def test_turn_plan_history_round_trips_through_save_and_load(tmp_path):
+    path = tmp_path / "log.json"
+    turn_1_plan = dataclasses.replace(_sample_turn_plan(), turn=1, objective="Open Asia.")
+    turn_2_plan = _sample_turn_plan()
+    snapshot = dataclasses.replace(
+        _sample_snapshot(),
+        turn_plan=turn_2_plan,
+        planned_turn=2,
+        turn_plan_history=(turn_1_plan, turn_2_plan),
+    )
+
+    conversation_log.save(path, snapshot)
+    loaded = conversation_log.load(path)
+
+    assert loaded is not None
+    assert loaded.turn_plan_history == (turn_1_plan, turn_2_plan)
+    # The current plan and the last history entry agree, but they're
+    # independent fields -- history keeps every turn, `turn_plan` only ever
+    # the current one.
+    assert loaded.turn_plan == loaded.turn_plan_history[-1]
+
+
+def test_a_version_2_snapshot_still_loads_with_an_empty_turn_plan_history(tmp_path):
+    # Snapshots written before turn_plan_history existed carry no such key;
+    # they must resume with an empty history, not fail to load.
+    path = tmp_path / "log.json"
+    snapshot = dataclasses.replace(_sample_snapshot(), turn_plan=_sample_turn_plan(), planned_turn=2)
+    conversation_log.save(path, snapshot)
+    data = json.loads(path.read_text())
+    data["version"] = 2
+    del data["turn_plan_history"]
+    path.write_text(json.dumps(data))
+
+    loaded = conversation_log.load(path)
+
+    assert loaded is not None
+    assert loaded.turn_plan_history == ()
+    assert loaded.turn_plan == snapshot.turn_plan  # unaffected
+
+
 def test_a_version_1_snapshot_still_loads_without_a_turn_plan(tmp_path):
     # Snapshots written before turn planning existed carry neither key; they
     # must resume as "no plan for this turn yet", not fail to load.

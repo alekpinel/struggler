@@ -6,12 +6,14 @@ per-call user turn builder.
 from __future__ import annotations
 
 from struggler.bots.llm.prompt import (
+    build_history_entry,
     build_system_prompt,
     build_turn_plan_request,
     build_user_turn,
 )
 from struggler.bots.llm.schema import PLAYER_FACING_KINDS
 from struggler.engine import DecisionKind, Engine, Side
+from struggler.engine.player import Event
 
 
 def test_system_prompt_explains_control_formula():
@@ -176,3 +178,29 @@ def test_turn_plan_request_asks_for_intent_not_an_action():
     assert "BOARD BY REGION" in text
     assert "decision_plan" not in text
     assert "You are not choosing an action now." in text
+
+
+def test_build_history_entry_carries_only_the_event_delta():
+    # The persisted-conversation view of a user turn must never carry the
+    # board report/hand dossier/cards-in-play `build_user_turn` sends live --
+    # those are a snapshot of one instant and would just be stale token cost
+    # on every later call.
+    engine = Engine.new_game(seed=1)
+    observation = engine.observe(engine.pending_decision.actor)
+    decision = observation.pending_decision
+    event = Event(
+        actor=Side.USSR,
+        decision=decision,
+        action=decision.options[0],
+        defcon=5,
+        vp=0,
+        turn=1,
+        action_round=1,
+    )
+
+    assert build_history_entry([]) == "(no new events since your last request)"
+
+    entry = build_history_entry([event])
+    assert "Since your last request (1 event(s))" in entry
+    assert "BOARD BY REGION" not in entry
+    assert "YOUR HAND" not in entry

@@ -370,19 +370,41 @@ def _event_to_text(event: Event) -> str:
     return json.dumps(payload)
 
 
+def _events_text(new_events: Sequence[Event]) -> str | None:
+    if not new_events:
+        return None
+    events_text = "\n".join(f"  - {_event_to_text(e)}" for e in new_events)
+    return f"Since your last request ({len(new_events)} event(s)):\n{events_text}"
+
+
 def _situation_text(observation: Observation, new_events: Sequence[Event]) -> list[str]:
     """The shared body of every user turn: what just happened, the derived
     board reading, the hand dossier, and what's left in the deck. Identical
     for a decision call and a turn-planning call -- the model reasons from
     one picture of the game, not two."""
     parts = []
-    if new_events:
-        events_text = "\n".join(f"  - {_event_to_text(e)}" for e in new_events)
-        parts.append(f"Since your last request ({len(new_events)} event(s)):\n{events_text}")
+    events_text = _events_text(new_events)
+    if events_text:
+        parts.append(events_text)
     parts.append(build_board_report(observation, new_events))
     parts.append(_hand_text(observation))
     parts.append(_cards_in_play_text(observation))
     return parts
+
+
+def build_history_entry(new_events: Sequence[Event]) -> str:
+    """What a user turn actually leaves behind in the persisted conversation,
+    once the live call it was sent for is done.
+
+    `_situation_text`'s board report / hand dossier / cards-in-play are a
+    snapshot of one instant -- true for the live call that carried them,
+    stale (and pure token cost) for every later call that would otherwise
+    resend it verbatim forever. The event delta is the only part of a user
+    turn that stays true for the rest of the game, so it's the only part
+    that gets persisted; every live call recomputes the rest fresh from the
+    current `Observation` instead of trusting an old copy.
+    """
+    return _events_text(new_events) or "(no new events since your last request)"
 
 
 def build_turn_plan_request(observation: Observation, new_events: Sequence[Event]) -> str:

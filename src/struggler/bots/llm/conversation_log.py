@@ -42,7 +42,7 @@ from struggler.bots.llm.client import LLMMessage
 from struggler.bots.llm.schema import PlannedStep, TurnPlan
 from struggler.engine.types import DecisionKind
 
-SNAPSHOT_VERSION = 2  # 2 added `turn_plan`/`planned_turn`; v1 files still load
+SNAPSHOT_VERSION = 3  # 2 added `turn_plan`/`planned_turn`, 3 added `turn_plan_history`; v1/v2 files still load
 
 
 @dataclass(frozen=True)
@@ -93,6 +93,12 @@ class ConversationSnapshot:
     # than mid-turn with none.
     turn_plan: TurnPlan | None = None
     planned_turn: int | None = None
+    # Every turn plan produced so far this game, oldest first -- a record for
+    # reading back later (e.g. "did turn 3's plan make sense"), never
+    # re-injected into a prompt itself; that's `turn_plan` above. A turn
+    # whose planning call failed contributes no entry here, same as
+    # `turn_plan` going `None` for that turn.
+    turn_plan_history: tuple[TurnPlan, ...] = ()
 
 
 def now_iso() -> str:
@@ -137,6 +143,7 @@ def _snapshot_to_dict(snapshot: ConversationSnapshot) -> dict[str, Any]:
         ],
         "turn_plan": _turn_plan_to_dict(snapshot.turn_plan),
         "planned_turn": snapshot.planned_turn,
+        "turn_plan_history": [dataclasses.asdict(p) for p in snapshot.turn_plan_history],
         "journal": [
             {
                 "decision_id": entry.decision_id,
@@ -184,6 +191,11 @@ def _dict_to_snapshot(data: Mapping[str, Any]) -> ConversationSnapshot:
         ),
         turn_plan=_dict_to_turn_plan(data.get("turn_plan")),
         planned_turn=data.get("planned_turn"),
+        turn_plan_history=tuple(
+            plan
+            for item in data.get("turn_plan_history", ())
+            if (plan := _dict_to_turn_plan(item)) is not None
+        ),
     )
 
 

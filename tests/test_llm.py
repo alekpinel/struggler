@@ -249,6 +249,42 @@ def test_conversation_alternates_cleanly_even_after_a_retry():
     assert roles == ["user", "assistant"]
 
 
+def test_persisted_history_drops_stale_board_snapshot_but_keeps_event_deltas():
+    """Only the event delta of a user turn should survive into the
+    persisted conversation -- the board report/hand dossier/cards-in-play it
+    was answered against are a snapshot of that instant, true only for the
+    live call, and must not be resent turn after turn as the game goes on
+    (see prompt.build_history_entry)."""
+    engine = Engine.new_game(seed=1)
+    observation, country = _setup_placement(engine)
+    decision = observation.pending_decision
+
+    client = FakeLLMClient(
+        [
+            make_plan_response("First.", [(decision.kind, {"country": country})]),
+            make_plan_response("Second.", [(decision.kind, {"country": country})]),
+        ]
+    )
+    player = LLMPlayer(client=client, seed=0, plan_turns=False)
+
+    first = player.choose_action(observation, [])
+    engine.step(first)
+    history = [_dummy_event(decision)]
+    player.choose_action(engine.observe(engine.pending_decision.actor), history)
+
+    # The live call for the second decision still gets the full picture.
+    assert "BOARD BY REGION" in client.requests[1].messages[-1].content
+
+    # But what's left behind in memory for both turns is thin.
+    persisted_user_messages = [m.content for m in player._messages if m.role == "user"]
+    assert len(persisted_user_messages) == 2
+    assert "BOARD BY REGION" not in persisted_user_messages[0]
+    assert "YOUR HAND" not in persisted_user_messages[0]
+    assert persisted_user_messages[0] == "(no new events since your last request)"
+    assert "Since your last request (1 event(s))" in persisted_user_messages[1]
+    assert "BOARD BY REGION" not in persisted_user_messages[1]
+
+
 def test_llm_player_constructs_with_anthropic_client_given_an_api_key():
     pytest.importorskip("anthropic")
     from struggler.bots.llm.anthropic_client import AnthropicClient

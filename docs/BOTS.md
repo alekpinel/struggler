@@ -319,10 +319,14 @@ decision is asked to say how it serves the plan — or why the board changed.
 - It costs one call per turn. `LLMPlayer(plan_turns=False)` (CLI:
   `--no-turn-plan`) turns it off, which is also how to measure what the
   plan is worth.
-- The plan is persisted (`ConversationSnapshot.turn_plan`/`planned_turn`,
-  snapshot version 2 — version 1 files still load, planless), so a resumed
-  player picks the turn up with the intent it was playing to rather than
-  mid-turn with none.
+- The current plan is persisted (`ConversationSnapshot.turn_plan`/
+  `planned_turn`, snapshot version 2 — version 1 files still load, planless),
+  so a resumed player picks the turn up with the intent it was playing to
+  rather than mid-turn with none. Every plan the game has produced so far is
+  separately kept in full in `ConversationSnapshot.turn_plan_history`
+  (snapshot version 3 — version 1/2 files still load, with an empty
+  history), oldest first, purely as a record for reading back later; nothing
+  re-injects from it, that's still `turn_plan` above.
 
 Both output specs share one retry/fallback path
 (`LLMPlayer._attempt_with_retry`) and one journal, with `JournalEntry.kind`

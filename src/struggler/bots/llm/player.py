@@ -24,9 +24,20 @@ Design:
   Planning failure never blocks the game (the turn just plays without a
   plan), and `plan_turns=False` skips the call entirely.
 - Memory is a single, ever-growing conversation (`self._messages`) per
-  `LLMPlayer` instance, resent in full on every call -- relying on the
-  provider's prompt caching for cost, not on client-side summarization.
-  No compaction/safety-valve in v1 (see "Known limitations" below).
+  `LLMPlayer` instance, resent in full on every call. What gets persisted
+  per turn is deliberately thinner than what the live call was sent with,
+  though: `prompt.build_history_entry` keeps only the event delta ("since
+  your last request, X happened"), never the board report/hand dossier/
+  cards-in-play a call was actually answered against -- those are a
+  snapshot of one instant, true only for the live call that carried them,
+  so resending them on every later call would just be paying tokens for a
+  stale copy of state the next live call recomputes fresh anyway. The live
+  call itself (`_attempt_with_retry`) still gets the full picture; only what
+  gets remembered afterward is trimmed. This still relies on the provider's
+  prompt caching for cost on the parts that do persist (event history,
+  the model's own past reasoning), not on client-side summarization of
+  those -- no compaction/safety-valve for them in v1 (see "Known
+  limitations" below).
 - Every real LLM-consulting call -- a decision or a turn plan -- commits
   exactly one "user" turn and one "assistant" turn to `self._messages`,
   even when an internal retry happened first -- retry noise is resolved locally before
@@ -58,8 +69,11 @@ Known limitations (v1, documented rather than engineered around):
   determinism guarantee is about the engine's own RNG, not a bot's
   internal fallback RNG.
 - No context-budget safety valve: the conversation resends in full every
-  call; a pathological game could in theory approach the model's context
-  limit.
+  call, and the event-delta history plus the model's own past responses
+  still grow without bound turn over turn (only the per-instant board
+  report/hand dossier/cards-in-play are kept from re-accumulating). A long
+  enough game can still in theory approach the model's context limit or a
+  provider's tokens-per-minute rate limit.
 - No full card event/flavor text is available to the model, only the
   mechanical facts in `cards.json`, including its hand-maintained
   `event_summary` field per card (which can drift from `events.py` as it
@@ -87,6 +101,7 @@ from struggler.bots.llm import conversation_log
 from struggler.bots.llm.client import LLMClient, LLMClientError, LLMMessage, LLMRequest
 from struggler.bots.llm.conversation_log import ConversationSnapshot, JournalEntry
 from struggler.bots.llm.prompt import (
+    build_history_entry,
     build_system_prompt,
     build_turn_plan_request,
     build_user_turn,
@@ -181,6 +196,12 @@ class LLMPlayer:
         # something.
         self._turn_plan: TurnPlan | None = None
         self._planned_turn: int | None = None
+        # Every turn plan the game has produced so far, oldest first -- kept
+        # purely as a record (nothing re-injects from here; that's still
+        # `self._turn_plan`, the current one). A turn whose planning call
+        # failed contributes no entry, same as `self._turn_plan` going `None`
+        # for that turn.
+        self._turn_plan_history: list[TurnPlan] = []
         self._last_seen = 0  # index into `history`; advances only on a real LLM call
         self.journal: list[JournalEntry] = []
         self.cumulative_usage: dict[str, int] = {"input_tokens": 0, "output_tokens": 0}
@@ -192,6 +213,7 @@ class LLMPlayer:
             self._plan = deque(snapshot.plan)
             self._turn_plan = snapshot.turn_plan
             self._planned_turn = snapshot.planned_turn
+            self._turn_plan_history = list(snapshot.turn_plan_history)
             self._last_seen = snapshot.last_seen
             self.journal = list(snapshot.journal)
             self.cumulative_usage = dict(snapshot.cumulative_usage)
@@ -262,10 +284,11 @@ class LLMPlayer:
             TURN_PLAN_OUTPUT_SPEC,
             lambda structured: parse_turn_plan_response(structured, turn=observation.turn),
         )
-        self._commit_turn(user_text, attempt)
+        self._commit_turn(build_history_entry(new_events), attempt)
         plan = attempt.result
         if isinstance(plan, TurnPlan):
             self._turn_plan = plan
+            self._turn_plan_history.append(plan)
         else:
             self._turn_plan = None
         self.journal.append(
@@ -282,11 +305,19 @@ class LLMPlayer:
         )
         self._persist_if_configured()
 
-    def _commit_turn(self, user_text: str, attempt: _Attempt) -> None:
+    def _commit_turn(self, history_text: str, attempt: _Attempt) -> None:
         """Commit exactly one user + one assistant turn to the persisted
         conversation, and bank the call's token usage -- however many internal
-        retries produced it."""
-        self._messages.append(LLMMessage(role="user", content=user_text))
+        retries produced it.
+
+        `history_text` is deliberately not the full text the live call was
+        sent with: it's `build_history_entry`'s trimmed, event-only view, so
+        the board report/hand dossier/cards-in-play a call was actually
+        answered against never gets resent on every later call -- only the
+        event delta that is still true for the rest of the game does. The
+        live call itself (`_attempt_with_retry`) always saw the full text;
+        only what gets remembered afterward is thinner."""
+        self._messages.append(LLMMessage(role="user", content=history_text))
         self._messages.append(LLMMessage(role="assistant", content=attempt.assistant_text))
         self.cumulative_usage = _add_usage(self.cumulative_usage, attempt.usage)
 
@@ -317,7 +348,7 @@ class LLMPlayer:
         # Exactly one user + one assistant turn is committed per call, no
         # matter how many internal retries happened, so the persisted
         # conversation always alternates cleanly.
-        self._commit_turn(user_text, attempt)
+        self._commit_turn(build_history_entry(new_events), attempt)
         timestamp = conversation_log.now_iso()
 
         if attempt.result is not None:
@@ -443,6 +474,7 @@ class LLMPlayer:
             plan=tuple(self._plan),
             turn_plan=self._turn_plan,
             planned_turn=self._planned_turn,
+            turn_plan_history=tuple(self._turn_plan_history),
             journal=tuple(self.journal),
         )
         conversation_log.save(self._log_path, snapshot)
