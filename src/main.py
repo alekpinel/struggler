@@ -59,6 +59,7 @@ def build_player(
     resume: bool = False,
     log_path: str | None = None,
     side_label: str = "",
+    plan_turns: bool = True,
 ) -> Player:
     if kind == "human":
         return HumanPlayer()
@@ -79,7 +80,13 @@ def build_player(
             timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M")
             suffix = f"_{side_label}" if side_label else ""
             log_path = f"./logs/{timestamp}{suffix}.json"
-        return LLMPlayer(client=client, seed=seed, log_path=log_path, resume=resume)
+        return LLMPlayer(
+            client=client,
+            seed=seed,
+            plan_turns=plan_turns,
+            log_path=log_path,
+            resume=resume,
+        )
     raise ValueError(f"unknown player kind: {kind!r} (expected human/first/random/greedy/llm)")
 
 
@@ -118,6 +125,14 @@ def main() -> None:
         "--ussr-log-path",
         default=None,
         help="Log path for the USSR LLM player. Defaults to a new timestamped file under ./logs/.",
+    )
+    parser.add_argument(
+        "--no-turn-plan",
+        action="store_true",
+        help=(
+            "Skip an LLM player's once-per-turn planning call, deciding each "
+            "decision on its own instead. Cheaper by one call per turn."
+        ),
     )
     parser.add_argument(
         "--game-log-path",
@@ -164,15 +179,18 @@ def main() -> None:
                 bot_side: build_player(
                     bot_kind, seed=seed + 1, resume=args.resume,
                     log_path=bot_log_path, side_label=bot_side.value.lower(),
+                    plan_turns=not args.no_turn_plan,
                 ),
             }
         else:
             players = {
                 Side.US: build_player(
-                    args.us, seed=seed + 1, resume=args.resume, log_path=args.us_log_path, side_label="us"
+                    args.us, seed=seed + 1, resume=args.resume, log_path=args.us_log_path,
+                    side_label="us", plan_turns=not args.no_turn_plan,
                 ),
                 Side.USSR: build_player(
-                    args.ussr, seed=seed + 2, resume=args.resume, log_path=args.ussr_log_path, side_label="ussr"
+                    args.ussr, seed=seed + 2, resume=args.resume, log_path=args.ussr_log_path,
+                    side_label="ussr", plan_turns=not args.no_turn_plan
                 ),
             }
         winner = play_game(
@@ -198,16 +216,19 @@ def main() -> None:
             bot_side: build_player(
                 bot_kind, seed=args.seed + 1, resume=args.resume,
                 log_path=bot_log_path, side_label=bot_side.value.lower(),
+                plan_turns=not args.no_turn_plan,
             ),
         }
     else:
         engine = Engine.new_game(seed=args.seed)
         players = {
             Side.US: build_player(
-                args.us, seed=args.seed + 1, resume=args.resume, log_path=args.us_log_path, side_label="us"
+                args.us, seed=args.seed + 1, resume=args.resume, log_path=args.us_log_path,
+                side_label="us", plan_turns=not args.no_turn_plan,
             ),
             Side.USSR: build_player(
-                args.ussr, seed=args.seed + 2, resume=args.resume, log_path=args.ussr_log_path, side_label="ussr"
+                args.ussr, seed=args.seed + 2, resume=args.resume, log_path=args.ussr_log_path,
+                side_label="ussr", plan_turns=not args.no_turn_plan,
             ),
         }
 

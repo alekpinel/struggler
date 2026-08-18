@@ -3,6 +3,7 @@ the "never raise" contract, all against the local filesystem only."""
 
 from __future__ import annotations
 
+import dataclasses
 import json
 import os
 
@@ -11,7 +12,7 @@ import pytest
 from struggler.bots.llm import conversation_log
 from struggler.bots.llm.client import LLMMessage
 from struggler.bots.llm.conversation_log import ConversationSnapshot, JournalEntry
-from struggler.bots.llm.schema import PlannedStep
+from struggler.bots.llm.schema import PlannedStep, TurnPlan
 from struggler.engine import DecisionKind
 
 
@@ -145,3 +146,76 @@ def test_now_iso_format():
     parsed = datetime.fromisoformat(text)
     assert parsed.utcoffset() == timedelta(0)  # UTC, as the docstring promises
     assert before <= parsed <= after
+
+
+# -- turn plan (snapshot version 2) --------------------------------------------
+
+
+def _sample_turn_plan() -> TurnPlan:
+    return TurnPlan(
+        turn=2,
+        assessment="Asia is open.",
+        objective="Take Thailand before Asia Scoring.",
+        scoring_cards=({"card": "Asia_Scoring", "when": "AR6", "preparation": "take Thailand"},),
+        card_plan=({"card": "Korean_War", "intended_use": "event", "purpose": "military ops"},),
+        influence_targets=({"country": "Thailand", "why": "Battleground"},),
+        military_ops_plan="Korean War pays 2.",
+        defend=("East_Germany",),
+        contingencies=({"trigger": "US coups Vietnam", "response": "retake it"},),
+    )
+
+
+def test_turn_plan_round_trips_through_save_and_load(tmp_path):
+    path = tmp_path / "log.json"
+    snapshot = dataclasses.replace(
+        _sample_snapshot(), turn_plan=_sample_turn_plan(), planned_turn=2
+    )
+
+    conversation_log.save(path, snapshot)
+    loaded = conversation_log.load(path)
+
+    assert loaded is not None
+    assert loaded.planned_turn == 2
+    assert loaded.turn_plan == snapshot.turn_plan
+
+
+def test_a_version_1_snapshot_still_loads_without_a_turn_plan(tmp_path):
+    # Snapshots written before turn planning existed carry neither key; they
+    # must resume as "no plan for this turn yet", not fail to load.
+    path = tmp_path / "log.json"
+    conversation_log.save(path, _sample_snapshot())
+    data = json.loads(path.read_text())
+    data["version"] = 1
+    del data["turn_plan"]
+    del data["planned_turn"]
+    for entry in data["journal"]:
+        del entry["kind"]
+    path.write_text(json.dumps(data))
+
+    loaded = conversation_log.load(path)
+
+    assert loaded is not None
+    assert loaded.turn_plan is None
+    assert loaded.planned_turn is None
+    assert loaded.journal[0].kind == "decision"
+
+
+def test_journal_entry_kind_round_trips(tmp_path):
+    path = tmp_path / "log.json"
+    snapshot = dataclasses.replace(
+        _sample_snapshot(),
+        journal=(
+            JournalEntry(
+                decision_id=7,
+                justification="plan the turn",
+                fallback_used=False,
+                kind="turn_plan",
+            ),
+        ),
+    )
+
+    conversation_log.save(path, snapshot)
+    loaded = conversation_log.load(path)
+
+    assert loaded is not None
+    assert loaded.journal[0].kind == "turn_plan"

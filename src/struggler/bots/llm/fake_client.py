@@ -54,3 +54,31 @@ def make_plan_response(
         ],
     }
     return LLMResponse(structured=payload, raw_text=json.dumps(payload), usage=dict(usage or {}))
+
+
+def make_turn_plan_response(
+    objective: str,
+    *,
+    assessment: str = "Test assessment.",
+    scoring_cards: Sequence[Mapping[str, str]] = (),
+    card_plan: Sequence[Mapping[str, str]] = (),
+    influence_targets: Sequence[Mapping[str, str]] = (),
+    military_ops_plan: str = "Coup a non-Battleground.",
+    defend: Sequence[str] = (),
+    contingencies: Sequence[Mapping[str, str]] = (),
+    usage: Mapping[str, int] | None = None,
+) -> LLMResponse:
+    """Build a well-formed turn-plan `LLMResponse` -- the shape
+    `schema.parse_turn_plan_response` expects back, with every list
+    defaulting to empty so a test only states the field it cares about."""
+    payload = {
+        "assessment": assessment,
+        "objective": objective,
+        "scoring_cards": [dict(item) for item in scoring_cards],
+        "card_plan": [dict(item) for item in card_plan],
+        "influence_targets": [dict(item) for item in influence_targets],
+        "military_ops_plan": military_ops_plan,
+        "defend": list(defend),
+        "contingencies": [dict(item) for item in contingencies],
+    }
+    return LLMResponse(structured=payload, raw_text=json.dumps(payload), usage=dict(usage or {}))

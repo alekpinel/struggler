@@ -39,8 +39,10 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from struggler.bots.llm.client import LLMMessage
-from struggler.bots.llm.schema import PlannedStep
+from struggler.bots.llm.schema import PlannedStep, TurnPlan
 from struggler.engine.types import DecisionKind
+
+SNAPSHOT_VERSION = 2  # 2 added `turn_plan`/`planned_turn`; v1 files still load
 
 
 @dataclass(frozen=True)
@@ -67,6 +69,11 @@ class JournalEntry:
     usage: Mapping[str, int] = field(default_factory=dict)
     timestamp: str = ""
     raw_responses: tuple[str, ...] = ()
+    # Which kind of call this entry records: "decision" (an action was
+    # chosen) or "turn_plan" (the once-per-turn planning call, which chooses
+    # nothing). Two different output specs share one journal, so a reader
+    # sorting through a game's reasoning can tell intent from execution.
+    kind: str = "decision"
 
 
 @dataclass(frozen=True)
@@ -81,6 +88,11 @@ class ConversationSnapshot:
     messages: tuple[LLMMessage, ...]
     plan: tuple[PlannedStep, ...]
     journal: tuple[JournalEntry, ...]
+    # This game turn's standing plan and the turn it belongs to, so a resumed
+    # player picks the turn up with the same intent it was playing to rather
+    # than mid-turn with none.
+    turn_plan: TurnPlan | None = None
+    planned_turn: int | None = None
 
 
 def now_iso() -> str:
@@ -89,9 +101,29 @@ def now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def _turn_plan_to_dict(plan: TurnPlan | None) -> dict[str, Any] | None:
+    return None if plan is None else dataclasses.asdict(plan)
+
+
+def _dict_to_turn_plan(data: Any) -> TurnPlan | None:
+    if not data:
+        return None
+    return TurnPlan(
+        turn=data["turn"],
+        assessment=data["assessment"],
+        objective=data["objective"],
+        scoring_cards=tuple(dict(item) for item in data.get("scoring_cards", ())),
+        card_plan=tuple(dict(item) for item in data.get("card_plan", ())),
+        influence_targets=tuple(dict(item) for item in data.get("influence_targets", ())),
+        military_ops_plan=data["military_ops_plan"],
+        defend=tuple(data.get("defend", ())),
+        contingencies=tuple(dict(item) for item in data.get("contingencies", ())),
+    )
+
+
 def _snapshot_to_dict(snapshot: ConversationSnapshot) -> dict[str, Any]:
     return {
-        "version": 1,
+        "version": SNAPSHOT_VERSION,
         "seed": snapshot.seed,
         "provider": snapshot.provider,
         "model": snapshot.model,
@@ -103,6 +135,8 @@ def _snapshot_to_dict(snapshot: ConversationSnapshot) -> dict[str, Any]:
         "plan": [
             {"kind": step.kind.value, "payload": dict(step.payload)} for step in snapshot.plan
         ],
+        "turn_plan": _turn_plan_to_dict(snapshot.turn_plan),
+        "planned_turn": snapshot.planned_turn,
         "journal": [
             {
                 "decision_id": entry.decision_id,
@@ -112,6 +146,7 @@ def _snapshot_to_dict(snapshot: ConversationSnapshot) -> dict[str, Any]:
                 "usage": dict(entry.usage),
                 "timestamp": entry.timestamp,
                 "raw_responses": list(entry.raw_responses),
+                "kind": entry.kind,
             }
             for entry in snapshot.journal
         ],
@@ -143,9 +178,12 @@ def _dict_to_snapshot(data: Mapping[str, Any]) -> ConversationSnapshot:
                 usage=dict(e.get("usage", {})),
                 timestamp=e.get("timestamp", ""),
                 raw_responses=tuple(e.get("raw_responses", ())),
+                kind=e.get("kind", "decision"),
             )
             for e in data["journal"]
         ),
+        turn_plan=_dict_to_turn_plan(data.get("turn_plan")),
+        planned_turn=data.get("planned_turn"),
     )
 
 

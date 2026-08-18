@@ -1,0 +1,205 @@
+{
+  "_about": "Per-card, per-side play advice for the LLM bot (see card_playbook.py). NOT engine data: cards.json holds what a card mechanically does, this file holds what a good player does with it. Keys under 'cards' are card ids from cards.json. Each entry may carry 'any' (advice for whoever holds it), 'US' and 'USSR' (advice only shown to that seat). Incomplete by design and grown card by card -- a card with no entry simply gets no advice line.",
+  "_scoring_default": "Applies to every scoring card, in addition to its own entry: a Scoring card must be played this turn, but your opponent cannot play it out of your hand -- there is no race. Play it in the LAST action round you can, after spending the turn's Ops in that region. Read the region's 'net' figure in the board report before committing.",
+  "cards": {
+    "Asia_Scoring": {
+      "any": "Asia pays 3/7/9 and has six Battlegrounds -- the biggest early swing on the board. If you hold it and the net is against you, the whole turn's Ops belong in Asia; one Battleground taken is typically a 2-3 VP swing."
+    },
+    "Europe_Scoring": {
+      "any": "Europe pays 3/7 and there is no Control payout: controlling every European country wins the game outright instead. Adjacency bonuses are large here because so much of Europe touches the other superpower.",
+      "USSR": "Your Eastern European Battlegrounds (Poland, East Germany) each carry the enemy-adjacency bonus on top of the Battleground bonus -- losing one is a 2 VP swing, so retake it the round it is broken."
+    },
+    "Middle_East_Scoring": {
+      "any": "Pays 3/5/7 with six Battlegrounds, most of them stability 2 and cheap to Coup. Positions here are volatile: whoever Coups last before the card is played usually wins the region."
+    },
+    "Africa_Scoring": {
+      "any": "Pays 1/4/6. Most African countries are stability 1-2, so a single Influence point often buys outright Control -- the cheapest Presence on the board. Enters the deck in the Mid War: get a foothold there on the turn before, not the turn it appears.",
+      "USSR": "You have no natural access, so use an access Event (Decolonization, Portuguese Empire Crumbles, South African Unrest) to seed it rather than Ops."
+    },
+    "Central_America_Scoring": {
+      "any": "Pays 1/3/5 and sits next to the US home space, so US adjacency bonuses are common. Cheap countries, quick to flip.",
+      "USSR": "Without Cuba (Fidel) you have no access at all -- do not spend Ops here on spec."
+    },
+    "South_America_Scoring": {
+      "any": "Pays 2/5/6 with four Battlegrounds and no DEFCON restriction on Coups, so it stays contestable all game."
+    },
+    "Southeast_Asia_Scoring": {
+      "any": "Pays per country rather than in tiers, and it is removed after use. Vietnam Revolts' +1 Op bonus makes Southeast Asia unusually cheap for the USSR while it is in effect."
+    },
+    "The_China_Card": {
+      "any": "Your best Ops card: 4 Ops, 5 if EVERY Op is spent in Asia, and an Asian Coup with that bonus also gets +1 Military Ops. Holding it also lets you keep one extra card at end of turn. It has no Event and can never be Space Raced. Playing it hands it to your opponent face-down, so do not spend it on something a 3-Ops card would have done."
+    },
+    "Duck_and_Cover": {
+      "US": "Drops DEFCON one and pays you (5 - new DEFCON) VP -- worth the most when DEFCON is already low. Otherwise a clean 3 Ops.",
+      "USSR": "A US Event: playing it for Ops still fires it, dropping DEFCON and paying the US. Play it for Ops early in the turn while DEFCON is high and the payout is 1-2 VP, or Space Race it. Never choose 'event'."
+    },
+    "Five_Year_Plan": {
+      "US": "Fires against the USSR hand and can trigger a USSR Event for you for free. Strongest right after the USSR has been dealt a fresh hand.",
+      "USSR": "Playing it for Ops makes you discard at random and may fire one of your own Events for the US. Play it when your hand is thin on USSR Events, or Space Race it."
+    },
+    "Socialist_Governments": {
+      "USSR": "Three removals in Western Europe, max 2 per country. Aim them so at least one country actually loses US Control -- removals that leave Control unchanged buy nothing. Italy at 3 US Influence needs 2 removals to break; the UK at 5 needs 2. Prefer breaking a Battleground."
+    },
+    "Fidel": {
+      "USSR": "Free Control of Cuba -- your only natural door into Central America and a Battleground. Fire it early; it is removed after use.",
+      "US": "You cannot stop it, but you can make Cuba expensive to use as a springboard by holding Central American neighbours."
+    },
+    "Vietnam_Revolts": {
+      "USSR": "+2 in Vietnam AND +1 Op on every play fully spent in Southeast Asia for the rest of the turn. Headline it, then actually spend the turn in Southeast Asia -- firing it and then playing elsewhere throws away half the card."
+    },
+    "Blockade": {
+      "USSR": "Only bites when the US genuinely cannot spare a 3+ Ops card. Early in a turn they always can, and they will happily discard a USSR Event they were stuck holding -- you are then paying a card to clean up their hand. Play it late in a turn, when their hand is nearly empty (check the opponent hand size)."
+    },
+    "Korean_War": {
+      "USSR": "+2 Military Ops even when the roll fails, so it doubles as your Military Ops payment. Best played on a turn when you are short and South Korea is weakly held.",
+      "US": "A USSR Event you want fired early and cheaply, before the USSR builds up in Asia."
+    },
+    "Romanian_Abdication": {
+      "USSR": "Free Control of Romania for 1 Op. Good headline filler; do not spend a real card slot elsewhere on Romania."
+    },
+    "Arab_Israeli_War": {
+      "USSR": "+2 Military Ops win or lose, and a win takes Israel outright. Strong headline on turn 1, and a standing Military Ops answer later.",
+      "US": "Camp David Accords blocks it permanently -- playing Camp David is worth it partly for that."
+    },
+    "COMECON": {
+      "USSR": "Four separate +1s in non-US-controlled Eastern Europe. Because it is 1 per country, it rarely takes Control on its own: put the points where they finish or defend something (a contested Battleground like East Germany or Poland), not into empty stability-3/4 countries where a single point changes nothing."
+    },
+    "Nasser": {
+      "USSR": "+2 in Egypt and halves US Influence there: your cheapest way into the Middle East, and it pairs with Suez.",
+      "US": "A USSR Event worth triggering early, before the USSR has built anything in Egypt worth doubling."
+    },
+    "Warsaw_Pact_Formed": {
+      "USSR": "Take the +5 Influence branch when you want to build, the removal branch when the US has crept into Eastern Europe. Note it enables NATO for the US -- if the US is holding NATO, that cost is real.",
+      "US": "You want this fired: it is one of the two cards that switches NATO on."
+    },
+    "De_Gaulle_Leads_France": {
+      "USSR": "Removes 2 US Influence in France, adds 1 of yours, and permanently strips NATO's protection from France -- France then stays Coup-able all game. Worth firing as the Event, not just as 3 Ops."
+    },
+    "Captured_Nazi_Scientist": {
+      "any": "A free Space Race box for 1 Op, including its VP, and it does NOT consume your turn's Space Race attempt. Fire it as the Event whenever the next box pays VP."
+    },
+    "Truman_Doctrine": {
+      "US": "Removes ALL opponent Influence from one UNCONTROLLED European country -- so it punishes exactly the country your opponent contested but never finished. Wait for such a country to exist.",
+      "USSR": "The reason not to leave a European country half-built: finish Control or expect to lose the whole stack."
+    },
+    "Olympic_Games": {
+      "any": "Your opponent picks the branch, so you never get the outcome you planned. Playing it for Ops does not fire it at all (it is NEUTRAL) -- 2 clean Ops is usually better than gambling on their choice."
+    },
+    "NATO": {
+      "US": "Only works once Marshall Plan or Warsaw Pact Formed is in effect -- check before relying on it. Never play it for the Event before then; it is 4 Ops otherwise.",
+      "USSR": "Once it is in effect, Coups and Realignments against US-controlled Europe are off the table: take what you want in Europe before it lands."
+    },
+    "Independent_Reds": {
+      "US": "Matches your Influence to the USSR's in one Eastern European country -- it breaks Control of whatever they built there, for free. Aim it at their biggest Eastern European stack."
+    },
+    "Marshall_Plan": {
+      "US": "Seven +1s across Western Europe and it enables NATO. Fire it early: it converts most of Western Europe into cheap Control.",
+      "USSR": "Expect Western Europe to become hard after this lands."
+    },
+    "Indo_Pakistani_War": {
+      "any": "+2 Military Ops win or lose and you pick the target, so it is a reliable Military Ops payment on any turn you are short."
+    },
+    "Containment": {
+      "US": "+1 on every US Operations play for the rest of the turn -- fire it at the START of a turn, never at the end.",
+      "USSR": "A US Event: playing it for Ops still gives them the bonus. Play it in the LAST action round of the turn so they get at most one boosted play, or Space Race it."
+    },
+    "CIA_Created": {
+      "US": "Reveals the USSR hand and gives you 1 free Op. Cheap headline.",
+      "USSR": "Playing it for Ops reveals your hand to the US. Prefer the Space Race."
+    },
+    "US_Japan_Mutual_Defense_Pact": {
+      "US": "Hands you Japan (a Battleground) outright and locks the USSR out of it forever. Strong Event, and 4 Ops otherwise.",
+      "USSR": "One of the cards worth spending UN Intervention on, or the Space Race: once it fires you can never Coup or Realign Japan again."
+    },
+    "Suez_Crisis": {
+      "USSR": "Four removals across France, the UK and Israel, max 2 per country. Spend them where a Control actually breaks -- and remember the US can rebuild the UK cheaply, while France and Israel are stickier."
+    },
+    "East_European_Unrest": {
+      "US": "One Influence out of each of three Eastern European countries -- best aimed at three countries where the USSR sits exactly at its Control margin."
+    },
+    "Decolonization": {
+      "USSR": "Four +1s in Africa and/or Southeast Asia. Most African countries are stability 1-2, so points there often buy Control outright and open a region you cannot otherwise reach. Do not pour all four into a region whose Scoring card has already been played -- look at which Scoring cards are still live."
+    },
+    "Red_Scare_Purge": {
+      "any": "-1 Op on every opponent play for the rest of the turn. Best as a headline, where it degrades their whole turn rather than half of it."
+    },
+    "UN_Intervention": {
+      "any": "No Event of its own: it lets you cancel an opponent Event on a card you play for its Ops. Save it for a card whose Event is genuinely game-changing (US-Japan, NATO, Marshall Plan, Warsaw Pact), not for a small one you could simply Space Race."
+    },
+    "De_Stalinization": {
+      "USSR": "Relocates up to 4 of your own Influence, max 2 per destination. It is your one chance to convert dead Influence (an over-stacked country, a place you will never Control) into access somewhere new -- Africa, South America, the Middle East."
+    },
+    "Nuclear_Test_Ban": {
+      "any": "4 Ops NEUTRAL: playing it for Ops fires nothing, so it is one of the best plain Ops cards in the deck -- a big Coup or four Influence points. The Event only pays (DEFCON - 2) VP and hands your opponent a safer board; headlining it for 1-2 VP wastes a premium Ops card. Fire the Event only when DEFCON is genuinely dangerous to you."
+    },
+    "Formosan_Resolution": {
+      "US": "Makes Taiwan count as an Asian Battleground while you Control it -- worth it only if you actually hold Taiwan before Asia is scored.",
+      "USSR": "Harmless unless the US holds Taiwan. Playing it for Ops is usually fine; do not spend a Space Race attempt on it just to deny it."
+    },
+    "Defectors": {
+      "US": "As a headline it cancels the USSR headline outright -- one of the strongest headlines in the game.",
+      "USSR": "Playing it in an action round (Event OR Ops) pays the US 1 VP; only a Space Race play or a headline avoids that. If you intend to Space Race one card this turn, this is usually the card -- decide that BEFORE spending your attempt on something else."
+    },
+    "The_Cambridge_Five": {
+      "USSR": "Only does anything if the US is actually holding a Scoring card -- otherwise it fires into empty air. If you have already played it this game and it whiffed, that is evidence about their hand, not a reason to try again. Blocked entirely in the Late War."
+    },
+    "Special_Relationship": {
+      "US": "Needs UK Control, and pays 2 VP plus 2 Influence only once NATO is in effect. Check both conditions before firing it."
+    },
+    "NORAD": {
+      "US": "Never play it for the Event -- it is a 3 Ops card whose Event only trickles 1 Influence when DEFCON hits 2."
+    },
+    "Brush_War": {
+      "any": "NEUTRAL, so playing it for Ops fires nothing. As the Event it hits any stability 1-2 country, wins on 3-6 (a 4-in-6 chance) and pays +1 VP and +3 Military Ops -- it is usually your cheapest full Military Ops payment for a turn. Do not Space Race it 'to deny the opponent': a NEUTRAL card in your hand is never their Event."
+    },
+    "Arms_Race": {
+      "any": "Pays only if you are ahead on the Military Ops track -- check the track before playing it for the Event."
+    },
+    "Cuban_Missile_Crisis": {
+      "any": "While it is in effect any Coup by the other side ends the game against them. Firing it makes your own Coups the only ones on the board for a round.",
+      "USSR": "You can cancel it by giving up Cuba; weigh that against what the Coup was worth."
+    },
+    "Nuclear_Subs": {
+      "US": "Your Battleground Coups stop degrading DEFCON for the rest of the turn -- fire it and then Coup Battlegrounds freely."
+    },
+    "Quagmire": {
+      "USSR": "Locks the US into discarding 2+ Ops cards instead of playing them. Devastating right after they have been dealt a hand full of their own Events."
+    },
+    "Bear_Trap": {
+      "US": "The mirror of Quagmire, aimed at the USSR."
+    },
+    "Summit": {
+      "any": "A die contest with a DEFCON swing attached; the loser rarely gets hurt badly. Fine filler, not a plan."
+    },
+    "Missile_Envy": {
+      "any": "Takes the opponent's highest-Ops card. Strong when their hand is known to hold a big Event; note they choose which card if there is a tie."
+    },
+    "Brezhnev_Doctrine": {
+      "USSR": "+1 on every USSR Operations play for the rest of the turn -- fire it at the START of a turn, exactly like Containment."
+    },
+    "Willy_Brandt": {
+      "USSR": "1 VP and Influence in West Germany, but it cancels NATO's protection of West Germany -- a lasting opening into the strongest US position in Europe."
+    },
+    "Muslim_Revolution": {
+      "USSR": "Wipes US Influence from two Middle Eastern countries. Time it for after the US has invested there, and remember AWACS Sale to Saudis blocks it."
+    },
+    "ABM_Treaty": {
+      "any": "DEFCON improves one and you get 4 Ops of Operations -- a clean, safe tempo card."
+    },
+    "Latin_American_Death_Squads": {
+      "any": "Swings every Coup in Central and South America for the rest of the turn. Fire it and then actually Coup there; on its own it does nothing."
+    },
+    "Grain_Sales_to_Soviets": {
+      "US": "You see a random USSR card and may play it. Good value, and it also strips a card from their hand."
+    },
+    "One_Small_Step": {
+      "any": "Only playable while you are BEHIND on the Space Race, and it advances you two boxes' worth. Keep one Space Race box of deficit if you are holding it."
+    },
+    "Wargames": {
+      "any": "At DEFCON 2 it ends the game immediately, paying the opponent 6 VP. If you are more than 6 VP ahead at that moment, it is an instant win -- the USSR's classic turn-8 out."
+    },
+    "Star_Wars": {
+      "US": "Only if you lead the Space Race: it lets you replay an Event from the discard pile. Another reason the Space Race is worth more to the US than the raw VP."
+    }
+  }
+}

@@ -203,3 +203,259 @@ def parse_plan_response(payload: Mapping[str, Any]) -> DecisionPlan:
         steps.append(PlannedStep(kind=kind, payload=populated))
 
     return DecisionPlan(justification=justification, steps=tuple(steps))
+
+
+# -- turn plan ----------------------------------------------------------------
+#
+# A second, separate structured output, produced once per game turn (at the
+# first decision of that turn) and never executed directly: it carries no
+# actions, only the intent the turn's individual decisions are then made
+# against. The reviewed game's failure mode was not illegal play -- every
+# response was legal -- but the absence of any standing intent: a Scoring
+# card sat in hand for six action rounds while the bot optimized each
+# decision on its own, and the region it was obliged to score was never
+# invested in. `justification` deliberately isn't memory (see PLAN_SCHEMA
+# above); this is.
+
+TURN_PLAN_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": [
+        "assessment",
+        "objective",
+        "scoring_cards",
+        "card_plan",
+        "influence_targets",
+        "military_ops_plan",
+        "defend",
+        "contingencies",
+    ],
+    "properties": {
+        "assessment": {
+            "type": "string",
+            "description": (
+                "Where the game stands right now: who leads and by how much, "
+                "which regions are winnable, what the opponent did last turn "
+                "that still needs answering."
+            ),
+        },
+        "objective": {
+            "type": "string",
+            "description": "The one thing this turn has to achieve. Concrete, checkable.",
+        },
+        "scoring_cards": {
+            "type": "array",
+            "description": (
+                "One entry per Scoring card in your hand -- these are "
+                "obligations, not options: each must be played this turn."
+            ),
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "required": ["card", "when", "preparation"],
+                "properties": {
+                    "card": {"type": "string"},
+                    "when": {
+                        "type": "string",
+                        "description": "Which action round you intend to play it in, and why then.",
+                    },
+                    "preparation": {
+                        "type": "string",
+                        "description": (
+                            "What has to change in that region before you play it, "
+                            "in Ops and countries -- or 'none' if the region already "
+                            "scores in your favour."
+                        ),
+                    },
+                },
+            },
+        },
+        "card_plan": {
+            "type": "array",
+            "description": "One entry per card in hand, including the China Card if you hold it.",
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "required": ["card", "intended_use", "purpose"],
+                "properties": {
+                    "card": {"type": "string"},
+                    "intended_use": {
+                        "type": "string",
+                        "enum": ["headline", "event", "ops", "space_race", "un_intervention", "hold"],
+                    },
+                    "purpose": {
+                        "type": "string",
+                        "description": "What that use is meant to accomplish, in one line.",
+                    },
+                },
+            },
+        },
+        "influence_targets": {
+            "type": "array",
+            "description": (
+                "Countries this turn's Ops are meant to take or hold, in priority "
+                "order, with the points needed. Battlegrounds first."
+            ),
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "required": ["country", "why"],
+                "properties": {
+                    "country": {"type": "string"},
+                    "why": {"type": "string"},
+                },
+            },
+        },
+        "military_ops_plan": {
+            "type": "string",
+            "description": (
+                "How you will reach the Military Operations requirement (equal to "
+                "DEFCON) this turn, naming the card and target -- every point short "
+                "is 1 VP to your opponent."
+            ),
+        },
+        "defend": {
+            "type": "array",
+            "description": (
+                "Countries you must hold or retake this turn -- Battlegrounds you "
+                "control by a thin margin, and Battlegrounds the opponent has just "
+                "broken."
+            ),
+            "items": {"type": "string"},
+        },
+        "contingencies": {
+            "type": "array",
+            "description": "Opponent plays that would force a change of plan, and the answer to each.",
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "required": ["trigger", "response"],
+                "properties": {
+                    "trigger": {"type": "string"},
+                    "response": {"type": "string"},
+                },
+            },
+        },
+    },
+}
+
+TURN_PLAN_OUTPUT_SPEC = StructuredOutputSpec(
+    name="turn_plan",
+    description=(
+        "A plan for the whole game turn: what each card in hand is for, where "
+        "Influence is going, when Scoring cards get played, how the Military "
+        "Operations requirement is met, and what to do if the opponent "
+        "interferes. No actions are taken from this -- it is the intent every "
+        "individual decision this turn is then made against."
+    ),
+    schema=TURN_PLAN_SCHEMA,
+)
+
+
+@dataclass(frozen=True)
+class TurnPlan:
+    turn: int
+    assessment: str
+    objective: str
+    scoring_cards: tuple[Mapping[str, str], ...]
+    card_plan: tuple[Mapping[str, str], ...]
+    influence_targets: tuple[Mapping[str, str], ...]
+    military_ops_plan: str
+    defend: tuple[str, ...]
+    contingencies: tuple[Mapping[str, str], ...]
+
+
+def _str_list(value: Any, field: str) -> tuple[str, ...]:
+    if not isinstance(value, list):
+        raise PlanParseError(f"'{field}' must be a list")
+    return tuple(str(item) for item in value)
+
+
+def _obj_list(value: Any, field: str, keys: tuple[str, ...]) -> tuple[Mapping[str, str], ...]:
+    if not isinstance(value, list):
+        raise PlanParseError(f"'{field}' must be a list")
+    out = []
+    for i, item in enumerate(value):
+        if not isinstance(item, dict):
+            raise PlanParseError(f"{field}[{i}]: must be an object")
+        out.append({key: str(item.get(key, "")) for key in keys})
+    return tuple(out)
+
+
+def parse_turn_plan_response(payload: Mapping[str, Any], *, turn: int) -> TurnPlan:
+    """Validate a raw structured turn-plan response into a `TurnPlan`.
+
+    Raises `PlanParseError` on anything structurally wrong, so `LLMPlayer`
+    can treat a bad turn plan exactly like a bad decision plan: retry once,
+    then carry on without one. A turn plan is guidance, never an action --
+    a game must still be playable when planning fails outright.
+    """
+    try:
+        assessment = payload["assessment"]
+        objective = payload["objective"]
+        military_ops_plan = payload["military_ops_plan"]
+    except (KeyError, TypeError) as exc:
+        raise PlanParseError(f"missing required key: {exc}") from exc
+    for name, value in (
+        ("assessment", assessment),
+        ("objective", objective),
+        ("military_ops_plan", military_ops_plan),
+    ):
+        if not isinstance(value, str):
+            raise PlanParseError(f"'{name}' must be a string")
+    return TurnPlan(
+        turn=turn,
+        assessment=assessment,
+        objective=objective,
+        scoring_cards=_obj_list(
+            payload.get("scoring_cards", []), "scoring_cards", ("card", "when", "preparation")
+        ),
+        card_plan=_obj_list(
+            payload.get("card_plan", []), "card_plan", ("card", "intended_use", "purpose")
+        ),
+        influence_targets=_obj_list(
+            payload.get("influence_targets", []), "influence_targets", ("country", "why")
+        ),
+        military_ops_plan=military_ops_plan,
+        defend=_str_list(payload.get("defend", []), "defend"),
+        contingencies=_obj_list(
+            payload.get("contingencies", []), "contingencies", ("trigger", "response")
+        ),
+    )
+
+
+def render_turn_plan(plan: TurnPlan) -> str:
+    """The plan as prompt text, re-injected into every user turn of the turn
+    it belongs to, so each individual decision is taken against a standing
+    intent rather than from scratch."""
+    lines = [
+        f"YOUR PLAN FOR TURN {plan.turn} (you wrote this at the start of the turn; "
+        "follow it unless the board has changed, and say so in your justification "
+        "when you deliberately depart from it):",
+        f"  Assessment: {plan.assessment}",
+        f"  Objective: {plan.objective}",
+        f"  Military Operations: {plan.military_ops_plan}",
+    ]
+    if plan.scoring_cards:
+        lines.append("  Scoring cards to play this turn:")
+        lines += [
+            f"    - {item['card']}: when={item['when']} | prepare={item['preparation']}"
+            for item in plan.scoring_cards
+        ]
+    if plan.card_plan:
+        lines.append("  Cards:")
+        lines += [
+            f"    - {item['card']} -> {item['intended_use']}: {item['purpose']}"
+            for item in plan.card_plan
+        ]
+    if plan.influence_targets:
+        lines.append("  Influence targets, in priority order:")
+        lines += [f"    - {item['country']}: {item['why']}" for item in plan.influence_targets]
+    if plan.defend:
+        lines.append(f"  Hold or retake: {', '.join(plan.defend)}")
+    if plan.contingencies:
+        lines.append("  Contingencies:")
+        lines += [
+            f"    - if {item['trigger']} -> {item['response']}" for item in plan.contingencies
+        ]
+    return "\n".join(lines)

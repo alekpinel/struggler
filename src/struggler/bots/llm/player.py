@@ -13,18 +13,29 @@ Design:
   unit to plan in one shot). Each predicted step is validated against the
   *live* `Decision.options` only when actually reached; a mismatch
   discards the rest of the stale plan and triggers a fresh call.
+- At the first real decision of each game turn, one extra call produces a
+  *turn plan* instead of an action (`schema.TURN_PLAN_SCHEMA`): what each
+  card in hand is for, when a Scoring card gets played and what must change
+  in its region first, how the Military Operations requirement gets met,
+  which Battlegrounds to hold or retake, and contingencies. It is then
+  re-injected into every user turn for the rest of that turn, so each
+  individual decision is made against a standing intent rather than from
+  scratch -- `justification` is explainability, deliberately not memory.
+  Planning failure never blocks the game (the turn just plays without a
+  plan), and `plan_turns=False` skips the call entirely.
 - Memory is a single, ever-growing conversation (`self._messages`) per
   `LLMPlayer` instance, resent in full on every call -- relying on the
   provider's prompt caching for cost, not on client-side summarization.
   No compaction/safety-valve in v1 (see "Known limitations" below).
-- Every real LLM-consulting `choose_action` call commits exactly one
-  "user" turn and one "assistant" turn to `self._messages`, even when an
-  internal retry happened first -- retry noise is resolved locally before
+- Every real LLM-consulting call -- a decision or a turn plan -- commits
+  exactly one "user" turn and one "assistant" turn to `self._messages`,
+  even when an internal retry happened first -- retry noise is resolved locally before
   anything is committed, so the persisted conversation always alternates
   cleanly (a strict requirement of the Messages/Chat Completions APIs) and
   never carries transient error chatter forward into the game's memory.
 - Reasoning/justification is recorded in `self.journal`, entirely outside
-  the `Engine` and the replay-log format -- a `Player`'s own bookkeeping,
+  the `Engine` and the replay-log format; `JournalEntry.kind` separates a
+  turn plan's entry from a decision's -- a `Player`'s own bookkeeping,
   never engine state.
 - If `log_path` is given, every real LLM-consulting call also persists a
   full JSON snapshot (conversation, pending plan, journal, cumulative
@@ -68,24 +79,59 @@ from __future__ import annotations
 
 import random
 from collections import deque
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Mapping, Sequence
+from typing import Any, Callable, Mapping, Sequence
 
 from struggler.bots.llm import conversation_log
 from struggler.bots.llm.client import LLMClient, LLMClientError, LLMMessage, LLMRequest
 from struggler.bots.llm.conversation_log import ConversationSnapshot, JournalEntry
-from struggler.bots.llm.prompt import build_system_prompt, build_user_turn
+from struggler.bots.llm.prompt import (
+    build_system_prompt,
+    build_turn_plan_request,
+    build_user_turn,
+)
 from struggler.bots.llm.schema import (
     OUTPUT_SPEC,
+    TURN_PLAN_OUTPUT_SPEC,
     DecisionPlan,
     PlannedStep,
     PlanParseError,
+    TurnPlan,
     parse_plan_response,
+    parse_turn_plan_response,
+    render_turn_plan,
 )
+from struggler.bots.llm.client import StructuredOutputSpec
 from struggler.engine import Action, Decision, Observation, Side
 from struggler.engine.player import Event
 
 _MAX_RETRIES = 1  # one retry after an invalid response, then fall back to RNG
+
+_RETRY_NUDGE = "That response was invalid. Please try again, following the schema exactly."
+
+
+class _PlanMismatch(Exception):
+    """A response that parsed but can't be used against the live decision.
+
+    Distinct from `PlanParseError` (which means the JSON itself was wrong) so
+    the retry can tell the model *which* of the two it got wrong; the message
+    is the nudge sent back verbatim.
+    """
+
+
+@dataclass(frozen=True)
+class _Attempt:
+    """One completed request/response round trip's outcome, whatever the
+    output spec was: the interpreted result (None if every attempt failed),
+    the text to commit as the single assistant turn, the last error, summed
+    usage, and every raw attempt for the journal."""
+
+    result: object | None
+    assistant_text: str
+    error: str | None
+    usage: dict[str, int]
+    raw_responses: tuple[str, ...]
 
 
 def _add_usage(a: Mapping[str, int], b: Mapping[str, int]) -> dict[str, int]:
@@ -112,16 +158,29 @@ class LLMPlayer:
         *,
         seed: int = 0,
         max_plan_steps: int = 8,
+        plan_turns: bool = True,
         log_path: str | Path | None = None,
         resume: bool = False,
     ) -> None:
         self._client = client
+        # One extra LLM call per game turn, producing intent rather than an
+        # action (see `_make_turn_plan`). Off makes the bot decide each
+        # decision on its own again, which is what the pre-turn-plan version
+        # did -- useful for measuring what the plan is worth, and for tests
+        # that are about decision mechanics rather than planning.
+        self._plan_turns = plan_turns
         self._rng = random.Random(seed)  # own seeded RNG -- never the engine's (RandomPlayer convention)
         self._max_plan_steps = max_plan_steps
         self._seed = seed
         self._log_path = Path(log_path) if log_path is not None else None
         self._messages: list[LLMMessage] = []  # the one growing conversation = memory
         self._plan: deque[PlannedStep] = deque()
+        # The once-per-game-turn intent (see schema.TURN_PLAN_SCHEMA), and the
+        # turn it was written for. Every decision in that turn is prompted with
+        # it, so a card held for a later action round is still held *for*
+        # something.
+        self._turn_plan: TurnPlan | None = None
+        self._planned_turn: int | None = None
         self._last_seen = 0  # index into `history`; advances only on a real LLM call
         self.journal: list[JournalEntry] = []
         self.cumulative_usage: dict[str, int] = {"input_tokens": 0, "output_tokens": 0}
@@ -131,6 +190,8 @@ class LLMPlayer:
         if snapshot is not None:
             self._messages = list(snapshot.messages)
             self._plan = deque(snapshot.plan)
+            self._turn_plan = snapshot.turn_plan
+            self._planned_turn = snapshot.planned_turn
             self._last_seen = snapshot.last_seen
             self.journal = list(snapshot.journal)
             self.cumulative_usage = dict(snapshot.cumulative_usage)
@@ -151,6 +212,16 @@ class LLMPlayer:
 
         if len(decision.options) == 1:
             return decision.options[0]
+
+        if self._plan_turns and observation.turn != self._planned_turn:
+            # First real decision of a new game turn: plan the turn before
+            # taking any of it. A stale step plan can never survive a turn
+            # boundary, so it goes too.
+            self._plan.clear()
+            new_events = history[self._last_seen :]
+            self._last_seen = len(history)
+            self._make_turn_plan(observation, decision, new_events)
+            return self._call_llm_and_consume(observation, decision, ())
 
         action = self._try_consume_plan(decision)
         if action is not None:
@@ -173,124 +244,60 @@ class LLMPlayer:
         self._plan.popleft()
         return action
 
+    def _make_turn_plan(
+        self, observation: Observation, decision: Decision, new_events: Sequence[Event]
+    ) -> None:
+        """One extra LLM call at the start of each game turn, producing intent
+        rather than an action (see schema.TURN_PLAN_SCHEMA).
+
+        Failure is not fatal and never blocks the game: `_planned_turn` is
+        stamped either way, so a turn whose planning call failed simply plays
+        without a plan instead of retrying the planning call at every decision.
+        """
+        self._planned_turn = observation.turn
+        user_text = build_turn_plan_request(observation, new_events)
+        attempt = self._attempt_with_retry(
+            observation.side,
+            user_text,
+            TURN_PLAN_OUTPUT_SPEC,
+            lambda structured: parse_turn_plan_response(structured, turn=observation.turn),
+        )
+        self._commit_turn(user_text, attempt)
+        plan = attempt.result
+        if isinstance(plan, TurnPlan):
+            self._turn_plan = plan
+        else:
+            self._turn_plan = None
+        self.journal.append(
+            JournalEntry(
+                decision_id=decision.id,
+                kind="turn_plan",
+                justification=plan.objective if isinstance(plan, TurnPlan) else None,
+                fallback_used=not isinstance(plan, TurnPlan),
+                fallback_reason=None if isinstance(plan, TurnPlan) else (attempt.error or "unknown"),
+                usage=attempt.usage,
+                timestamp=conversation_log.now_iso(),
+                raw_responses=attempt.raw_responses,
+            )
+        )
+        self._persist_if_configured()
+
+    def _commit_turn(self, user_text: str, attempt: _Attempt) -> None:
+        """Commit exactly one user + one assistant turn to the persisted
+        conversation, and bank the call's token usage -- however many internal
+        retries produced it."""
+        self._messages.append(LLMMessage(role="user", content=user_text))
+        self._messages.append(LLMMessage(role="assistant", content=attempt.assistant_text))
+        self.cumulative_usage = _add_usage(self.cumulative_usage, attempt.usage)
+
     def _call_llm_and_consume(
         self, observation: Observation, decision: Decision, new_events: Sequence[Event]
     ) -> Action:
-        user_text = build_user_turn(observation, decision, new_events)
-        plan, first_action, assistant_text, error, usage, raw_responses = self._request_plan_with_retry(
-            observation.side, user_text, decision
-        )
+        turn_plan_text = render_turn_plan(self._turn_plan) if self._turn_plan is not None else None
+        user_text = build_user_turn(observation, decision, new_events, turn_plan_text)
 
-        # Exactly one user + one assistant turn is committed per call, no
-        # matter how many internal retries happened, so the persisted
-        # conversation always alternates cleanly.
-        self._messages.append(LLMMessage(role="user", content=user_text))
-        self._messages.append(LLMMessage(role="assistant", content=assistant_text))
-        self.cumulative_usage = _add_usage(self.cumulative_usage, usage)
-        timestamp = conversation_log.now_iso()
-
-        if plan is not None and first_action is not None:
-            self._plan = deque(plan.steps[1 : 1 + self._max_plan_steps])
-            self.journal.append(
-                JournalEntry(
-                    decision_id=decision.id,
-                    justification=plan.justification,
-                    fallback_used=False,
-                    usage=usage,
-                    timestamp=timestamp,
-                    raw_responses=raw_responses,
-                )
-            )
-            action = first_action
-        else:
-            action = self._rng.choice(decision.options)
-            self.journal.append(
-                JournalEntry(
-                    decision_id=decision.id,
-                    justification=None,
-                    fallback_used=True,
-                    fallback_reason=error or "unknown",
-                    usage=usage,
-                    timestamp=timestamp,
-                    raw_responses=raw_responses,
-                )
-            )
-
-        self._persist_if_configured()
-        return action
-
-    def _request_plan_with_retry(
-        self, side: Side, user_text: str, decision: Decision
-    ) -> tuple[DecisionPlan | None, Action | None, str, str | None, dict[str, int], tuple[str, ...]]:
-        """Attempts the LLM call up to `_MAX_RETRIES + 1` times, using a
-        local scratch message list so failed attempts never pollute the
-        persisted conversation. A response is retried both when it fails to
-        parse at all and when it parses but its first step doesn't match
-        the live `decision` (wrong kind, or an option that isn't actually
-        legal right now) -- either way the model gets one chance to correct
-        itself with the reason appended, before `LLMPlayer` gives up and
-        falls back to a legal choice via its own seeded RNG.
-
-        Returns `(plan, first_action, assistant_text, error, usage,
-        raw_responses)`: on success `error` is `None`, `first_action` is
-        the live option the plan's first step resolved to, and
-        `assistant_text` is the model's real raw response; on total
-        failure `plan`/`first_action` are `None` and `assistant_text` is a
-        synthetic note recording the fallback, so the one committed
-        conversation turn still makes sense on replay. `usage` is the
-        summed token usage across every attempt that actually received a
-        response (a `LLMClientError` raised before any response arrives
-        contributes nothing, since none was received). `raw_responses` is
-        every attempt's raw text (or, for a client error, the error
-        message), in order -- kept out of the persisted conversation (see
-        above) but recorded on the journal entry so a run of fallbacks is
-        actually debuggable instead of just "it failed."
-        """
-        attempt_messages = list(self._messages) + [LLMMessage(role="user", content=user_text)]
-        last_error: str | None = None
-        total_usage: dict[str, int] = {"input_tokens": 0, "output_tokens": 0}
-        raw_responses: list[str] = []
-
-        for _ in range(_MAX_RETRIES + 1):
-            request = LLMRequest(
-                system=build_system_prompt(side),
-                messages=tuple(attempt_messages),
-                output=OUTPUT_SPEC,
-            )
-            try:
-                response = self._client.complete(request)
-            except LLMClientError as exc:
-                last_error = str(exc)
-                raw_responses.append(f"[client error: {last_error}]")
-                attempt_messages.append(
-                    LLMMessage(role="assistant", content=f"[invalid response: {last_error}]")
-                )
-                attempt_messages.append(
-                    LLMMessage(
-                        role="user",
-                        content="That response was invalid. Please try again, following the schema exactly.",
-                    )
-                )
-                continue  # no response received -- nothing to add to total_usage
-
-            total_usage = _add_usage(total_usage, response.usage)
-            raw_responses.append(response.raw_text)
-
-            try:
-                plan = parse_plan_response(response.structured)
-            except PlanParseError as exc:
-                last_error = str(exc)
-                attempt_messages.append(
-                    LLMMessage(role="assistant", content=f"[invalid response: {last_error}]")
-                )
-                attempt_messages.append(
-                    LLMMessage(
-                        role="user",
-                        content="That response was invalid. Please try again, following the schema exactly.",
-                    )
-                )
-                continue
-
+        def interpret(structured: Mapping[str, Any]) -> tuple[DecisionPlan, Action]:
+            plan = parse_plan_response(structured)
             first_step = plan.steps[0]
             first_action = (
                 _find_matching_option(decision.options, dict(first_step.payload))
@@ -298,24 +305,128 @@ class LLMPlayer:
                 else None
             )
             if first_action is None:
-                last_error = "first planned step did not match the live decision"
-                attempt_messages.append(LLMMessage(role="assistant", content=response.raw_text))
-                attempt_messages.append(
-                    LLMMessage(
-                        role="user",
-                        content=(
-                            "Your first step didn't match the current live decision (wrong "
-                            "kind, or that option isn't actually legal right now). Please try "
-                            "again using one of the live options shown."
-                        ),
-                    )
+                raise _PlanMismatch(
+                    "Your first step didn't match the current live decision (wrong "
+                    "kind, or that option isn't actually legal right now). Please try "
+                    "again using one of the live options shown."
                 )
+            return plan, first_action
+
+        attempt = self._attempt_with_retry(observation.side, user_text, OUTPUT_SPEC, interpret)
+
+        # Exactly one user + one assistant turn is committed per call, no
+        # matter how many internal retries happened, so the persisted
+        # conversation always alternates cleanly.
+        self._commit_turn(user_text, attempt)
+        timestamp = conversation_log.now_iso()
+
+        if attempt.result is not None:
+            plan, action = attempt.result  # type: ignore[misc]
+            self._plan = deque(plan.steps[1 : 1 + self._max_plan_steps])
+            self.journal.append(
+                JournalEntry(
+                    decision_id=decision.id,
+                    justification=plan.justification,
+                    fallback_used=False,
+                    usage=attempt.usage,
+                    timestamp=timestamp,
+                    raw_responses=attempt.raw_responses,
+                )
+            )
+        else:
+            action = self._rng.choice(decision.options)
+            self.journal.append(
+                JournalEntry(
+                    decision_id=decision.id,
+                    justification=None,
+                    fallback_used=True,
+                    fallback_reason=attempt.error or "unknown",
+                    usage=attempt.usage,
+                    timestamp=timestamp,
+                    raw_responses=attempt.raw_responses,
+                )
+            )
+
+        self._persist_if_configured()
+        return action
+
+    def _attempt_with_retry(
+        self,
+        side: Side,
+        user_text: str,
+        output: StructuredOutputSpec,
+        interpret: Callable[[Mapping[str, Any]], Any],
+    ) -> _Attempt:
+        """Attempts one LLM call up to `_MAX_RETRIES + 1` times, using a local
+        scratch message list so failed attempts never pollute the persisted
+        conversation.
+
+        `interpret` turns a structured response into whatever this call wanted
+        back, raising `PlanParseError` (malformed) or `_PlanMismatch` (parsed,
+        but not usable against the live decision) to ask for one more attempt
+        with the reason appended. Both output specs this bot uses -- a decision
+        plan and a turn plan -- go through here, so the retry/usage/raw-response
+        bookkeeping exists once rather than once per kind of call.
+
+        On total failure `_Attempt.result` is `None` and `assistant_text` is a
+        synthetic note recording it, so the one committed conversation turn
+        still makes sense on replay. `usage` sums every attempt that actually
+        received a response (an `LLMClientError` raised before any response
+        arrives contributes nothing).
+        """
+        attempt_messages = list(self._messages) + [LLMMessage(role="user", content=user_text)]
+        last_error: str | None = None
+        total_usage: dict[str, int] = {"input_tokens": 0, "output_tokens": 0}
+        raw_responses: list[str] = []
+
+        def retry_after(assistant_text: str, nudge: str) -> None:
+            attempt_messages.append(LLMMessage(role="assistant", content=assistant_text))
+            attempt_messages.append(LLMMessage(role="user", content=nudge))
+
+        for _ in range(_MAX_RETRIES + 1):
+            request = LLMRequest(
+                system=build_system_prompt(side),
+                messages=tuple(attempt_messages),
+                output=output,
+            )
+            try:
+                response = self._client.complete(request)
+            except LLMClientError as exc:
+                last_error = str(exc)
+                raw_responses.append(f"[client error: {last_error}]")
+                retry_after(f"[invalid response: {last_error}]", _RETRY_NUDGE)
+                continue  # no response received -- nothing to add to total_usage
+
+            total_usage = _add_usage(total_usage, response.usage)
+            raw_responses.append(response.raw_text)
+
+            try:
+                result = interpret(response.structured)
+            except PlanParseError as exc:
+                last_error = str(exc)
+                retry_after(f"[invalid response: {last_error}]", _RETRY_NUDGE)
+                continue
+            except _PlanMismatch as exc:
+                last_error = "first planned step did not match the live decision"
+                retry_after(response.raw_text, str(exc))
                 continue
 
-            return plan, first_action, response.raw_text, None, total_usage, tuple(raw_responses)
+            return _Attempt(
+                result=result,
+                assistant_text=response.raw_text,
+                error=None,
+                usage=total_usage,
+                raw_responses=tuple(raw_responses),
+            )
 
-        note = f"[fallback: no valid plan after {_MAX_RETRIES + 1} attempt(s): {last_error}]"
-        return None, None, note, last_error, total_usage, tuple(raw_responses)
+        note = f"[fallback: no valid response after {_MAX_RETRIES + 1} attempt(s): {last_error}]"
+        return _Attempt(
+            result=None,
+            assistant_text=note,
+            error=last_error,
+            usage=total_usage,
+            raw_responses=tuple(raw_responses),
+        )
 
     def _persist_if_configured(self) -> None:
         if self._log_path is None:
@@ -330,6 +441,8 @@ class LLMPlayer:
             cumulative_usage=dict(self.cumulative_usage),
             messages=tuple(self._messages),
             plan=tuple(self._plan),
+            turn_plan=self._turn_plan,
+            planned_turn=self._planned_turn,
             journal=tuple(self.journal),
         )
         conversation_log.save(self._log_path, snapshot)

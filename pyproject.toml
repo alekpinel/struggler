@@ -21,3 +21,7 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 struggler = ["data/*.json"]
+# The LLM bot's card playbook is strategy, not engine data, so it ships
+# alongside the player that reads it rather than under data/ (see
+# bots/llm/card_playbook.py).
+"struggler.bots.llm" = ["*.json"]

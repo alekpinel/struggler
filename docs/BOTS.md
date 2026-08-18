@@ -51,7 +51,8 @@ plain `if`/`elif` over kind names (`"human"`, `"first"`, `"random"`,
 directly (`HumanPlayer`, `FirstLegalPlayer`/`RandomPlayer` from
 `bots/naive.py`, `GreedyPlayer` from `bots/greedy.py`, `LLMPlayer` from
 `bots/llm/player.py` — the `"llm"` branch also picks a provider client via
-`STRUGGLER_LLM_PROVIDER`/`STRUGGLER_LLM_MODEL`). Adding a new bot means
+`STRUGGLER_LLM_PROVIDER`/`STRUGGLER_LLM_MODEL`, and passes through
+`plan_turns` from `--no-turn-plan`). Adding a new bot means
 implementing `Player` and adding one branch to `build_player` — no
 self-registration, no import-order dependency, no indirection between a
 name and the class it builds.
@@ -210,7 +211,10 @@ built:
    Anthropic and OpenAI adapters. The one new plumbing question this tier
    raised — do the model's reasoning turns count as "moves" in a replay
    log, or stay external to it — is answered in "Game-level logging"
-   above: they stay external.
+   above: they stay external. What the model is actually shown, and the
+   turn-level plan it plays to, are in "LLM bot: the board reading and the
+   turn plan" below. This tier needed exactly one thing from the engine:
+   `Observation.space_race_attempts` (see below).
 4. **Self-play reinforcement learning** (future, most promising long-term,
    most expensive to build): train a model by having it play itself
    repeatedly via `play_game`, using `Engine.winner` as the terminal reward.
@@ -223,6 +227,106 @@ built:
    plugs into the engine. `Engine.serialize()`/`deserialize()` (mandate #5)
    are what make self-play cheap: cloning state for search/training doesn't
    need a bespoke copy path.
+
+## LLM bot: the board reading and the turn plan
+
+Two decisions shape this bot far more than the model behind it: **what it
+is shown**, and **when it decides anything larger than one action**. Both
+were rebuilt after reviewing a lost game whose every response was legal
+and whose every response was made in isolation.
+
+### The prompt is a board reading, not a state dump
+
+`prompt.py` used to hand the model `Observation` as JSON: 85 countries as
+two integers each, and nothing else. Everything that actually decides a
+game — who Controls what, which Battlegrounds are contested, what a region
+would score if its card were played now, how many points a country still
+needs — is a *derivation* off that table, and re-deriving all of it on
+every decision is not something to spend model attention on. So
+`board_report.py` computes them once, from the same public data the player
+is already entitled to (a `Board` loaded from the `Observation`, the same
+trick `GreedyPlayer._sync_board` uses), and renders:
+
+- **Military Operations** as the VP it will cost, not a track position.
+- **Space Race** attempts left this turn, and what the next box needs.
+- **Regional scoring status**: each region's net VP *signed for the acting
+  side* (`Board.score_region`), each side's tier, and whether that
+  region's Scoring card is in hand, already played, or still live.
+- **Battleground priorities**: what to RETAKE (Battlegrounds you have
+  Influence in but don't Control), what is AT RISK (Controlled by a thin
+  margin), and what is UNCLAIMED and reachable — each with the Ops cost,
+  doubling rule included.
+- **Opponent activity** since the bot last acted, restated per country as
+  a claim to answer.
+- **The whole map**, one dense line per country: Battleground flag,
+  stability, both influences, controller, `need:+n` / `brk:+n`, and
+  reachability. Every country, including 0-0 ones — an empty reachable
+  Battleground is exactly the cheapest VP on the board, and filtering
+  those out once made them invisible for a whole game.
+
+Nothing in that module is a heuristic or a recommendation: every number is
+a rules-defined fact a human reads straight off the board. The judgement
+lives in the strategic guidance in `prompt.py` and in the card playbook.
+
+The hand gets its own dossier, built per decision rather than left to the
+full card catalog in the system prompt: this turn's *effective* Ops
+(Containment/Brezhnev/Red Scare applied), whose Event it is — with the
+rule that only the **opponent's** cards fire an Event on an Ops play —
+whether it is starred, and **whether a Space Race play is even available
+for it right now**. That last one closes a real trap: the card is
+committed one decision before its mode is, so "can I Space Race this?"
+has to be answerable while picking the card.
+
+`Observation.space_race_attempts` exists for that line. It is public board
+state (an attempt is an announced, visible discard) that the engine
+tracked and simply never surfaced; without it a player cannot tell whether
+a Space Race play is legal until after committing the card.
+
+### `card_playbook.json`: judgement, kept out of `data/`
+
+`struggler/data/` holds the game's facts — what a card *does*. How to
+*play* a card well is an opinion, one bot's, and a different (or re-tuned)
+bot would legitimately disagree, so the playbook lives next to the player
+that consumes it, the same separation `GreedyWeights` already draws.
+Entries are keyed by card id with optional `any` / `US` / `USSR` advice,
+rendered only for cards actually in hand, and only for that seat.
+Coverage is incomplete by design and grows card by card — the same
+pattern `_SCORERS` uses for decision kinds. A card with no entry
+contributes no advice line, never a placeholder. `tests/test_llm_card_playbook.py`
+pins the key set against `cards.json` so the file cannot drift into naming
+a card that doesn't exist.
+
+### The turn plan
+
+`justification` on a decision plan is explainability, explicitly not
+memory. That left nothing standing between decisions: a Scoring card could
+sit in hand for six action rounds while each decision was optimized on its
+own and the region it obliged the bot to score was never invested in.
+
+So the first real decision of each game turn triggers one extra call
+against a second output spec (`TURN_PLAN_SCHEMA`), which takes no action
+at all. It produces intent: an assessment, one objective, a use for every
+card in hand, when each Scoring card gets played and what must change in
+that region first, the Ops that will meet the Military Operations
+requirement, the Battlegrounds to hold or retake, and contingencies for
+opponent plays that would break the plan. `render_turn_plan` then
+re-injects it into every user turn for the rest of that turn, and each
+decision is asked to say how it serves the plan — or why the board changed.
+
+- Planning failure is never fatal: `_planned_turn` is stamped either way,
+  so a turn whose planning call failed plays without a plan instead of
+  retrying at every decision.
+- It costs one call per turn. `LLMPlayer(plan_turns=False)` (CLI:
+  `--no-turn-plan`) turns it off, which is also how to measure what the
+  plan is worth.
+- The plan is persisted (`ConversationSnapshot.turn_plan`/`planned_turn`,
+  snapshot version 2 — version 1 files still load, planless), so a resumed
+  player picks the turn up with the intent it was playing to rather than
+  mid-turn with none.
+
+Both output specs share one retry/fallback path
+(`LLMPlayer._attempt_with_retry`) and one journal, with `JournalEntry.kind`
+(`"decision"` / `"turn_plan"`) separating intent from execution.
 
 ## Greedy bot design: the decision space, and how it's scored
 

@@ -10,7 +10,15 @@ in `player.py`'s `_find_matching_option`.
 
 from __future__ import annotations
 
-from struggler.bots.llm.schema import parse_plan_response
+import pytest
+
+from struggler.bots.llm.schema import (
+    TURN_PLAN_SCHEMA,
+    PlanParseError,
+    parse_plan_response,
+    parse_turn_plan_response,
+    render_turn_plan,
+)
 from struggler.engine import DecisionKind
 
 
@@ -75,3 +83,77 @@ def test_a_genuinely_clean_payload_is_unaffected():
     plan = parse_plan_response(raw)
 
     assert dict(plan.steps[0].payload) == {"country": "Angola"}
+
+
+# -- turn plan -----------------------------------------------------------------
+
+
+def _turn_plan_payload(**overrides):
+    payload = {
+        "assessment": "US leads Europe; Asia is still open.",
+        "objective": "Control Poland and put 2 Influence into Asia.",
+        "scoring_cards": [
+            {"card": "Asia_Scoring", "when": "last action round", "preparation": "take Thailand"}
+        ],
+        "card_plan": [{"card": "Fidel", "intended_use": "event", "purpose": "Cuba"}],
+        "influence_targets": [{"country": "Poland", "why": "Battleground, adjacent to the US"}],
+        "military_ops_plan": "Coup Syria with De Gaulle.",
+        "defend": ["East_Germany"],
+        "contingencies": [{"trigger": "US coups Iran", "response": "retake with the China Card"}],
+    }
+    payload.update(overrides)
+    return payload
+
+
+def test_parse_turn_plan_keeps_every_section():
+    plan = parse_turn_plan_response(_turn_plan_payload(), turn=3)
+
+    assert plan.turn == 3
+    assert plan.objective.startswith("Control Poland")
+    assert plan.scoring_cards[0]["card"] == "Asia_Scoring"
+    assert plan.card_plan[0]["intended_use"] == "event"
+    assert plan.influence_targets[0]["country"] == "Poland"
+    assert plan.defend == ("East_Germany",)
+    assert plan.contingencies[0]["trigger"] == "US coups Iran"
+
+
+def test_parse_turn_plan_tolerates_missing_lists():
+    plan = parse_turn_plan_response(
+        {"assessment": "a", "objective": "o", "military_ops_plan": "m"}, turn=1
+    )
+
+    assert plan.scoring_cards == ()
+    assert plan.card_plan == ()
+    assert plan.defend == ()
+
+
+def test_parse_turn_plan_rejects_a_missing_objective():
+    payload = _turn_plan_payload()
+    del payload["objective"]
+
+    with pytest.raises(PlanParseError):
+        parse_turn_plan_response(payload, turn=1)
+
+
+def test_parse_turn_plan_rejects_a_non_list_section():
+    with pytest.raises(PlanParseError):
+        parse_turn_plan_response(_turn_plan_payload(defend="East_Germany"), turn=1)
+
+
+def test_render_turn_plan_states_the_turn_and_every_section():
+    text = render_turn_plan(parse_turn_plan_response(_turn_plan_payload(), turn=4))
+
+    assert "YOUR PLAN FOR TURN 4" in text
+    assert "Coup Syria with De Gaulle." in text
+    assert "Asia_Scoring: when=last action round" in text
+    assert "Fidel -> event: Cuba" in text
+    assert "Poland: Battleground, adjacent to the US" in text
+    assert "Hold or retake: East_Germany" in text
+    assert "if US coups Iran -> retake with the China Card" in text
+
+
+def test_turn_plan_schema_requires_every_top_level_section():
+    # OpenAI strict mode makes any property not in `required` nullable, which
+    # would let a model answer a whole section with null instead of an empty
+    # list -- the sections are the plan, so all of them stay required.
+    assert set(TURN_PLAN_SCHEMA["required"]) == set(TURN_PLAN_SCHEMA["properties"])

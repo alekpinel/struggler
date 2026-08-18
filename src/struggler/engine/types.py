@@ -151,8 +151,9 @@ class Observation:
     `observe(US)` and `observe(USSR)` are therefore genuinely different
     objects, not one object with a redaction flag.
 
-    `military_ops`, `turn_effects`, and `game_effects` are public board
-    state (the Military Operations track, and the event modifiers
+    `military_ops`, `space_race_attempts`, `turn_effects`, and
+    `game_effects` are public board state (the Military Operations track,
+    this turn's spent Space Race attempts, and the event modifiers
     currently in force, e.g. NATO or Containment) — every value ever
     stored in them is a fact both players already know once the event
     that set it has resolved, so surfacing them here is not a leak. The
@@ -177,6 +178,11 @@ class Observation:
     china_card_owner: Side
     china_card_available: bool
     space_race: Mapping[str, int]
+    # Space Race attempts already spent this turn, per side. Public board
+    # state (an attempt is a visible, announced card discard), and the only
+    # way a player can tell whether a Space Race play is still available to
+    # them at all -- see `Engine._space_attempts_allowed`.
+    space_race_attempts: Mapping[str, int]
     military_ops: Mapping[str, int]
     turn_effects: Mapping[str, Any]
     game_effects: Mapping[str, Any]

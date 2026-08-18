@@ -164,6 +164,7 @@ class Engine:
             china_card_owner=Side(self.china_card_owner),
             china_card_available=self.china_card_available,
             space_race=dict(self.space_race),
+            space_race_attempts=dict(self.space_race_attempts),
             military_ops=dict(self.military_ops),
             # Public event modifiers only (e.g. NATO, Containment) — the
             # in-progress secret headline pick lives on `self._headline`

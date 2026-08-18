@@ -5,7 +5,11 @@ per-call user turn builder.
 
 from __future__ import annotations
 
-from struggler.bots.llm.prompt import build_system_prompt, build_user_turn
+from struggler.bots.llm.prompt import (
+    build_system_prompt,
+    build_turn_plan_request,
+    build_user_turn,
+)
 from struggler.bots.llm.schema import PLAYER_FACING_KINDS
 from struggler.engine import DecisionKind, Engine, Side
 
@@ -89,7 +93,7 @@ def test_payload_catalog_has_a_meaning_for_every_player_facing_kind():
         assert len(description) > 10
 
 
-def test_build_user_turn_reports_current_decision_and_observation():
+def test_build_user_turn_reports_current_decision_and_board_reading():
     engine = Engine.new_game(seed=1)
     observation = engine.observe(engine.pending_decision.actor)
     decision = observation.pending_decision
@@ -98,22 +102,77 @@ def test_build_user_turn_reports_current_decision_and_observation():
 
     assert f"id={decision.id}" in text
     assert f"kind={decision.kind.value}" in text
-    assert "Current observation:" in text
+    assert "STATUS: turn 1" in text
+    assert "REGIONAL SCORING STATUS" in text
+    assert "BOARD BY REGION" in text
     assert "decision_plan" in text
 
 
 def test_build_user_turn_includes_untouched_countries():
     # A country neither side has ever placed Influence in (0-0) must still
-    # appear in the observation dump -- an earlier version of
-    # `_observation_to_text` filtered these out, which made empty-but-
-    # reachable Battlegrounds (e.g. West Germany) invisible to the model
-    # for the whole game.
+    # appear in the board reading -- an earlier version filtered these out,
+    # which made empty-but-reachable Battlegrounds (e.g. West Germany)
+    # invisible to the model for the whole game.
     engine = Engine.new_game(seed=1)
     observation = engine.observe(engine.pending_decision.actor)
     decision = observation.pending_decision
 
     text = build_user_turn(observation, decision, [])
+    lines = {line.split()[0]: line for line in (l.strip() for l in text.splitlines()) if line}
 
-    assert '"West_Germany"' in text
-    assert '"France"' in text
-    assert '"Italy"' in text
+    for empty_battleground in ("West_Germany", "France", "Italy"):
+        assert empty_battleground in lines
+        assert "US0/SU0" in lines[empty_battleground]
+        assert "BG" in lines[empty_battleground]
+
+
+def test_build_user_turn_states_control_needs_and_reachability():
+    # The derived reading is the point of the board section: raw influence
+    # numbers are what the model already failed to turn into Control
+    # decisions on its own.
+    engine = Engine.new_game(seed=1)
+    observation = engine.observe(Side.USSR)
+    decision = observation.pending_decision
+
+    text = build_user_turn(observation, decision, [])
+    poland = next(l.strip() for l in text.splitlines() if l.strip().startswith("Poland "))
+
+    assert "need:+3" in poland  # stability 3, empty at setup
+    assert poland.endswith("R")  # adjacent to the USSR home space
+
+
+def test_build_user_turn_reports_battleground_priorities_and_scoring_net():
+    engine = Engine.new_game(seed=1)
+    observation = engine.observe(Side.USSR)
+
+    text = build_user_turn(observation, observation.pending_decision, [])
+
+    assert "BATTLEGROUND PRIORITIES" in text
+    assert "AT RISK" in text  # East Germany is held at exactly its margin at setup
+    assert "MILITARY OPERATIONS" in text
+    assert "SPACE RACE" in text
+
+
+def test_build_user_turn_hand_dossier_carries_facts_and_advice():
+    engine = Engine.new_game(seed=1, events=True)
+    observation = engine.observe(Side.USSR)
+
+    text = build_user_turn(observation, observation.pending_decision, [])
+    hand_section = text.split("YOUR HAND")[1]
+
+    for card in observation.hand:
+        assert card in hand_section
+    assert "effective Ops" in hand_section
+    assert "space race:" in hand_section
+
+
+def test_turn_plan_request_asks_for_intent_not_an_action():
+    engine = Engine.new_game(seed=1, events=True)
+    observation = engine.observe(Side.USSR)
+
+    text = build_turn_plan_request(observation, [])
+
+    assert "turn_plan" in text
+    assert "BOARD BY REGION" in text
+    assert "decision_plan" not in text
+    assert "You are not choosing an action now." in text

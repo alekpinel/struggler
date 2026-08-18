@@ -9,9 +9,12 @@ from __future__ import annotations
 import json
 from typing import Sequence
 
+from struggler.bots.llm import card_playbook
+from struggler.bots.llm.board_report import build_board_report
 from struggler.bots.llm.rules_primer import RULES_PRIMER
 from struggler.bots.llm.schema import PAYLOAD_KEY_BY_KIND, PLAYER_FACING_KINDS
 from struggler.engine import Action, Decision, DecisionKind, Observation, Side
+from struggler.engine.types import CardSide
 from struggler.engine.cards import load_cards
 from struggler.engine.data_loader import load_json
 from struggler.engine.player import Event
@@ -69,6 +72,28 @@ def _cards_text() -> str:
     return "\n".join(lines)
 
 
+_BATTLEGROUND_DOCTRINE = [
+    "BATTLEGROUND DOCTRINE (the board report's 'BATTLEGROUND PRIORITIES' "
+    "section is the live version of this -- read it every decision):",
+    "  - VP comes from Battlegrounds. Presence/Domination/Control all hinge on "
+    "who Controls more of them, and each one Controlled is +1 VP on top of the "
+    "tier, +1 more if it is adjacent to the enemy superpower.",
+    "  - Never leave a Battleground you have Influence in uncontrolled. A "
+    "half-built Battleground scores nothing, is the target Truman Doctrine and "
+    "Independent Reds are looking for, and is cheap for the opponent to finish.",
+    "  - If the opponent breaks your Control of a Battleground, RETAKE IT on "
+    "your next action round. A broken Battleground is a swing of at least 2 VP "
+    "in every scoring of that region, and it only gets more expensive once they "
+    "Control it (placement cost doubles).",
+    "  - Finishing a contested Battleground beats opening a new "
+    "non-Battleground, every time. Romania, Hungary and Greece do not win games; "
+    "Poland, East Germany, Iran and Egypt do.",
+    "  - Before spending Ops anywhere, check the RETAKE and AT RISK lists in the "
+    "board report. Only spend outside them when nothing there is affordable.",
+    "  - Influence that crosses no threshold buys nothing. 'you need +N' in the "
+    "board report is the only number that matters: spend N, or spend elsewhere.",
+]
+
 _COMMON_GUIDANCE = [
     "STRATEGIC GUIDANCE (heuristics, not rules):",
     "  - Use events to open regions or make drastic changes, if not, usually Ops are a better use of cards.",
@@ -86,6 +111,23 @@ _COMMON_GUIDANCE = [
     "  - Scan 0-0 countries for reachable empty Battlegrounds. Cheapest VP on the board.",
     "  - Controlling all of Europe wins outright when Europe Scoring is played.",
     "  - Turns 1-3 only Asia, Europe and Middle East Scoring exist. Mid War regions arrive on turn 4.",
+    "  - A Scoring card in your hand is an obligation, not an opportunity: it must be "
+    "played this turn, and your opponent can never play it out of your hand. There is "
+    "no race. Spend the turn improving that region, then play it in your LAST action "
+    "round. Playing it early only forfeits the rounds you could have used to prepare.",
+    "  - Your own cards and NEUTRAL cards never fire an opponent Event when you play "
+    "them for Ops. Space Racing one 'so the opponent doesn't get the event' is a "
+    "misread -- only the OPPONENT's own cards carry that risk.",
+    "  - One Space Race attempt per turn (two only from the box the rules name). The "
+    "board report states how many you have left: check it BEFORE choosing a card to "
+    "discard there, because the card is committed before the mode is.",
+    "  - A big NEUTRAL Ops card (Nuclear Test Ban, Red Scare/Purge, ABM Treaty) is worth "
+    "more as Ops or a coup than as a headline or a Space Race discard.",
+    "  - Answer the opponent, not just your own plan. Every opponent placement listed "
+    "under OPPONENT ACTIVITY is a claim you either answer now or concede.",
+    "  - Meet the Military Operations requirement every turn. It equals DEFCON, it is "
+    "checked at end of turn, and every point short is 1 VP to your opponent -- a "
+    "non-Battleground coup pays it without touching DEFCON.",
 ]
 
 _USSR_GUIDANCE = [
@@ -120,7 +162,9 @@ _US_GUIDANCE = [
 
 
 def _strategic_guidance_text(side: Side) -> str:
-    lines = list(_COMMON_GUIDANCE)
+    lines = list(_BATTLEGROUND_DOCTRINE)
+    lines.append("")
+    lines += _COMMON_GUIDANCE
     lines += _USSR_GUIDANCE if side is Side.USSR else _US_GUIDANCE
     return "\n".join(lines)
 
@@ -202,28 +246,111 @@ def _decision_to_text(decision: Decision) -> str:
     )
 
 
-def _observation_to_text(observation: Observation) -> str:
-    payload = {
-        "side": observation.side.value,
-        "phase": observation.phase,
-        "defcon": observation.defcon,
-        "vp": observation.vp,
-        "turn": observation.turn,
-        "action_round": observation.action_round,
-        "influence": dict(observation.influence),
-        "hand": list(observation.hand),
-        "opponent_hand_size": observation.opponent_hand_size,
-        "draw_pile_size": observation.draw_pile_size,
-        "discard_pile": list(observation.discard_pile),
-        "removed_cards": list(observation.removed_cards),
-        "china_card_owner": observation.china_card_owner.value,
-        "china_card_available": observation.china_card_available,
-        "space_race": dict(observation.space_race),
-        "military_ops": dict(observation.military_ops),
-        "turn_effects": dict(observation.turn_effects),
-        "game_effects": dict(observation.game_effects),
-    }
-    return json.dumps(payload, indent=2)
+def _effective_ops(card, observation: Observation, side: Side) -> int:
+    """This side's Ops value for `card` under the turn's active modifiers.
+
+    An estimate of the engine's own `_effective_ops`, not a second source of
+    truth: it exists so the hand dossier can say "3 Ops (2 after Red Scare)"
+    instead of making the model rediscover the modifier every decision. The
+    live `Decision.options` remain what is actually legal.
+    """
+    ops = card.ops
+    effects = observation.turn_effects
+    if effects.get("containment") and side is Side.US:
+        ops += 1
+    if effects.get("brezhnev") and side is Side.USSR:
+        ops += 1
+    if effects.get("red_scare") == side.value:
+        ops -= 1
+    return max(1, ops)
+
+
+def _space_race_note(card, observation: Observation, effective_ops: int) -> str:
+    """Whether this card could be sent to the Space Race right now, and if
+    not, why not. The card is committed one decision BEFORE the mode is
+    chosen, so "can I actually Space Race this?" has to be answerable while
+    picking the card, not after."""
+    side = observation.side
+    pos = observation.space_race.get(side.value, 0)
+    if pos >= RULES["space_race_max_box"]:
+        return "space race: NO (already on the last box)"
+    used = observation.space_race_attempts.get(side.value, 0)
+    allowed = 2 if pos >= RULES["space_race_two_attempts_from_box"] else 1
+    if used >= allowed:
+        return f"space race: NO ({used}/{allowed} attempts already used this turn)"
+    required = RULES["space_race_boxes"][str(pos + 1)]["ops"]
+    if effective_ops < required:
+        return f"space race: NO (next box needs {required} effective Ops, this card has {effective_ops})"
+    return f"space race: yes ({allowed - used} attempt(s) left this turn)"
+
+
+def _hand_text(observation: Observation) -> str:
+    """The dossier for the cards actually in hand: mechanical facts, this
+    turn's real Ops value, whether a Space Race play is even available, and
+    the playbook's advice for this seat. The full card catalog in the system
+    prompt covers every card that exists; this covers the handful the next
+    decision is actually about."""
+    side = observation.side
+    cards = load_cards()
+    lines = [
+        "YOUR HAND (mechanical facts, this turn's effective Ops, and advice for "
+        "your seat). 'star' means the card is removed from the game once its "
+        "Event fires:"
+    ]
+    if not observation.hand:
+        lines.append("  (empty)")
+    for cid in observation.hand:
+        card = cards.get(cid)
+        if card is None:  # a physical-mode placeholder, or unknown id
+            lines.append(f"  {cid}: (no card data)")
+            continue
+        if card.scoring:
+            # A Scoring card has no Ops and no Space Race use at all, so the
+            # Ops/Space-Race columns would only be noise -- or worse, an Ops
+            # figure it does not have.
+            lines.append(
+                f"  {cid}: SCORING CARD -- no Ops and no Space Race use; it must be "
+                "played this turn, for its Event"
+            )
+        else:
+            ops = _effective_ops(card, observation, side)
+            ops_text = f"{ops} effective Ops" + (
+                f" (printed {card.ops})" if ops != card.ops else ""
+            )
+            owner = {
+                CardSide.NEUTRAL: "NEUTRAL event (never fires for either side on an Ops play)",
+                CardSide(side.value): "YOUR event",
+                CardSide(side.opponent.value): (
+                    "OPPONENT'S event (fires even when you play it for Ops)"
+                ),
+            }[card.side]
+            header = f"  {cid}: {ops_text} | {owner}"
+            if card.remove_after_event:
+                header += " | star (removed after its Event)"
+            header += f" | {_space_race_note(card, observation, ops)}"
+            lines.append(header)
+        if not card.scoring:
+            lines.append(
+                f"      event: {card.event_summary or 'not implemented (event play is a no-op discard)'}"
+            )
+        advice = card_playbook.advice_for(cid, side)
+        if card.scoring:
+            advice = f"{card_playbook.scoring_card_rule()} {advice}" if advice else card_playbook.scoring_card_rule()
+        if advice:
+            lines.append(f"      advice: {advice}")
+    return "\n".join(lines)
+
+
+def _cards_in_play_text(observation: Observation) -> str:
+    return (
+        "CARDS IN PLAY: China Card held by "
+        f"{observation.china_card_owner.value} "
+        f"({'face up, playable' if observation.china_card_available else 'face down, not playable this turn'})"
+        f"\n  Discard pile ({len(observation.discard_pile)}): "
+        f"{', '.join(observation.discard_pile) or 'empty'}"
+        f"\n  Removed from the game ({len(observation.removed_cards)}): "
+        f"{', '.join(observation.removed_cards) or 'none'}"
+    )
 
 
 def _event_to_text(event: Event) -> str:
@@ -243,22 +370,65 @@ def _event_to_text(event: Event) -> str:
     return json.dumps(payload)
 
 
-def build_user_turn(
-    observation: Observation, decision: Decision, new_events: Sequence[Event]
-) -> str:
-    """The per-call, non-static part of the conversation: what happened
-    since the last time this bot actually consulted the LLM, the current
-    board state, and the live decision to act on."""
+def _situation_text(observation: Observation, new_events: Sequence[Event]) -> list[str]:
+    """The shared body of every user turn: what just happened, the derived
+    board reading, the hand dossier, and what's left in the deck. Identical
+    for a decision call and a turn-planning call -- the model reasons from
+    one picture of the game, not two."""
     parts = []
     if new_events:
         events_text = "\n".join(f"  - {_event_to_text(e)}" for e in new_events)
         parts.append(f"Since your last request ({len(new_events)} event(s)):\n{events_text}")
-    parts.append(f"Current observation:\n{_observation_to_text(observation)}")
+    parts.append(build_board_report(observation, new_events))
+    parts.append(_hand_text(observation))
+    parts.append(_cards_in_play_text(observation))
+    return parts
+
+
+def build_turn_plan_request(observation: Observation, new_events: Sequence[Event]) -> str:
+    """The user turn for the once-per-game-turn planning call. No decision is
+    pending as far as this call is concerned -- it produces intent only, which
+    every decision in the turn is then made against."""
+    parts = _situation_text(observation, new_events)
+    parts.append(
+        f"This is the start of YOUR turn {observation.turn}. Before you make any "
+        "decision, plan the whole turn: respond with a turn_plan.\n"
+        "  - Work through the board report first: which regions can still be won, "
+        "which Battlegrounds are contested, what the opponent took last turn.\n"
+        "  - Assign every card in your hand a use. A card with no plan is a card "
+        "played badly later.\n"
+        "  - Any Scoring card in hand must be played this turn: decide which action "
+        "round, and what has to change in that region first.\n"
+        "  - Name the Ops that meet the Military Operations requirement (equal to "
+        "DEFCON) -- being short is a guaranteed VP payment.\n"
+        "  - List the Battlegrounds you must hold or retake.\n"
+        "  - Write contingencies for the opponent plays that would break the plan.\n"
+        "You are not choosing an action now. Nothing in this plan is executed "
+        "directly; it is the intent you will be held to for the rest of the turn."
+    )
+    return "\n\n".join(parts)
+
+
+def build_user_turn(
+    observation: Observation,
+    decision: Decision,
+    new_events: Sequence[Event],
+    turn_plan_text: str | None = None,
+) -> str:
+    """The per-call, non-static part of the conversation: what happened
+    since the last time this bot actually consulted the LLM, the derived
+    board reading, this turn's standing plan, and the live decision to act
+    on."""
+    parts = _situation_text(observation, new_events)
+    if turn_plan_text:
+        parts.append(turn_plan_text)
     parts.append(_decision_to_text(decision))
     parts.append(
         "Respond with a decision_plan: the first step MUST match the pending "
         "decision above (same kind, and a payload identifying one of the "
         "listed live options). Further steps are your own prediction of what "
-        "you'll be asked next, per constraint 3 above."
+        "you'll be asked next, per constraint 3 above. State in the "
+        "justification how this serves your plan for the turn -- and if it "
+        "departs from the plan, say why the board changed."
     )
     return "\n\n".join(parts)

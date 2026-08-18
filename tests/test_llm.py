@@ -6,16 +6,22 @@ network access.
 from __future__ import annotations
 
 import dataclasses
+import tempfile
 from pathlib import Path
 
 import pytest
 
 from struggler.bots.llm import conversation_log
 from struggler.bots.llm.client import LLMClientError, LLMResponse
-from struggler.bots.llm.fake_client import FakeLLMClient, make_plan_response
+from struggler.bots.llm.fake_client import (
+    FakeLLMClient,
+    make_plan_response,
+    make_turn_plan_response,
+)
 from struggler.bots.llm.player import LLMPlayer
 from struggler.bots.llm.schema import PAYLOAD_KEY_BY_KIND
 from struggler.engine import DecisionKind, Engine, Side
+from struggler.engine.player import Event
 
 
 def test_single_option_auto_resolves_without_llm_call():
@@ -26,7 +32,7 @@ def test_single_option_auto_resolves_without_llm_call():
     observation = dataclasses.replace(observation, pending_decision=single_option_decision)
 
     client = FakeLLMClient([])
-    player = LLMPlayer(client=client, seed=0)
+    player = LLMPlayer(client=client, seed=0, plan_turns=False)
 
     action = player.choose_action(observation, [])
 
@@ -52,7 +58,7 @@ def test_multi_step_plan_consumed_across_calls_with_one_llm_call():
         [(DecisionKind.PLACE_INFLUENCE, {"country": country})] * 3,
     )
     client = FakeLLMClient([response])
-    player = LLMPlayer(client=client, seed=0)
+    player = LLMPlayer(client=client, seed=0, plan_turns=False)
 
     chosen = []
     for _ in range(3):
@@ -92,7 +98,7 @@ def test_queue_mismatch_triggers_fresh_llm_call():
         [(DecisionKind.PLACE_INFLUENCE, {"country": country})],
     )
     client = FakeLLMClient([first_response, second_response])
-    player = LLMPlayer(client=client, seed=0)
+    player = LLMPlayer(client=client, seed=0, plan_turns=False)
 
     action1 = player.choose_action(observation, [])
     engine.step(action1)
@@ -110,7 +116,7 @@ def test_parse_failure_falls_back_to_rng_and_never_crashes():
     observation = engine.observe(engine.pending_decision.actor)
     malformed = LLMResponse(structured={}, raw_text="{}")
     client = FakeLLMClient([malformed, malformed])
-    player = LLMPlayer(client=client, seed=0)
+    player = LLMPlayer(client=client, seed=0, plan_turns=False)
 
     action = player.choose_action(observation, [])
 
@@ -130,7 +136,7 @@ def test_illegal_first_step_after_retry_falls_back():
         "Confidently wrong.", [(decision.kind, {payload_key: "__nonexistent__"})]
     )
     client = FakeLLMClient([illegal, illegal])
-    player = LLMPlayer(client=client, seed=0)
+    player = LLMPlayer(client=client, seed=0, plan_turns=False)
 
     action = player.choose_action(observation, [])
 
@@ -161,7 +167,7 @@ def test_strict_mode_payload_noise_still_matches_the_live_option():
         raw_text="noisy but correct payload",
     )
     client = FakeLLMClient([noisy])
-    player = LLMPlayer(client=client, seed=0)
+    player = LLMPlayer(client=client, seed=0, plan_turns=False)
 
     action = player.choose_action(observation, [])
 
@@ -185,7 +191,7 @@ def test_fallback_journal_entry_records_raw_responses_for_debugging():
     )
     malformed = LLMResponse(structured={}, raw_text="not json shaped correctly")
     client = FakeLLMClient([illegal, malformed])
-    player = LLMPlayer(client=client, seed=0)
+    player = LLMPlayer(client=client, seed=0, plan_turns=False)
 
     player.choose_action(observation, [])
 
@@ -199,7 +205,7 @@ def test_successful_journal_entry_also_records_raw_responses():
     observation, decision, payload_key, correct_value = _single_step_response_and_decision()
     response = make_plan_response("ok", [(decision.kind, {payload_key: correct_value})])
     client = FakeLLMClient([response])
-    player = LLMPlayer(client=client, seed=0)
+    player = LLMPlayer(client=client, seed=0, plan_turns=False)
 
     player.choose_action(observation, [])
 
@@ -218,7 +224,7 @@ def test_journal_records_justification_on_success():
         [(decision.kind, {payload_key: correct_value})],
     )
     client = FakeLLMClient([response])
-    player = LLMPlayer(client=client, seed=0)
+    player = LLMPlayer(client=client, seed=0, plan_turns=False)
 
     action = player.choose_action(observation, [])
 
@@ -235,7 +241,7 @@ def test_conversation_alternates_cleanly_even_after_a_retry():
     observation = engine.observe(engine.pending_decision.actor)
     malformed = LLMResponse(structured={}, raw_text="{}")
     client = FakeLLMClient([malformed, malformed])
-    player = LLMPlayer(client=client, seed=0)
+    player = LLMPlayer(client=client, seed=0, plan_turns=False)
 
     player.choose_action(observation, [])
 
@@ -248,7 +254,7 @@ def test_llm_player_constructs_with_anthropic_client_given_an_api_key():
     from struggler.bots.llm.anthropic_client import AnthropicClient
 
     client = AnthropicClient(model="claude-sonnet-5", api_key="test-key-not-a-real-key")
-    player = LLMPlayer(client=client, seed=0)
+    player = LLMPlayer(client=client, seed=0, plan_turns=False)
 
     assert isinstance(player, LLMPlayer)
 
@@ -270,7 +276,7 @@ def test_usage_accumulates_across_a_normal_call():
         usage={"input_tokens": 100, "output_tokens": 20},
     )
     client = FakeLLMClient([response])
-    player = LLMPlayer(client=client, seed=0)
+    player = LLMPlayer(client=client, seed=0, plan_turns=False)
 
     player.choose_action(observation, [])
 
@@ -287,7 +293,7 @@ def test_usage_accumulates_across_a_retried_call():
         usage={"input_tokens": 80, "output_tokens": 15},
     )
     client = FakeLLMClient([bad, good])
-    player = LLMPlayer(client=client, seed=0)
+    player = LLMPlayer(client=client, seed=0, plan_turns=False)
 
     player.choose_action(observation, [])
 
@@ -303,7 +309,7 @@ def test_llm_client_error_before_response_contributes_no_usage():
         usage={"input_tokens": 40, "output_tokens": 8},
     )
     client = FakeLLMClient([LLMClientError("boom"), good])
-    player = LLMPlayer(client=client, seed=0)
+    player = LLMPlayer(client=client, seed=0, plan_turns=False)
 
     player.choose_action(observation, [])
 
@@ -314,7 +320,7 @@ def test_log_path_none_never_touches_disk(monkeypatch):
     observation, decision, payload_key, correct_value = _single_step_response_and_decision()
     response = make_plan_response("ok", [(decision.kind, {payload_key: correct_value})])
     client = FakeLLMClient([response])
-    player = LLMPlayer(client=client, seed=0, log_path=None)
+    player = LLMPlayer(client=client, seed=0, plan_turns=False, log_path=None)
 
     def _fail_save(*args, **kwargs):
         raise AssertionError("save should not be called when log_path is None")
@@ -334,7 +340,7 @@ def test_save_failure_does_not_raise_out_of_choose_action(tmp_path):
     observation, decision, payload_key, correct_value = _single_step_response_and_decision()
     response = make_plan_response("ok", [(decision.kind, {payload_key: correct_value})])
     client = FakeLLMClient([response])
-    player = LLMPlayer(client=client, seed=0, log_path=log_path)
+    player = LLMPlayer(client=client, seed=0, plan_turns=False, log_path=log_path)
 
     with pytest.warns(RuntimeWarning):
         action = player.choose_action(observation, [])
@@ -360,7 +366,7 @@ def test_llm_player_resumes_pending_plan_from_log_path(tmp_path):
         [(DecisionKind.PLACE_INFLUENCE, {"country": country})] * 3,
     )
     first_client = FakeLLMClient([response])
-    first_player = LLMPlayer(client=first_client, seed=0, log_path=log_path)
+    first_player = LLMPlayer(client=first_client, seed=0, plan_turns=False, log_path=log_path)
 
     observation = engine.observe(Side.US)
     action = first_player.choose_action(observation, [])
@@ -370,7 +376,7 @@ def test_llm_player_resumes_pending_plan_from_log_path(tmp_path):
     # Simulate a fresh process: a brand-new LLMPlayer with a brand-new
     # client whose response script is empty, resuming purely from disk.
     second_client = FakeLLMClient([])
-    second_player = LLMPlayer(client=second_client, seed=0, log_path=log_path, resume=True)
+    second_player = LLMPlayer(client=second_client, seed=0, plan_turns=False, log_path=log_path, resume=True)
 
     chosen = [action.payload["country"]]
     for _ in range(2):
@@ -404,7 +410,7 @@ def test_llm_player_does_not_auto_resume_without_explicit_flag(tmp_path):
     )
     conversation_log.save(log_path, snapshot)
 
-    player = LLMPlayer(client=FakeLLMClient([]), seed=0, log_path=log_path)
+    player = LLMPlayer(client=FakeLLMClient([]), seed=0, plan_turns=False, log_path=log_path)
 
     assert player._last_seen == 0
     assert player.journal == []
@@ -427,9 +433,192 @@ def test_choose_action_raises_when_history_shorter_than_resumed_last_seen(tmp_pa
     )
     conversation_log.save(log_path, snapshot)
 
-    player = LLMPlayer(client=FakeLLMClient([]), seed=0, log_path=log_path, resume=True)
+    player = LLMPlayer(client=FakeLLMClient([]), seed=0, plan_turns=False, log_path=log_path, resume=True)
     engine = Engine.new_game(seed=1)
     observation = engine.observe(engine.pending_decision.actor)
 
     with pytest.raises(ValueError):
         player.choose_action(observation, [])
+
+
+# -- turn planning -------------------------------------------------------------
+
+
+def _setup_placement(engine: Engine) -> tuple[object, str]:
+    """A live PLACE_INFLUENCE decision plus one of its legal countries."""
+    observation = engine.observe(engine.pending_decision.actor)
+    return observation, observation.pending_decision.options[0].payload["country"]
+
+
+def test_turn_plan_is_requested_once_per_turn_and_precedes_the_decision():
+    engine = Engine.new_game(seed=1)
+    observation, country = _setup_placement(engine)
+    decision = observation.pending_decision
+
+    client = FakeLLMClient(
+        [
+            make_turn_plan_response("Take Poland and meet Military Operations."),
+            make_plan_response("First point.", [(decision.kind, {"country": country})]),
+            make_plan_response("Second point.", [(decision.kind, {"country": country})]),
+        ]
+    )
+    player = LLMPlayer(client=client, seed=0)
+
+    first = player.choose_action(observation, [])
+    engine.step(first)
+    second = player.choose_action(engine.observe(engine.pending_decision.actor), [])
+
+    assert first.payload["country"] == country
+    assert second.payload["country"] == country
+    # Three calls: one plan for the turn, then one per decision -- the second
+    # decision in the same turn must NOT trigger another planning call.
+    assert len(client.requests) == 3
+    assert client.requests[0].output.name == "turn_plan"
+    assert client.requests[1].output.name == "decision_plan"
+    assert client.requests[2].output.name == "decision_plan"
+
+
+def test_turn_plan_is_injected_into_every_later_decision_prompt():
+    engine = Engine.new_game(seed=1)
+    observation, country = _setup_placement(engine)
+    decision = observation.pending_decision
+
+    client = FakeLLMClient(
+        [
+            make_turn_plan_response(
+                "Finish Poland before playing Asia Scoring.",
+                defend=["East_Germany"],
+                scoring_cards=[
+                    {"card": "Asia_Scoring", "when": "AR6", "preparation": "take Thailand"}
+                ],
+            ),
+            make_plan_response("Point one.", [(decision.kind, {"country": country})]),
+        ]
+    )
+    player = LLMPlayer(client=client, seed=0)
+
+    player.choose_action(observation, [])
+
+    decision_prompt = client.requests[1].messages[-1].content
+    assert "YOUR PLAN FOR TURN 1" in decision_prompt
+    assert "Finish Poland before playing Asia Scoring." in decision_prompt
+    assert "Hold or retake: East_Germany" in decision_prompt
+    assert "Asia_Scoring" in decision_prompt
+
+
+def test_a_new_turn_triggers_a_fresh_turn_plan():
+    engine = Engine.new_game(seed=1)
+    observation, country = _setup_placement(engine)
+    decision = observation.pending_decision
+    turn_two = dataclasses.replace(observation, turn=2)
+
+    client = FakeLLMClient(
+        [
+            make_turn_plan_response("Turn 1 plan."),
+            make_plan_response("Turn 1 move.", [(decision.kind, {"country": country})]),
+            make_turn_plan_response("Turn 2 plan."),
+            make_plan_response("Turn 2 move.", [(decision.kind, {"country": country})]),
+        ]
+    )
+    player = LLMPlayer(client=client, seed=0)
+
+    player.choose_action(observation, [])
+    player.choose_action(turn_two, [])
+
+    assert [r.output.name for r in client.requests] == [
+        "turn_plan",
+        "decision_plan",
+        "turn_plan",
+        "decision_plan",
+    ]
+    assert "Turn 2 plan." in client.requests[3].messages[-1].content
+    assert "Turn 1 plan." not in client.requests[3].messages[-1].content.split("YOUR PLAN")[-1]
+
+
+def test_failed_turn_planning_still_plays_the_turn_without_replanning():
+    engine = Engine.new_game(seed=1)
+    observation, country = _setup_placement(engine)
+    decision = observation.pending_decision
+    malformed = LLMResponse(structured={}, raw_text="{}")
+
+    client = FakeLLMClient(
+        [
+            malformed,  # planning attempt
+            malformed,  # its one retry
+            make_plan_response("Play on regardless.", [(decision.kind, {"country": country})]),
+            make_plan_response("Still no plan.", [(decision.kind, {"country": country})]),
+        ]
+    )
+    player = LLMPlayer(client=client, seed=0)
+
+    first = player.choose_action(observation, [])
+    engine.step(first)
+    second = player.choose_action(engine.observe(engine.pending_decision.actor), [])
+
+    assert first.payload["country"] == country
+    assert second.payload["country"] == country
+    assert len(client.requests) == 4  # no second planning attempt this turn
+    plan_entry = next(e for e in player.journal if e.kind == "turn_plan")
+    assert plan_entry.fallback_used is True
+    assert "YOUR PLAN FOR TURN" not in client.requests[2].messages[-1].content
+
+
+def test_turn_plan_journal_entry_records_the_objective():
+    engine = Engine.new_game(seed=1)
+    observation, country = _setup_placement(engine)
+    decision = observation.pending_decision
+
+    client = FakeLLMClient(
+        [
+            make_turn_plan_response("Control Poland and Czechoslovakia."),
+            make_plan_response("Point one.", [(decision.kind, {"country": country})]),
+        ]
+    )
+    player = LLMPlayer(client=client, seed=0)
+
+    player.choose_action(observation, [])
+
+    assert [e.kind for e in player.journal] == ["turn_plan", "decision"]
+    assert player.journal[0].justification == "Control Poland and Czechoslovakia."
+    assert player.journal[0].fallback_used is False
+
+
+def test_turn_plan_survives_a_resume_from_the_log():
+    engine = Engine.new_game(seed=1)
+    observation, country = _setup_placement(engine)
+    decision = observation.pending_decision
+
+    with tempfile.TemporaryDirectory() as tmp:
+        log_path = Path(tmp) / "ussr.json"
+        first_client = FakeLLMClient(
+            [
+                make_turn_plan_response("Hold East Germany.", defend=["East_Germany"]),
+                make_plan_response("Point one.", [(decision.kind, {"country": country})]),
+            ]
+        )
+        first_player = LLMPlayer(client=first_client, seed=0, log_path=log_path)
+        first_player.choose_action(observation, [])
+        history = [_dummy_event(decision)] * first_player._last_seen
+
+        second_client = FakeLLMClient(
+            [make_plan_response("Point two.", [(decision.kind, {"country": country})])]
+        )
+        second_player = LLMPlayer(client=second_client, seed=0, log_path=log_path, resume=True)
+        second_player.choose_action(observation, history)
+
+        # Same turn, so the resumed player must not re-plan -- and must still
+        # be prompted with the plan it wrote before the process ended.
+        assert [r.output.name for r in second_client.requests] == ["decision_plan"]
+        assert "Hold East Germany." in second_client.requests[0].messages[-1].content
+
+
+def _dummy_event(decision):
+    return Event(
+        actor=Side.USSR,
+        decision=decision,
+        action=decision.options[0],
+        defcon=5,
+        vp=0,
+        turn=1,
+        action_round=1,
+    )
