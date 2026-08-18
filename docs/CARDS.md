@@ -190,7 +190,11 @@ Lady) and Solidarity (John Paul II).
 
 **Rule-modifiers.** UN Intervention — a `un_intervention` play mode that
 spends the held UN Intervention card to use an opponent's (implemented,
-eligible) event card for Ops with its event cancelled.
+eligible) event card for Ops with its event cancelled. UN Intervention
+itself has no standalone event, so `_play_modes` excludes it from the
+`"event"` mode (alongside the China Card) when it is the card being
+played directly — it is Ops-only in that case, and the combo only
+triggers via the `un_intervention` mode offered on the *other* card.
 
 **Take-and-play from a hand or the discard pile.** Missile Envy
 (`missile_envy_take`/`missile_envy_use` — take the opponent's highest-Ops

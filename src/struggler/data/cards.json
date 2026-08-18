@@ -395,7 +395,7 @@
       "remove_after_event": false,
       "optional": false,
       "in_deck": true,
-      "event_summary": "Play mode 'un_intervention': spend this card to use an opponent's already-implemented, eligible event card for its Ops value with that card's event cancelled."
+      "event_summary": "It has no event of its own. Its effect triggers separately: while you hold it, playing an opponent's implemented, eligible event card offers an extra 'un_intervention' mode on that card, cancelling its event and using its Ops instead; this card is then discarded automatically."
     },
     "De_Stalinization": {
       "number": 33,

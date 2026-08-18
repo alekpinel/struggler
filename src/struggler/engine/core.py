@@ -906,9 +906,13 @@ class Engine:
             return ("event",)  # a scoring card can only be played as its event
         modes = ["ops"]
         # The event-vs-ops choice is still enumerated with events off even though no
-        # non-scoring event fires yet (choosing it is a no-op discard). The
-        # China Card has no event, so it is Ops-only.
-        if cid != RULES["china_card_id"]:
+        # non-scoring event fires yet (choosing it is a no-op discard). The China
+        # Card has no event, so it is Ops-only. UN Intervention's printed event only
+        # exists as the 'un_intervention' combo mode offered on a different,
+        # qualifying card (below); played directly it has no standalone event, so
+        # it is Ops-only too -- offering "event" here would just be a legal-looking
+        # but nonsensical no-op discard.
+        if cid not in (RULES["china_card_id"], RULES["un_intervention_id"]):
             modes.append("event")
         if self._can_space_race(side, card):
             modes.append("space_race")

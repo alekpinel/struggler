@@ -374,6 +374,17 @@ def test_un_intervention_not_offered_without_the_card_or_for_own_event():
     assert "un_intervention" not in engine._play_modes(Side.USSR, "Fidel")
 
 
+def test_un_intervention_offers_no_event_mode_when_played_directly():
+    # UN Intervention has no standalone event of its own -- its only effect is
+    # the un_intervention combo mode offered on a *different* card. Playing it
+    # directly must be Ops-only (never a no-op "event" discard), matching the
+    # China Card's exclusion, regardless of whether events are on or off.
+    engine = _bare()
+    assert engine._play_modes(Side.USSR, "UN_Intervention") == ("ops",)
+    engine.events_enabled = False
+    assert engine._play_modes(Side.USSR, "UN_Intervention") == ("ops",)
+
+
 # -- the China Card's "+1 Op if used entirely in Asia" bonus ----------------
 
 
