@@ -46,10 +46,6 @@ the engine as referee. Some things the engine simply cannot know.
   of auto-resolving one the way the non-physical path does. Auto-filing
   would risk firing a `hidden_pool` card that is not actually in that hand,
   since the pool is a superset, not a location.
-- **UN Intervention's play mode is never offered** to a physical-side
-  player, because the engine cannot verify hidden-hand membership of a
-  specific card. This fails safe — the option is unavailable rather than
-  crashing.
 - **Our Man in Tehran is a no-op.** It peeks at the *draw pile's* real
   contents, which physical mode makes unknown to the engine itself, not
   merely hidden from a player, so there is nothing to queue instead of

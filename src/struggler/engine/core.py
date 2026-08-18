@@ -926,10 +926,24 @@ class Engine:
             and self._is_opponent_event(side, card)
             and self._has_event(cid)
             and EVENTS[cid].eligible(self, side)
-            and RULES["un_intervention_id"] in self.hands[side.value]
+            and self._holds_un_intervention(side)
         ):
             modes.append("un_intervention")
         return tuple(modes)
+
+    def _holds_un_intervention(self, side: Side) -> bool:
+        """Whether `side` may plausibly be holding UN Intervention. For the
+        physical side, the hand is unknown to the engine -- trust the same
+        way `HumanPlayer` is trusted for the must-play-a-scoring-card rule
+        (see docs/LIMITATIONS.md), but only as far as `hidden_pool` allows:
+        `_physical_hand_candidates` already excludes any card the engine has
+        separately learned is elsewhere (played, discarded, in the other
+        hand), so this still fails safe once UN Intervention itself has been
+        revealed and resolved."""
+        un_id = RULES["un_intervention_id"]
+        if self.physical_mode and side is self.physical_side:
+            return un_id in self._physical_hand_candidates(side)
+        return un_id in self.hands[side.value]
 
     def _handle_play_mode(self, decision: Decision, action: Action) -> None:
         side = decision.actor
@@ -963,8 +977,13 @@ class Engine:
             # defuses We Will Bury You's end-of-turn VP for the US.
             if side is Side.US:
                 self.turn_effects.pop("we_will_bury_you", None)
-            self.hands[side.value].remove(RULES["un_intervention_id"])
-            self.discard_pile.append(RULES["un_intervention_id"])
+            un_id = RULES["un_intervention_id"]
+            # Mirrors _file_card's own declare-then-remove sequence: for the
+            # physical side this is still a HIDDEN_CARD placeholder, not the
+            # literal id, until declared.
+            self.declare_physical_card(side, un_id)
+            self._hand_remove_known(side, un_id)
+            self.discard_pile.append(un_id)
             self._file_card(side, cid, fired=False)  # event cancelled: normal discard
             self._push_ops_type(side, self._effective_ops(side, card))
             return

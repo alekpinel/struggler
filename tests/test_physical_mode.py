@@ -170,6 +170,43 @@ def test_blockade_end_to_end_with_a_physical_us_hand():
     assert engine.hands["US"] == []  # the one placeholder was consumed
 
 
+def test_un_intervention_offered_and_resolved_for_a_physical_hand():
+    # The engine can't verify a physical hand's contents, so UN Intervention's
+    # combo mode is offered on trust -- same as the must-play-a-scoring-card
+    # rule (see docs/LIMITATIONS.md) -- as long as it's still a plausible
+    # `hidden_pool` candidate for that hand.
+    engine = _bare_physical(Side.US, seed=1)
+    engine.hidden_pool = ["Fidel", "UN_Intervention"]  # Fidel is a USSR (opponent) event
+    engine.hands["US"] = [HIDDEN_CARD, HIDDEN_CARD]
+    assert "un_intervention" in engine._play_modes(Side.US, "Fidel")
+
+    engine._push(
+        Side.US,
+        DecisionKind.PLAY_MODE,
+        (Action(DecisionKind.PLAY_MODE, {"mode": "un_intervention"}),),
+        {"card": "Fidel"},
+    )
+    engine.step(Action(DecisionKind.PLAY_MODE, {"mode": "un_intervention"}))
+
+    assert engine.board.control("Cuba") is not Side.USSR  # Fidel's event did NOT fire
+    assert "UN_Intervention" in engine.discard_pile  # spent
+    assert "UN_Intervention" not in engine.hidden_pool
+    assert "Fidel" in engine.discard_pile
+    assert engine.hands["US"] == []  # both placeholders consumed
+    assert engine.pending_decision.kind is DecisionKind.OPS_TYPE  # used for Ops
+
+
+def test_un_intervention_not_offered_once_resolved_elsewhere_in_a_physical_hand():
+    # Once UN Intervention itself has been revealed and filed away (played or
+    # discarded), it's no longer a `hidden_pool` candidate, so the mode must
+    # stop being offered even though the physical hand still has open slots.
+    engine = _bare_physical(Side.US, seed=1)
+    engine.hidden_pool = ["Fidel"]
+    engine.hands["US"] = [HIDDEN_CARD]
+    engine.discard_pile.append("UN_Intervention")  # already played/discarded earlier
+    assert "un_intervention" not in engine._play_modes(Side.US, "Fidel")
+
+
 def test_ask_not_with_a_physical_hand_discards_and_redraws():
     engine = _bare_physical(Side.US, seed=5)
     engine.draw_pile = [HIDDEN_CARD, HIDDEN_CARD, HIDDEN_CARD]
