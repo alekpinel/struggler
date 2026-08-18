@@ -1,14 +1,14 @@
 {
   "_about": "Per-card, per-side play advice for the LLM bot (see card_playbook.py). NOT engine data: cards.json holds what a card mechanically does, this file holds what a good player does with it. Keys under 'cards' are card ids from cards.json. Each entry may carry 'any' (advice for whoever holds it), 'US' and 'USSR' (advice only shown to that seat). Incomplete by design and grown card by card -- a card with no entry simply gets no advice line.",
-  "_scoring_default": "Play when you are strong here. Usually worth to play some ops here before activating.",
+  "_scoring_default": "This region is the turn's priority. Spend Ops here first, then play it once your position is locked in -- don't hold it past the point of diminishing returns.",
   "cards": {
     "Asia_Scoring": {
     },
     "Europe_Scoring": {
-      "any": "Last possible AR. Check total Europe control first -- it wins the game outright."
+      "any": "Check total Europe control first -- it wins the game outright. Coup/reinforce here before playing it, not after."
     },
     "Middle_East_Scoring": {
-      "any": "Last possible AR. Coup here right before playing it; positions flip cheaply."
+      "any": "Coup here before playing it, as soon as you have a target -- positions flip cheaply, so don't give the opponent extra rounds to reinforce."
     },
     "The_China_Card": {
       "any": "Your best Ops card. Don't spend it on something a 3 Ops card would do. Can't headline, can't pay a forced discard."
@@ -74,7 +74,7 @@
     },
     "NATO": {
       "US": "Almost always 4 Ops. The event is weak and needs Marshall or Warsaw first.",
-      "USSR": "Take what you want in Europe before it lands."
+      "USSR": "Use the card as ops."
     },
     "Independent_Reds": {
       "US": "Event when they've built a real stack in Yugoslavia, Romania, Bulgaria, Hungary or Czechoslovakia. Otherwise 2 Ops."
@@ -105,7 +105,7 @@
       "US": "Usually 3 Ops early. The event is worth more in the Late War, when it removes 2 per country."
     },
     "Decolonization": {
-      "USSR": "Strong event. It buys access, not just influence.",
+      "USSR": "Strong event. Use some of the points to gain access to South America and to Africa (Zaire, Nigeria) or Thailand if you are not already there.",
       "US": "Space it. 2 Ops can't undo it."
     },
     "Red_Scare_Purge": {
@@ -115,7 +115,7 @@
       "any": "Save it for one genuinely big opponent event. Can't be used in the headline."
     },
     "De_Stalinization": {
-      "USSR": "Really powerful event. Relocate dead influence into Africa, South America or Asia.",
+      "USSR": "Really powerful event. Use some of the points to gain access to South America and to Africa (Zaire, Nigeria) or Thailand if you are not already there.",
       "US": "Space it if you can."
     },
     "Nuclear_Test_Ban": {
@@ -146,7 +146,6 @@
       "any": "One influence often buys control here, so cheap Ops right before playing it pay well."
     },
     "South_America_Scoring": {
-      "any": "Play when you are strong here. Usually worth to play some ops here before activating."
     },
     "Brush_War": {
       "any": "Really good event, target vulnerable countries."
@@ -166,7 +165,7 @@
       "USSR": "Event, ideally right after they draw a fresh hand.",
       "US": "Space it. Playing it on yourself is far worse than any single lost round."
     },
-    "SALT_Negotiations": {
+    "Salt_Negotiations": {
       "any": "Event when you're stuck at DEFCON 2, or when the discard has something you want. Neutral, so Ops fire nothing."
     },
     "Bear_Trap": {
@@ -214,7 +213,7 @@
       "US": "Space it if losing Iraq or Saudi Arabia would break you. Egypt and Libya are repairable."
     },
     "ABM_Treaty": {
-      "any": "Always event, you improve DEFCON and still get the 4 Ops."
+      "any": "Always event, and do a coup in a battleground."
     },
     "Cultural_Revolution": {
       "USSR": "Event to take the China Card back, or 1 VP if you already hold it."
@@ -224,14 +223,14 @@
       "US": "Trigger it late, after your war cards are spent."
     },
     "U2_Incident": {
-      "USSR": "Minor. Event for 1 VP, more if you can bait UN Intervention this turn."
+      "USSR": "Always use as ops."
     },
     "OPEC": {
-      "USSR": "Event whenever it pays well -- count your Middle East and Venezuela control first. Dead if North Sea Oil is in effect.",
+      "USSR": "Count how many VP you will gain with the event. If less than 3, use it for ops.",
       "US": "Space it. It usually scores a lot."
     },
     "Lone_Gunman": {
-      "USSR": "Reveals their hand plus a free Op. Cheap headline.",
+      "USSR": "Cheap headline.",
       "US": "Only 1 Op, so you can't space it without Containment. Play it early at high DEFCON."
     },
     "Colonial_Rear_Guards": {
@@ -246,7 +245,7 @@
     },
     "Puppet_Governments": {
       "US": "Event only while empty countries still exist -- turn 4, not turn 7.",
-      "USSR": "Space it on turn 4. By the Late War it's worthless to them anyway."
+      "USSR": "Space it in Mid War. By the Late War it's worthless to them anyway."
     },
     "Grain_Sales_to_Soviets": {
       "US": "Good event: you see a random card of theirs and may play it, and it thins their hand.",
@@ -262,7 +261,7 @@
     "OAS_Founded": {
       "US": "Free event. Take the influence."
     },
-    "Nixon_Plays_the_China_Card": {
+    "Nixon_Plays_The_China_Card": {
       "US": "Event to take the China Card off them, or 2 VP if you already hold it."
     },
     "Sadat_Expels_Soviets": {
@@ -271,7 +270,7 @@
     "Shuttle_Diplomacy": {
       "US": "Play it before a Middle East or Asia scoring you expect to lose. It's discarded on the next such scoring, so time it."
     },
-    "The_Voice_of_America": {
+    "The_Voice_Of_America": {
       "US": "Strong event against their Third World positions. Aim removals where control breaks.",
       "USSR": "Space it. There's no good way to repair this."
     },
@@ -296,7 +295,7 @@
     "Che": {
       "USSR": "Event: a non-battleground coup, then another if it lands. Good Military Ops payment too."
     },
-    "Our_Man_in_Tehran": {
+    "Our_Man_In_Tehran": {
       "US": "Event when you can spare the round -- it lets you strip the next five cards of their worst threats. Needs a Middle East country.",
       "USSR": "Space it if you can afford to."
     },

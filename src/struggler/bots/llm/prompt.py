@@ -97,8 +97,9 @@ _BATTLEGROUND_DOCTRINE = [
 _COMMON_GUIDANCE = [
     "STRATEGIC GUIDANCE (heuristics, not rules):",
     "  - Use events to open regions or make drastic changes, if not, usually Ops are a better use of cards.",
-    "  - Only Battleground coups degrade DEFCON. Non-BG coups are free tempo and still count as Military Ops.",
-    "  - 1 or 2 Stability battleground are cheap to coup and that's usually the best option if you have the opportunity.",
+    "  - At DEFCON 3 or higher, a legal Battleground coup is your default best play.",
+    "  - Reserve non-Battleground coups for when DEFCON is already at 2"
+    "  - 1 or 2 Stability battlegrounds are especially cheap to coup, don't coup countries with more stability.",
     "  - Never trigger a DEFCON-degrading Event on your own AR at DEFCON 2. Same for opponent Events that hand them Ops.",
     "  - Plan every turn to space one card: one with a nasty rival event but without high ops that makes it not worth it using as Ops.",
     "  - Deck reshuffles on turns 3 and 7. From turn 7 on, discarding is removal.",
@@ -111,10 +112,16 @@ _COMMON_GUIDANCE = [
     "  - Scan 0-0 countries for reachable empty Battlegrounds. Cheapest VP on the board.",
     "  - Controlling all of Europe wins outright when Europe Scoring is played.",
     "  - Turns 1-3 only Asia, Europe and Middle East Scoring exist. Mid War regions arrive on turn 4.",
-    "  - A Scoring card in your hand is an obligation, not an opportunity: it must be "
-    "played this turn, and your opponent can never play it out of your hand. There is "
-    "no race. Spend the turn improving that region, then play it in your LAST action "
-    "round. Playing it early only forfeits the rounds you could have used to prepare.",
+    "  - A Scoring card in your hand (or one you know is still coming, e.g. the mandatory "
+    "Asia/Europe/Middle East cards on turns 1-3) tells you exactly where to spend the turn's Ops: "
+    "that region is this turn's priority over opening new fronts elsewhere. It must be played the "
+    "turn it's drawn, and your opponent can never play it out of your hand, so there's no race to "
+    "beat them to it -- but there's also no reason to sit on it once you're not gaining more by "
+    "waiting. Improve the region first if there's still cheap ground to gain, then play the card as "
+    "soon as your position there is locked in. That's often your last action round, but don't treat "
+    "'last AR no matter what' as the goal -- holding it past the point of diminishing returns only "
+    "exposes the region to an opponent Event flipping it back before you cash in.",
+    "  - If one region has been scored recently, it's less likely to reapear, focus on regions that will score in the near future.",
     "  - Your own cards and NEUTRAL cards never fire an opponent Event when you play "
     "them for Ops. Space Racing one 'so the opponent doesn't get the event' is a "
     "misread -- only the OPPONENT's own cards carry that risk.",
@@ -139,7 +146,7 @@ _USSR_GUIDANCE = [
     "  - Coup big. A weak coup the US can reverse is worse than none.",
     "  - Best turn-1 headlines: Red Scare/Purge, Suez Crisis, Arab-Israeli War, Socialist Governments, Vietnam Revolts.",
     "  - Suez (or a won Arab-Israeli War) plus a good Iran coup erases the US from the Middle East.",
-    "  - Early targets: Greece/Turkey, Egypt and Libya via Nasser, Jordan or Lebanon, then east into Pakistan and India.",
+    "  - Early targets: Egypt and Libya via Nasser, then east into Pakistan and India, reach to Thailand.",
     "  - Don't put 1 Op into Pakistan at DEFCON 4+. You can't coup back and you hand the US a target.",
     "  - China Card is your 4 Ops (5 if every Op goes to Asia). Holding it lets you hold an extra card -- your insurance against DEFCON-suicide hands.",
     "  - You have no natural access to the Americas. Don't invest there without an access Event.",

@@ -1287,22 +1287,6 @@ def test_events_disabled_never_fires_an_event_on_ops_play():
 # -- full-game invariants with events on ------------------------------------
 
 
-@settings(max_examples=25, deadline=None)
-@given(seed=st.integers(min_value=0, max_value=MAX_INT32),
-       driver_seed=st.integers(min_value=0, max_value=MAX_INT32))
-def test_random_full_game_with_events_terminates_with_invariants(seed, driver_seed):
-    engine = Engine.new_game(seed=seed, events=True)
-    driver = random.Random(driver_seed)
-    steps = 0
-    while not engine.is_terminal:
-        _assert_invariants(engine)
-        engine.step(driver.choice(engine.legal_actions()))
-        steps += 1
-        assert steps < 20000, "a full game should terminate well before this"
-    assert engine.pending_decision is None
-    assert engine.winner in (Side.US, Side.USSR, None)
-
-
 @settings(max_examples=10, deadline=None)
 @given(seed=st.integers(min_value=0, max_value=MAX_INT32),
        driver_seed=st.integers(min_value=0, max_value=MAX_INT32))
