@@ -14,10 +14,12 @@ from struggler.bots.llm.board_report import (
     battleground_alerts,
     board_from_observation,
     build_board_report,
+    coup_targets_text,
     military_ops_line,
     opponent_activity,
     points_to_break,
     points_to_control,
+    possible_coup_targets,
     region_status,
     space_race_line,
 )
@@ -179,6 +181,87 @@ def test_space_race_line_reports_the_second_attempt_from_the_qualifying_box():
     )
 
     assert "attempts left this turn 1/2" in space_race_line(observation)
+
+
+def test_possible_coup_targets_filters_by_opponent_influence_and_defcon_lock():
+    engine = Engine.new_game(seed=1)
+    observation = dataclasses.replace(_observation(engine, Side.USSR), defcon=4)
+    board = board_from_observation(observation)
+    for cid in board.influence:
+        board.influence[cid] = {"US": 0, "USSR": 0}
+    board.influence["Guatemala"] = {"US": 2, "USSR": 0}  # Central America: no DEFCON lock
+    board.influence["Poland"] = {"US": 2, "USSR": 0}  # Europe: needs DEFCON 5+
+
+    targets = {cid for cid, _, _ in possible_coup_targets(board, observation)}
+
+    assert "Guatemala" in targets
+    assert "Poland" not in targets  # DEFCON 4 locks Europe out
+
+
+def test_possible_coup_targets_flags_battleground_and_defcon_drop():
+    engine = Engine.new_game(seed=1)
+    observation = _observation(engine, Side.USSR)
+    board = board_from_observation(observation)
+    for cid in board.influence:
+        board.influence[cid] = {"US": 0, "USSR": 0}
+    board.influence["Cuba"] = {"US": 1, "USSR": 0}  # Central America, Battleground
+    board.influence["Guatemala"] = {"US": 1, "USSR": 0}  # Central America, not a Battleground
+
+    targets = {cid: (is_bg, would_drop) for cid, is_bg, would_drop in possible_coup_targets(board, observation)}
+
+    assert targets["Cuba"] == (True, True)
+    assert targets["Guatemala"] == (False, False)
+
+
+def test_possible_coup_targets_nuclear_subs_exempts_only_the_us():
+    engine = Engine.new_game(seed=1)
+    observation = dataclasses.replace(
+        _observation(engine, Side.US), turn_effects={"nuclear_subs": True}
+    )
+    board = board_from_observation(observation)
+    for cid in board.influence:
+        board.influence[cid] = {"US": 0, "USSR": 0}
+    board.influence["Cuba"] = {"US": 0, "USSR": 1}  # USSR-held Battleground; US is the actor
+
+    targets = {cid: would_drop for cid, _, would_drop in possible_coup_targets(board, observation)}
+
+    assert targets["Cuba"] is False
+
+
+def test_coup_targets_text_reports_none_when_nothing_is_legal():
+    engine = Engine.new_game(seed=1)
+    observation = _observation(engine, Side.USSR)
+    board = board_from_observation(observation)
+    for cid in board.influence:
+        board.influence[cid] = {"US": 0, "USSR": 0}
+
+    assert "COUP TARGETS: none" in coup_targets_text(board, observation)
+
+
+def test_coup_targets_text_warns_when_every_target_is_a_battleground_at_defcon_2():
+    engine = Engine.new_game(seed=1)
+    observation = dataclasses.replace(_observation(engine, Side.USSR), defcon=2)
+    board = board_from_observation(observation)
+    for cid in board.influence:
+        board.influence[cid] = {"US": 0, "USSR": 0}
+    board.influence["Cuba"] = {"US": 1, "USSR": 0}  # only target, and it's a Battleground
+
+    text = coup_targets_text(board, observation)
+
+    assert "WARNING" in text
+    assert "immediate loss" in text
+
+
+def test_coup_targets_text_does_not_warn_when_a_non_battleground_target_exists():
+    engine = Engine.new_game(seed=1)
+    observation = dataclasses.replace(_observation(engine, Side.USSR), defcon=2)
+    board = board_from_observation(observation)
+    for cid in board.influence:
+        board.influence[cid] = {"US": 0, "USSR": 0}
+    board.influence["Cuba"] = {"US": 1, "USSR": 0}
+    board.influence["Guatemala"] = {"US": 1, "USSR": 0}
+
+    assert "WARNING" not in coup_targets_text(board, observation)
 
 
 def test_report_covers_every_country_including_empty_ones():

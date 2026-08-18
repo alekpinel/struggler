@@ -101,6 +101,19 @@ own `Player` is completely untouched — it still only ever computes its own
 strategic decisions from `Observation`/`history`, unaware anything is
 different about this game.
 
+The one bot decision that *does* need out-of-band handling is its Headline
+pick: `HEADLINE_PLAY` events are picked secretly and only revealed once
+both sides have chosen (see "the headline" exception above), so a bot's
+pick would otherwise only surface in `OperatorConsolePlayer`'s "since you
+were last asked" recap the *next* time the operator is prompted for
+anything — often too late for the physical reveal step the operator needs
+to perform right now. `src/main.py`'s `--physical` and `--resume-game-log`
+branches wrap the bot side's `Player` in
+`struggler.engine.physical.BotHeadlineAnnouncer`, which prints the bot's
+Headline pick to the console the moment it's chosen so the operator can
+place the matching physical card at reveal time. Every other bot decision
+still surfaces in time via the ordinary recap.
+
 Every hand-touching event is wired for a physical hidden hand. Three need
 the *deciding* side's actor overridden to `Side.CHANCE`, so the operator —
 not a bot that cannot see the target hand — answers: Aldrich Ames Remix and
@@ -256,6 +269,14 @@ trick `GreedyPlayer._sync_board` uses), and renders:
   Influence in but don't Control), what is AT RISK (Controlled by a thin
   margin), and what is UNCLAIMED and reachable — each with the Ops cost,
   doubling rule included.
+- **Coup targets**: every country currently Coup-able — opponent Influence
+  present, DEFCON allows the region (`RULES["coup_min_defcon"]`) — flagged
+  Battleground or not (the same proxy legality `GreedyPlayer` uses, not a
+  replica of NATO/The Reformer/the US-Japan pact; `legal_actions()` still
+  has final say on a specific pick). If DEFCON is already at 2 and *every*
+  available target is a Battleground, the report says so explicitly:
+  Couping any of them drops DEFCON to 1, an instant loss, and the model
+  should not be left to re-derive that from the DEFCON-drop rule itself.
 - **Opponent activity** since the bot last acted, restated per country as
   a claim to answer.
 - **The whole map**, one dense line per country: Battleground flag,

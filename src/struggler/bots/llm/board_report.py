@@ -226,6 +226,60 @@ def battleground_alerts(board: Board, side: Side) -> list[str]:
     return alerts
 
 
+def possible_coup_targets(board: Board, observation: Observation) -> list[tuple[str, bool, bool]]:
+    """Countries `side` could Coup right now: the opponent holds Influence
+    there and DEFCON does not lock out the region (`RULES["coup_min_defcon"]`)
+    -- the same proxy legality `GreedyPlayer._best_coup_value` uses, not a
+    replica of every engine-side lock (NATO, The Reformer, the US-Japan
+    pact); `legal_actions()` still has final say on any specific pick.
+    Each entry is `(country_id, is_battleground, would_drop_defcon)` -- the
+    third flag is whether Couping it degrades DEFCON for you, folding in
+    the Nuclear Subs exemption the same way `GreedyPlayer._coup_risks_defcon`
+    does."""
+    side = observation.side
+    opponent = side.opponent
+    nuclear_subs_exempt = side is Side.US and bool(observation.turn_effects.get("nuclear_subs"))
+    targets = []
+    for cid, info in board.countries.items():
+        if board.influence[cid][opponent.value] <= 0:
+            continue
+        min_defcon = RULES["coup_min_defcon"].get(info.region.name, 1)
+        if observation.defcon < min_defcon:
+            continue
+        would_drop_defcon = info.battleground and not nuclear_subs_exempt
+        targets.append((cid, info.battleground, would_drop_defcon))
+    return targets
+
+
+def coup_targets_text(board: Board, observation: Observation) -> str:
+    """The COUP TARGETS block: every country currently Coup-able, flagged
+    Battleground or not, plus the DEFCON-2 trap -- Couping a Battleground
+    drops DEFCON by 1, so if DEFCON is already 2 and every legal target is
+    a Battleground, any Coup this turn is an immediate loss."""
+    targets = possible_coup_targets(board, observation)
+    if not targets:
+        return (
+            "COUP TARGETS: none right now -- no country you can reach has "
+            "opponent Influence, or DEFCON locks out every region that does."
+        )
+    lines = [
+        "COUP TARGETS -- countries you may Coup right now (opponent has "
+        "Influence there and DEFCON allows the region; this is not the "
+        "engine's full legality check -- NATO, The Reformer, and the "
+        "US-Japan pact can still block one of these):"
+    ]
+    for cid, is_bg, _ in sorted(targets):
+        lines.append(f"  {cid} ({'BATTLEGROUND' if is_bg else 'non-battleground'})")
+
+    if observation.defcon == 2 and all(would_drop for _, _, would_drop in targets):
+        lines.append(
+            "WARNING: every available Coup target is a Battleground and "
+            "DEFCON is already at 2 -- Couping ANY of them drops DEFCON to "
+            "1, which is an immediate loss for you. Do not Coup this turn."
+        )
+    return "\n".join(lines)
+
+
 def opponent_activity(new_events: Sequence[Event], side: Side) -> list[str]:
     """Which countries the opponent touched since you last acted, netted per
     country. This is the same information the raw event list already
@@ -307,6 +361,8 @@ def build_board_report(observation: Observation, new_events: Sequence[Event] = (
     alerts = battleground_alerts(board, side)
     if alerts:
         parts.append("BATTLEGROUND PRIORITIES:\n" + "\n".join(alerts))
+
+    parts.append(coup_targets_text(board, observation))
 
     activity = opponent_activity(new_events, side)
     if activity:

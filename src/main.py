@@ -20,7 +20,7 @@ from struggler.bots.llm.player import LLMPlayer
 from struggler.bots.naive import FirstLegalPlayer, RandomPlayer
 from struggler.engine import Engine, Side
 from struggler.engine.human import HumanPlayer
-from struggler.engine.physical import OperatorConsolePlayer
+from struggler.engine.physical import BotHeadlineAnnouncer, OperatorConsolePlayer
 from struggler.engine.player import Player
 from struggler.engine.replay import HistoryBuilder, replay_history
 from struggler.runner import play_game
@@ -176,11 +176,11 @@ def main() -> None:
             players: dict[Side, Player] = {
                 physical_side: operator,
                 Side.CHANCE: operator,
-                bot_side: build_player(
+                bot_side: BotHeadlineAnnouncer(build_player(
                     bot_kind, seed=seed + 1, resume=args.resume,
                     log_path=bot_log_path, side_label=bot_side.value.lower(),
                     plan_turns=not args.no_turn_plan,
-                ),
+                )),
             }
         else:
             players = {
@@ -213,11 +213,11 @@ def main() -> None:
         players: dict[Side, Player] = {
             physical_side: operator,
             Side.CHANCE: operator,
-            bot_side: build_player(
+            bot_side: BotHeadlineAnnouncer(build_player(
                 bot_kind, seed=args.seed + 1, resume=args.resume,
                 log_path=bot_log_path, side_label=bot_side.value.lower(),
                 plan_turns=not args.no_turn_plan,
-            ),
+            )),
         }
     else:
         engine = Engine.new_game(seed=args.seed)

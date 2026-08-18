@@ -23,8 +23,8 @@ from typing import Sequence
 
 from struggler.engine.cards import load_cards
 from struggler.engine.human import _format_action, _format_event, _print_board, _print_history
-from struggler.engine.player import Event
-from struggler.engine.types import Action, Observation
+from struggler.engine.player import Event, Player
+from struggler.engine.types import Action, DecisionKind, Observation
 
 _CARDS = load_cards()
 
@@ -149,3 +149,36 @@ class OperatorConsolePlayer:
             print(f"{len(matches)} matches, be more specific:")
             for a in matches[:10]:
                 print(f"  {_display_label(_match_key(a))}")
+
+
+class BotHeadlineAnnouncer:
+    """Wraps the bot side's `Player` in physical mode so its Headline pick
+    is printed the moment it's chosen.
+
+    Without this, a bot's `HEADLINE_PLAY` only becomes visible to the
+    operator via `OperatorConsolePlayer`'s "since you were last asked"
+    recap -- and that recap only fires the next time the operator is
+    prompted for *anything*, which is often well after the reveal step the
+    operator needs to perform on the physical board right now (both
+    `HEADLINE_PLAY` events are buffered together until the second pick is
+    locked in; see docs/BOTS.md). Announcing it immediately here is what
+    actually lets the operator place the bot's card at reveal time.
+
+    Every other bot decision already surfaces this way in time to act on
+    it, since the operator is prompted again before the physical board
+    needs to reflect it -- only the Headline reveal is time-sensitive
+    enough to need an out-of-band print.
+    """
+
+    def __init__(self, inner: Player) -> None:
+        self._inner = inner
+
+    def choose_action(self, observation: Observation, history: Sequence[Event]) -> Action:
+        action = self._inner.choose_action(observation, history)
+        if observation.pending_decision.kind is DecisionKind.HEADLINE_PLAY:
+            cid = action.payload["card"]
+            print(
+                f"\n[bot headline] {_display_label(cid)} -- play this as the "
+                "bot's Headline on the physical board."
+            )
+        return action
