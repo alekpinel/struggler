@@ -58,6 +58,15 @@ def _matches(raw: str, value: str) -> bool:
     return raw == str(card.number) or raw in card.name.lower().replace("_", " ")
 
 
+def _print_event_summary(card_id: str) -> None:
+    card = _CARDS.get(card_id)
+    if card is None:
+        print(f"\nNo event text for {card_id!r} (not a card).")
+        return
+    summary = card.event_summary or "not implemented (playing it as event is a no-op discard)"
+    print(f"\n#{card.number} {card.name} (Ops {card.ops}, {card.side.value}) event: {summary}")
+
+
 class OperatorConsolePlayer:
     """Console `Player` for the operator of a physical-mode game.
 
@@ -93,18 +102,22 @@ class OperatorConsolePlayer:
     def _prompt_numbered(
         self, options: tuple[Action, ...], observation: Observation, history: Sequence[Event]
     ) -> Action:
+        card = observation.pending_decision.context.get("card")
         for i, action in enumerate(options):
             print(f"  [{i}] {_format_action(action)}")
         while True:
-            raw = input(
-                f"Choose an option [0-{len(options) - 1}], "
-                "or 'b' for board / 'h' for full history: "
-            ).strip().lower()
+            prompt = f"Choose an option [0-{len(options) - 1}], or 'b' for board / 'h' for full history"
+            if card is not None:
+                prompt += " / 'e' for this card's event text"
+            raw = input(prompt + ": ").strip().lower()
             if raw in ("b", "board"):
                 _print_board(observation)
                 continue
             if raw in ("h", "history"):
                 _print_history(history)
+                continue
+            if raw in ("e", "event") and card is not None:
+                _print_event_summary(card)
                 continue
             if raw.isdigit() and int(raw) < len(options):
                 return options[int(raw)]
