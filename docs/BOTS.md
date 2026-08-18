@@ -26,10 +26,11 @@ class Player(Protocol):
   `engine.player.Event` list — one shared, ever-growing list, not a
   per-player delta since that seat was last consulted. The one ordering
   exception is the headline: both `HEADLINE_PLAY` events are buffered by
-  `runner.play_game` and appended together once the second pick is locked
-  in, so the second picker's `history` can't leak the first pick. Bots are
-  free to ignore it; it exists so a player *can* condition on what just
-  happened without re-deriving it from `Observation` alone.
+  `engine.replay.HistoryBuilder` (used internally by `runner.play_game`)
+  and appended together once the second pick is locked in, so the second
+  picker's `history` can't leak the first pick. Bots are free to ignore it;
+  it exists so a player *can* condition on what just happened without
+  re-deriving it from `Observation` alone.
 - `Side.CHANCE` decisions (coup/realignment/space-race rolls, ...) never
   reach a `Player` at all in an ordinary game — `struggler.runner.play_game`
   resolves them directly from the pre-drawn single option `Decision.options`
@@ -163,6 +164,22 @@ to defer ("do the model's reasoning turns count as 'moves' in a replay
 log, or stay external to it"): they stay external — the game log is the
 engine-level action record, the LLM conversation log is a separate,
 player-private artifact, and the two are never merged.
+
+**Resuming a live game** (`--resume-game-log <path>`, `src/main.py`) is the
+other direction: `engine.replay.replay_history(log)` replays a game log's
+`actions` (same mechanism as `run_replay`) and, alongside it, rebuilds the
+`Player`-facing `history` via `HistoryBuilder`, so a fresh `Player`
+consulted from that point on sees the same `history` it would have live —
+in particular satisfying a resumed `LLMPlayer`'s contract that `history` be
+at least as long as its restored `last_seen` (`bots/llm/conversation_log.py`).
+Hand-trimming a log's `actions` before resuming (e.g. to undo a bad play)
+is the intended way to correct a game already in progress; an `LLMPlayer`
+resumed with `--resume` alongside it should have its own conversation log
+trimmed in step (drop the trailing message/journal entries for the undone
+decisions, and roll `last_seen` back to match), or its memory and the
+actual game state will disagree. `play_game`'s `initial_actions` parameter
+lets the on-disk log continue accumulating at the same path instead of
+restarting.
 
 ## Roadmap
 

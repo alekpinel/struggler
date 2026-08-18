@@ -23,6 +23,14 @@ disk, in the same ``new_game``/``actions`` shape (each entry enriched via
 snapshot, and ``seed + actions`` alone already reproduces it exactly, so
 the file stays readable instead of embedding raw internal state. It's
 still fully replayable via ``run_replay``.
+
+``replay_history`` (backed by ``HistoryBuilder``, also used live by
+``runner.play_game``) is the resume direction: it rebuilds both the
+``Engine`` and the Player-facing ``history`` sequence from a log, so a game
+interrupted mid-way (or a log hand-trimmed to undo a bad decision before
+resuming) can hand a fresh ``Player`` -- including a resumed ``LLMPlayer``,
+see ``bots/llm/conversation_log.py``'s resumption contract -- a `history`
+consistent with what it would have seen live.
 """
 
 from __future__ import annotations
@@ -32,11 +40,11 @@ import os
 import tempfile
 import warnings
 from pathlib import Path
-from typing import Any
+from typing import Any, Sequence
 
 from struggler.engine.core import Engine
 from struggler.engine.player import Event
-from struggler.engine.types import Action, DecisionKind, Side
+from struggler.engine.types import Action, Decision, DecisionKind, Side
 
 _SETUP_KINDS = {
     "begin_influence_operations": Engine.begin_influence_operations,
@@ -127,6 +135,94 @@ def run_with_checkpoints(log: dict[str, Any]) -> list[dict]:
     return recorded
 
 
+def build_event(decision: Decision, action: Action, engine: Engine) -> Event:
+    """The `Event` `runner.play_game` and a resumed replay both record for
+    one resolved decision -- built from `engine`'s state right *after*
+    `action` was applied to `decision`, matching `Event`'s "totals right
+    after the decision resolved" contract.
+    """
+    country = action.payload.get("country")
+    country_influence: Any = {}
+    country_control: str | None = None
+    if country is not None and country in engine.board.influence:
+        country_influence = dict(engine.board.influence[country])
+        control = engine.board.control(country)
+        country_control = control.value if control is not None else None
+    return Event(
+        actor=decision.actor,
+        decision=decision,
+        action=action,
+        defcon=engine.defcon,
+        vp=engine.vp,
+        turn=engine.turn,
+        action_round=engine.action_round,
+        space_race=dict(engine.space_race),
+        military_ops=dict(engine.military_ops),
+        country=country,
+        country_influence=country_influence,
+        country_control=country_control,
+    )
+
+
+class HistoryBuilder:
+    """Accumulates resolved-decision `Event`s into the Player-visible
+    `history` sequence `Player.choose_action` receives, buffering both
+    halves of a secret `HEADLINE_PLAY` pair until the second is chosen (see
+    `runner.play_game`'s docstring for why the on-disk game log doesn't get
+    the same treatment -- it isn't consulted by any `Player`).
+
+    Shared by `runner.play_game` (building `history` live) and
+    `replay_history` below (reconstructing it from a log, for resuming) so
+    the two can never drift apart on this buffering rule.
+    """
+
+    def __init__(self, initial_history: Sequence[Event] = ()) -> None:
+        self.history: list[Event] = list(initial_history)
+        self._pending_headline: list[Event] = []
+
+    def record(self, decision: Decision, action: Action, engine: Engine) -> Event:
+        """Call right after `engine.step(action)` resolved `decision`."""
+        event = build_event(decision, action, engine)
+        if decision.kind is DecisionKind.HEADLINE_PLAY:
+            self._pending_headline.append(event)
+            if len(self._pending_headline) == 2:
+                self.history.extend(self._pending_headline)
+                self._pending_headline = []
+        else:
+            self.history.append(event)
+        return event
+
+    def finalize(self) -> list[Event]:
+        """Flush any still-unpaired headline pick (only possible if a game
+        ended, or a log was cut, between the two picks) and return
+        `history`."""
+        self.history.extend(self._pending_headline)
+        self._pending_headline = []
+        return self.history
+
+
+def replay_history(log: dict[str, Any]) -> tuple[Engine, list[Event]]:
+    """Like `run_replay`, but also reconstruct the Player-facing `history`
+    exactly as `runner.play_game` would have built it up to this point.
+
+    This is the two-part answer to "resume a live game from its on-disk
+    log": the `Engine` half (also `run_replay`'s job) plus the `history`
+    half each `Player` needs -- in particular `LLMPlayer`'s resumption
+    contract (`bots/llm/conversation_log.py`), which requires a `history`
+    at least as long as its restored `last_seen` index. Cut `log["actions"]`
+    short (e.g. to undo a bad play before resuming) and both halves shrink
+    together, consistently.
+    """
+    engine = make_engine(log)
+    builder = HistoryBuilder()
+    for action_data in log["actions"]:
+        decision = engine.pending_decision
+        action = decode_action(action_data)
+        engine.step(action)
+        builder.record(decision, action, engine)
+    return engine, builder.finalize()
+
+
 class GameLogWriter:
     """Records a live `play_game` run to `path`, as a lean, human-readable
     `new_game` replay log: `{seed, new_game, include_optional, events,
@@ -154,7 +250,17 @@ class GameLogWriter:
     never break the actual game.
     """
 
-    def __init__(self, path: str | Path, engine: Engine) -> None:
+    def __init__(
+        self,
+        path: str | Path,
+        engine: Engine,
+        *,
+        initial_actions: Sequence[dict[str, Any]] | None = None,
+    ) -> None:
+        """`initial_actions` seeds `_actions` with an already-recorded
+        prefix (e.g. from `replay_history`'s `log["actions"]`), so resuming
+        a game and writing to the same path continues the same on-disk
+        record instead of truncating it to just the new steps."""
         self._path = Path(path)
         state = engine.serialize()
         self._seed = state["seed"]
@@ -162,7 +268,7 @@ class GameLogWriter:
         self._events_enabled = engine.events_enabled
         self._physical_mode = engine.physical_mode
         self._physical_side = engine.physical_side.value if engine.physical_side is not None else None
-        self._actions: list[dict[str, Any]] = []
+        self._actions: list[dict[str, Any]] = list(initial_actions) if initial_actions is not None else []
         self._winner: str | None = None
 
     def record_step(self, event: Event) -> None:

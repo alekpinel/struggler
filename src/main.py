@@ -10,6 +10,7 @@ Examples:
 from __future__ import annotations
 
 import argparse
+import json
 import os
 from datetime import datetime
 
@@ -21,6 +22,7 @@ from struggler.engine import Engine, Side
 from struggler.engine.human import HumanPlayer
 from struggler.engine.physical import OperatorConsolePlayer
 from struggler.engine.player import Player
+from struggler.engine.replay import HistoryBuilder, replay_history
 from struggler.runner import play_game
 
 
@@ -127,7 +129,61 @@ def main() -> None:
         action="store_true",
         help="Disable saving the game replay log.",
     )
+    parser.add_argument(
+        "--resume-game-log",
+        default=None,
+        help=(
+            "Resume a live game from an existing game-log file (see "
+            "engine.replay.replay_history) instead of starting a new one -- "
+            "e.g. after hand-trimming the file's \"actions\" to undo a bad "
+            "play before continuing. The engine and the Player-facing "
+            "history are both rebuilt from the log, and play continues to "
+            "accumulate at the same path. Physical mode and its side are "
+            "read from the log itself, not from --physical; --us/--ussr "
+            "still select the bot for the non-physical (or either) side, "
+            "with its own RNG seeded off the log's own --seed, not this "
+            "process's."
+        ),
+    )
     args = parser.parse_args()
+
+    if args.resume_game_log:
+        with open(args.resume_game_log, encoding="utf-8") as f:
+            log = json.load(f)
+        engine, history = replay_history(log)
+        seed = log["seed"]
+        if log.get("physical_mode"):
+            physical_side = Side(log["physical_side"])
+            bot_side = physical_side.opponent
+            bot_kind = args.us if bot_side is Side.US else args.ussr
+            operator = OperatorConsolePlayer()
+            bot_log_path = args.us_log_path if bot_side is Side.US else args.ussr_log_path
+            players: dict[Side, Player] = {
+                physical_side: operator,
+                Side.CHANCE: operator,
+                bot_side: build_player(
+                    bot_kind, seed=seed + 1, resume=args.resume,
+                    log_path=bot_log_path, side_label=bot_side.value.lower(),
+                ),
+            }
+        else:
+            players = {
+                Side.US: build_player(
+                    args.us, seed=seed + 1, resume=args.resume, log_path=args.us_log_path, side_label="us"
+                ),
+                Side.USSR: build_player(
+                    args.ussr, seed=seed + 2, resume=args.resume, log_path=args.ussr_log_path, side_label="ussr"
+                ),
+            }
+        winner = play_game(
+            engine,
+            players,
+            log_path=args.resume_game_log,
+            history_builder=HistoryBuilder(initial_history=history),
+            initial_actions=log["actions"],
+        )
+        print(f"\nWinner: {winner}")
+        return
 
     if args.physical:
         physical_side = Side.US if args.physical == "us" else Side.USSR

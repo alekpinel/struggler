@@ -7,11 +7,11 @@ distinguished only by which `Player` is registered for which `Side`.
 
 from __future__ import annotations
 
-from typing import Mapping
+from typing import Any, Mapping, Sequence
 
-from struggler.engine import DecisionKind, Engine, Side
-from struggler.engine.player import Event, Player
-from struggler.engine.replay import GameLogWriter
+from struggler.engine import Engine, Side
+from struggler.engine.player import Player
+from struggler.engine.replay import GameLogWriter, HistoryBuilder
 
 
 def play_game(
@@ -19,24 +19,28 @@ def play_game(
     players: Mapping[Side, Player],
     *,
     log_path: str | None = None,
+    history_builder: HistoryBuilder | None = None,
+    initial_actions: Sequence[Mapping[str, Any]] | None = None,
 ) -> Side | None:
     """Run `engine` to completion, returning the winner (or None on a draw).
 
     If `log_path` is given, every step is also recorded to that path as a
     replay-log (see `engine.replay.GameLogWriter`) — the full game record,
     distinct from and independent of any LLM player's own reasoning log.
+
+    `engine` is normally fresh (`Engine.new_game(...)`), starting `history`
+    from empty. To resume a game already in progress instead, pass a
+    `history_builder` from `engine.replay.replay_history` (built from `engine`
+    itself already advanced to that point) — the buffering it applies to
+    secret `HEADLINE_PLAY` pairs (see below) then continues seamlessly
+    across the resume boundary — and `initial_actions` (that same log's
+    `"actions"`) so `log_path`'s on-disk record continues instead of
+    restarting.
     """
-    history: list[Event] = []
-    # Headline cards are picked secretly (USSR then US) and only revealed
-    # once both are chosen. Buffering both HEADLINE_PLAY events here — instead
-    # of appending each immediately — keeps the second picker's `history` from
-    # leaking the first picker's card before their own choice is locked in.
-    # The on-disk game log below is NOT buffered the same way: it isn't
-    # consulted by any Player (only the engine API is), so that secrecy
-    # mandate doesn't apply to it — though a human reading the file mid-game
-    # could see a still-secret headline pick before it's revealed in-game.
-    pending_headline: list[Event] = []
-    log_writer = GameLogWriter(log_path, engine) if log_path is not None else None
+    builder = history_builder if history_builder is not None else HistoryBuilder()
+    log_writer = (
+        GameLogWriter(log_path, engine, initial_actions=initial_actions) if log_path is not None else None
+    )
     while not engine.is_terminal:
         decision = engine.pending_decision
         if decision.actor is Side.CHANCE and Side.CHANCE not in players:
@@ -55,42 +59,22 @@ def play_game(
             obs_side = decision.actor if decision.actor in (Side.US, Side.USSR) else engine.physical_side
             observation = engine.observe(obs_side)
             responder = decision.actor if decision.actor in players else Side.CHANCE
-            action = players[responder].choose_action(observation, history)
+            action = players[responder].choose_action(observation, builder.history)
         engine.step(action)
 
-        country = action.payload.get("country")
-        country_influence: Mapping[str, int] = {}
-        country_control: str | None = None
-        if country is not None and country in engine.board.influence:
-            country_influence = dict(engine.board.influence[country])
-            control = engine.board.control(country)
-            country_control = control.value if control is not None else None
-
-        event = Event(
-            actor=decision.actor,
-            decision=decision,
-            action=action,
-            defcon=engine.defcon,
-            vp=engine.vp,
-            turn=engine.turn,
-            action_round=engine.action_round,
-            space_race=dict(engine.space_race),
-            military_ops=dict(engine.military_ops),
-            country=country,
-            country_influence=country_influence,
-            country_control=country_control,
-        )
+        # Headline cards are picked secretly (USSR then US) and only revealed
+        # once both are chosen; `HistoryBuilder` buffers both HEADLINE_PLAY
+        # events instead of exposing each immediately, keeping the second
+        # picker's `history` from leaking the first picker's card before
+        # their own choice is locked in. The on-disk game log below is NOT
+        # buffered the same way: it isn't consulted by any Player (only the
+        # engine API is), so that secrecy mandate doesn't apply to it —
+        # though a human reading the file mid-game could see a still-secret
+        # headline pick before it's revealed in-game.
+        event = builder.record(decision, action, engine)
         if log_writer is not None:
             log_writer.record_step(event)
-
-        if decision.kind is DecisionKind.HEADLINE_PLAY:
-            pending_headline.append(event)
-            if len(pending_headline) == 2:
-                history.extend(pending_headline)
-                pending_headline = []
-        else:
-            history.append(event)
-    history.extend(pending_headline)
+    builder.finalize()
     if log_writer is not None:
         log_writer.finalize(engine.winner)
     return engine.winner
