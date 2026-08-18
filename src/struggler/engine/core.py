@@ -2073,15 +2073,13 @@ class Engine:
             leftover = margin - opp_removed
             self.board.influence[country][side.value] += leftover
 
-        # Every coup attempt degrades DEFCON by 1 — except a US coup in a
-        # Battleground while Nuclear Subs is in effect this turn.
-        nuclear_subs = (
-            side is Side.US
-            and info.battleground
-            and self.turn_effects.get("nuclear_subs")
-        )
-        if not nuclear_subs:
-            self._change_defcon(-1, caused_by=side)
+        # A coup attempt against a Battleground country degrades DEFCON by 1
+        # — except a US coup there while Nuclear Subs is in effect this turn.
+        # Non-Battleground coups never touch DEFCON.
+        if info.battleground:
+            nuclear_subs = side is Side.US and self.turn_effects.get("nuclear_subs")
+            if not nuclear_subs:
+                self._change_defcon(-1, caused_by=side)
 
         # Yuri and Samantha: the USSR scores 1 VP for every US coup attempt,
         # for the rest of the game.

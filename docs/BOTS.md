@@ -265,9 +265,11 @@ def board_value(weights: GreedyWeights, board: Board, side: Side) -> float:
   here only costs a slightly
   worse **choice**, never an illegal `Action` (the engine's real
   `legal_actions()` is always what's actually offered downstream).
-- **DEFCON safety** (priority #1): any Coup
-  attempt drops DEFCON by 1 for the *acting* side (Nuclear Subs excepted);
-  if DEFCON is already 2, that is the acting side's own loss. This is
+- **DEFCON safety** (priority #1): a Coup
+  attempt against a Battleground country drops DEFCON by 1 for the *acting*
+  side (Nuclear Subs excepted; non-Battleground targets never touch DEFCON);
+  if DEFCON is already 2, a Battleground Coup is the acting side's own loss.
+  This is
   checked at the OPS_TYPE decision (refusing "coup" outright, so the
   suicidal choice is never made in the first place) and again defensively
   at COUP_TARGET (in case OPS_TYPE's cheaper proxy legality missed a lock

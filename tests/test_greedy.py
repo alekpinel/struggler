@@ -41,7 +41,9 @@ def test_greedy_avoids_coup_as_an_ops_type_at_defcon_2():
     with a juicy Coup target on offer, GreedyPlayer must pick something
     else at the OPS_TYPE decision."""
     engine = Engine(seed=1)
-    engine.board.influence["Guatemala"]["USSR"] = 3
+    # Mexico: a Battleground with no DEFCON region-lock, so a Coup here risks DEFCON 1
+    # even at DEFCON 2 (unlike Europe/Asia/Middle East, which lock out first).
+    engine.board.influence["Mexico"]["USSR"] = 3
     engine._change_defcon(-3, caused_by=Side.US)  # 5 -> 2
     assert engine.defcon == 2
 

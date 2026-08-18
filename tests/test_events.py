@@ -688,12 +688,12 @@ def test_nuclear_subs_spares_defcon_on_us_battleground_coup():
     engine.step(Action(DecisionKind.COUP_TARGET, {"country": "Italy"}))
     engine.step(engine.pending_decision.options[0])  # coup roll
     assert engine.defcon == 5  # DEFCON untouched
-    # A non-battleground US coup still degrades DEFCON.
-    engine.board.influence["Lebanon"] = {"US": 0, "USSR": 1}  # not a battleground
-    engine._push(Side.US, DecisionKind.COUP_TARGET,
-                 (Action(DecisionKind.COUP_TARGET, {"country": "Lebanon"}),),
+    # Nuclear Subs only spares the US: a USSR Battleground coup still degrades.
+    engine.board.influence["Poland"] = {"US": 1, "USSR": 0}  # a battleground
+    engine._push(Side.USSR, DecisionKind.COUP_TARGET,
+                 (Action(DecisionKind.COUP_TARGET, {"country": "Poland"}),),
                  {"ops": 4, "china": False})
-    engine.step(Action(DecisionKind.COUP_TARGET, {"country": "Lebanon"}))
+    engine.step(Action(DecisionKind.COUP_TARGET, {"country": "Poland"}))
     engine.step(engine.pending_decision.options[0])
     assert engine.defcon == 4
 

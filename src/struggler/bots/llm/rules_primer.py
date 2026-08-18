@@ -84,9 +84,11 @@ RULES_PRIMER = "\n".join(
         "margin = die_roll + ops_spent - 2*country.stability (+ any "
         "modifiers). If margin > 0, remove that many opponent Influence "
         "points from the country (any leftover margin becomes your own "
-        "Influence there instead). Every Coup attempt degrades DEFCON by 1 "
-        "(exception: a US Coup in a Battleground country while Nuclear "
-        "Subs is in effect this turn does not degrade DEFCON).",
+        "Influence there instead). A Coup attempt against a Battleground "
+        "country degrades DEFCON by 1; Coups against non-Battleground "
+        "countries never affect DEFCON (exception: a US Coup in a "
+        "Battleground country while Nuclear Subs is in effect this turn "
+        "does not degrade DEFCON either).",
         "  - Realignment roll: no adjacency or existing-Influence "
         "requirement either, but the opponent must hold at least 1 "
         "Influence there; costs 1 Op per roll, and multiple rolls (even at "

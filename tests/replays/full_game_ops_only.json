@@ -5569,7 +5569,7 @@
             }
           }
         },
-        "defcon": 3,
+        "defcon": 4,
         "vp": -1,
         "turn": 4,
         "action_round": 3,
@@ -5602,6 +5602,36 @@
                 "kind": "realignment_target",
                 "payload": {
                   "country": "Jordan"
+                }
+              },
+              {
+                "kind": "realignment_target",
+                "payload": {
+                  "country": "Afghanistan"
+                }
+              },
+              {
+                "kind": "realignment_target",
+                "payload": {
+                  "country": "Australia"
+                }
+              },
+              {
+                "kind": "realignment_target",
+                "payload": {
+                  "country": "Taiwan"
+                }
+              },
+              {
+                "kind": "realignment_target",
+                "payload": {
+                  "country": "South_Korea"
+                }
+              },
+              {
+                "kind": "realignment_target",
+                "payload": {
+                  "country": "Philippines"
                 }
               },
               {
@@ -6732,7 +6762,7 @@
             }
           }
         },
-        "defcon": 4,
+        "defcon": 5,
         "vp": 4,
         "turn": 7,
         "action_round": 5,
@@ -7869,7 +7899,7 @@
             }
           }
         },
-        "defcon": 4,
+        "defcon": 5,
         "vp": 20,
         "turn": 10,
         "action_round": 7,

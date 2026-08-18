@@ -127,7 +127,8 @@ reveals only the drawn card). Five Year Plan (a discarded USSR event
 fires), Terrorism (opponent discards, twice after Iranian Hostage Crisis).
 
 **Per-turn coup/realign modifiers.** Nuclear Subs (US Battleground coups
-skip the DEFCON degrade), Latin American Death Squads (±1 to Americas coup
+skip the DEFCON degrade — on top of the base rule that only Battleground
+coups degrade DEFCON at all), Latin American Death Squads (±1 to Americas coup
 rolls), SALT Negotiations (−1 to both sides' coups), Iran-Contra Scandal
 (−1 to US realignment via `_realignment_modifier`), Chernobyl (a region
 chosen by the US bars USSR Ops influence, via `_chernobyl_blocks`). How I

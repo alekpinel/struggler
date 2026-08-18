@@ -2095,8 +2095,8 @@
             }
           }
         },
-        "defcon": 3,
-        "vp": 4,
+        "defcon": 4,
+        "vp": 3,
         "turn": 1,
         "action_round": 5,
         "next_decision_id": 64,
@@ -3270,8 +3270,8 @@
             }
           }
         },
-        "defcon": 4,
-        "vp": -2,
+        "defcon": 5,
+        "vp": -4,
         "turn": 2,
         "action_round": 4,
         "next_decision_id": 124,
@@ -4387,7 +4387,7 @@
           }
         },
         "defcon": 4,
-        "vp": -4,
+        "vp": -6,
         "turn": 3,
         "action_round": 4,
         "next_decision_id": 187,

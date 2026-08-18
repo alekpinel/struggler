@@ -30,8 +30,9 @@ def test_coup_pushes_chance_decision_then_resolves_by_formula():
         assert engine.board.influence["Guatemala"] == {"US": 0, "USSR": 3}
 
 
-def test_every_coup_degrades_defcon_regardless_of_region_or_success():
-    for country in ("France", "Guatemala"):  # Europe and non-Europe
+def test_only_battleground_coups_degrade_defcon():
+    # France is a Battleground, Guatemala is not (regardless of success).
+    for country, battleground in (("France", True), ("Guatemala", False)):
         engine = Engine(seed=3)
         engine.board.influence[country]["USSR"] = 1  # opponent Influence required to coup
         before = engine.defcon
@@ -39,7 +40,8 @@ def test_every_coup_degrades_defcon_regardless_of_region_or_success():
         target = next(a for a in engine.legal_actions() if a.payload["country"] == country)
         engine.step(target)
         engine.step(engine.legal_actions()[0])
-        assert engine.defcon == before - 1, country
+        expected = before - 1 if battleground else before
+        assert engine.defcon == expected, country
 
 
 def test_coup_region_restrictions_by_defcon_threshold():
