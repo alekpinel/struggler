@@ -1100,7 +1100,7 @@ class Engine:
     # -- space race ---------------------------------------------------------
 
     def _space_attempts_allowed(self, side: Side) -> int:
-        if self.space_race[side.value] >= RULES["space_race_two_attempts_from_box"]:
+        if self.game_effects.get("space_race_double_attempt_holder") == side.value:
             return 2
         return 1
 
@@ -1140,11 +1140,11 @@ class Engine:
     def _update_space_race_ability(self, side: Side, box: int, first: bool) -> None:
         """6.4.4: a Space Race special ability is granted only to the first
         side to reach its box, and is cancelled outright (not transferred)
-        the instant the second side also reaches it. Only the abilities
-        modeled as a held flag are keyed here: box 6 (may discard the Held
-        Card) and box 8 (an extra Action Round). Box 2's double-attempt
-        ability is instead a direct position check (_space_attempts_allowed)
-        and box 4's headline-order perk remains unmodeled."""
+        the instant the second side also reaches it. The abilities modeled
+        as a held flag are keyed here: box 2 (a second Space Race attempt
+        per turn, checked by _space_attempts_allowed), box 6 (may discard
+        the Held Card), and box 8 (an extra Action Round). Box 4's
+        headline-order perk remains unmodeled."""
         key = RULES["space_race_ability_keys"].get(str(box))
         if key is None:
             return

@@ -403,7 +403,7 @@ def space_race_line(observation: Observation) -> str:
     side = observation.side
     pos = observation.space_race.get(side.value, 0)
     used = observation.space_race_attempts.get(side.value, 0)
-    allowed = 2 if pos >= RULES["space_race_two_attempts_from_box"] else 1
+    allowed = 2 if observation.game_effects.get("space_race_double_attempt_holder") == side.value else 1
     left = max(0, allowed - used)
     if pos >= RULES["space_race_max_box"]:
         return "SPACE RACE: you are on the last box -- no further attempts possible."

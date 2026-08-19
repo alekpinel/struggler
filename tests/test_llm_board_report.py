@@ -180,6 +180,7 @@ def test_space_race_line_reports_the_second_attempt_from_the_qualifying_box():
         _observation(engine),
         space_race={"US": 0, "USSR": 2},
         space_race_attempts={"US": 0, "USSR": 1},
+        game_effects={"space_race_double_attempt_holder": "USSR"},
     )
 
     assert "attempts left this turn 1/2" in space_race_line(observation)

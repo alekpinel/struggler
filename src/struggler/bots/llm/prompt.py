@@ -306,7 +306,7 @@ def _space_race_note(card, observation: Observation, effective_ops: int) -> str:
     if pos >= RULES["space_race_max_box"]:
         return "space race: NO (already on the last box)"
     used = observation.space_race_attempts.get(side.value, 0)
-    allowed = 2 if pos >= RULES["space_race_two_attempts_from_box"] else 1
+    allowed = 2 if observation.game_effects.get("space_race_double_attempt_holder") == side.value else 1
     if used >= allowed:
         return f"space race: NO ({used}/{allowed} attempts already used this turn)"
     required = RULES["space_race_boxes"][str(pos + 1)]["ops"]

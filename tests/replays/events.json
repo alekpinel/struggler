@@ -3397,6 +3397,7 @@
         "game_effects": {
           "degaulle_france": true,
           "marshall_or_warsaw": true,
+          "space_race_double_attempt_holder": "US",
           "formosan_resolution": true
         },
         "our_man_queue": [],
