@@ -5,6 +5,8 @@ per-call user turn builder.
 
 from __future__ import annotations
 
+import dataclasses
+
 from struggler.bots.llm.prompt import (
     build_history_entry,
     build_system_prompt,
@@ -12,7 +14,7 @@ from struggler.bots.llm.prompt import (
     build_user_turn,
 )
 from struggler.bots.llm.schema import PLAYER_FACING_KINDS
-from struggler.engine import DecisionKind, Engine, Side
+from struggler.engine import Action, DecisionKind, Engine, Side
 from struggler.engine.player import Event
 
 
@@ -178,6 +180,39 @@ def test_turn_plan_request_asks_for_intent_not_an_action():
     assert "BOARD BY REGION" in text
     assert "decision_plan" not in text
     assert "You are not choosing an action now." in text
+
+
+def test_turn_plan_request_asks_for_a_region_focus():
+    engine = Engine.new_game(seed=1, events=True)
+    observation = engine.observe(Side.USSR)
+
+    text = build_turn_plan_request(observation, [])
+
+    assert "region_focus" in text
+    assert "Scoring card is in your hand comes first" in text
+
+
+def test_turn_plan_request_carries_last_scored_from_full_history_not_just_deltas():
+    # `history` is the whole game so far, distinct from `new_events` (the
+    # delta since the last call) -- the region-focus decision needs to look
+    # back further than one call's worth of events to know how long ago a
+    # region was last scored.
+    engine = Engine.new_game(seed=1, events=True)
+    observation = engine.observe(Side.USSR)
+    decision = observation.pending_decision
+    old_event = Event(
+        actor=Side.USSR,
+        decision=dataclasses.replace(decision, kind=DecisionKind.ACTION_ROUND_PLAY),
+        action=Action(DecisionKind.ACTION_ROUND_PLAY, {"card": "Asia_Scoring"}),
+        defcon=5,
+        vp=0,
+        turn=1,
+        action_round=1,
+    )
+
+    text = build_turn_plan_request(observation, [], history=[old_event])
+
+    assert "last scored: turn 1" in text
 
 
 def test_build_history_entry_carries_only_the_event_delta():

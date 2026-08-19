@@ -92,6 +92,7 @@ def _turn_plan_payload(**overrides):
     payload = {
         "assessment": "US leads Europe; Asia is still open.",
         "objective": "Control Poland and put 2 Influence into Asia.",
+        "region_focus": [{"region": "asia", "why": "Asia_Scoring is in hand."}],
         "scoring_cards": [
             {"card": "Asia_Scoring", "when": "last action round", "preparation": "take Thailand"}
         ],
@@ -110,6 +111,7 @@ def test_parse_turn_plan_keeps_every_section():
 
     assert plan.turn == 3
     assert plan.objective.startswith("Control Poland")
+    assert plan.region_focus[0]["region"] == "asia"
     assert plan.scoring_cards[0]["card"] == "Asia_Scoring"
     assert plan.card_plan[0]["intended_use"] == "event"
     assert plan.influence_targets[0]["country"] == "Poland"
@@ -122,6 +124,7 @@ def test_parse_turn_plan_tolerates_missing_lists():
         {"assessment": "a", "objective": "o", "military_ops_plan": "m"}, turn=1
     )
 
+    assert plan.region_focus == ()
     assert plan.scoring_cards == ()
     assert plan.card_plan == ()
     assert plan.defend == ()
@@ -145,6 +148,7 @@ def test_render_turn_plan_states_the_turn_and_every_section():
 
     assert "YOUR PLAN FOR TURN 4" in text
     assert "Coup Syria with De Gaulle." in text
+    assert "asia: Asia_Scoring is in hand." in text
     assert "Asia_Scoring: when=last action round" in text
     assert "Fidel -> event: Cuba" in text
     assert "Poland: Battleground, adjacent to the US" in text

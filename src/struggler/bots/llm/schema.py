@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from typing import Any, Mapping
 
 from struggler.bots.llm.client import StructuredOutputSpec
-from struggler.engine import DecisionKind
+from struggler.engine import DecisionKind, Region
 
 # Every DecisionKind that can ever reach a Player. Side.CHANCE decisions
 # (the *_ROLL / RANDOM_DISCARD / CONTEST_ROLL kinds) are resolved directly by
@@ -223,6 +223,7 @@ TURN_PLAN_SCHEMA: dict[str, Any] = {
     "required": [
         "assessment",
         "objective",
+        "region_focus",
         "scoring_cards",
         "card_plan",
         "influence_targets",
@@ -242,6 +243,26 @@ TURN_PLAN_SCHEMA: dict[str, Any] = {
         "objective": {
             "type": "string",
             "description": "The one thing this turn has to achieve. Concrete, checkable.",
+        },
+        "region_focus": {
+            "type": "array",
+            "description": (
+                "Which region(s) this turn's Ops should concentrate on, in "
+                "priority order. A region whose Scoring card you hold always "
+                "comes first (it must be played this turn). With no Scoring "
+                "card in hand, prioritize the region(s) that haven't been "
+                "scored in the longest time -- 'never scored' outranks every "
+                "turn number."
+            ),
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "required": ["region", "why"],
+                "properties": {
+                    "region": {"type": "string", "enum": [r.value for r in Region]},
+                    "why": {"type": "string"},
+                },
+            },
         },
         "scoring_cards": {
             "type": "array",
@@ -357,6 +378,7 @@ class TurnPlan:
     turn: int
     assessment: str
     objective: str
+    region_focus: tuple[Mapping[str, str], ...]
     scoring_cards: tuple[Mapping[str, str], ...]
     card_plan: tuple[Mapping[str, str], ...]
     influence_targets: tuple[Mapping[str, str], ...]
@@ -407,6 +429,9 @@ def parse_turn_plan_response(payload: Mapping[str, Any], *, turn: int) -> TurnPl
         turn=turn,
         assessment=assessment,
         objective=objective,
+        region_focus=_obj_list(
+            payload.get("region_focus", []), "region_focus", ("region", "why")
+        ),
         scoring_cards=_obj_list(
             payload.get("scoring_cards", []), "scoring_cards", ("card", "when", "preparation")
         ),
@@ -436,6 +461,9 @@ def render_turn_plan(plan: TurnPlan) -> str:
         f"  Objective: {plan.objective}",
         f"  Military Operations: {plan.military_ops_plan}",
     ]
+    if plan.region_focus:
+        lines.append("  Region focus this turn, in priority order:")
+        lines += [f"    - {item['region']}: {item['why']}" for item in plan.region_focus]
     if plan.scoring_cards:
         lines.append("  Scoring cards to play this turn:")
         lines += [

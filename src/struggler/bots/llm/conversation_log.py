@@ -118,6 +118,7 @@ def _dict_to_turn_plan(data: Any) -> TurnPlan | None:
         turn=data["turn"],
         assessment=data["assessment"],
         objective=data["objective"],
+        region_focus=tuple(dict(item) for item in data.get("region_focus", ())),
         scoring_cards=tuple(dict(item) for item in data.get("scoring_cards", ())),
         card_plan=tuple(dict(item) for item in data.get("card_plan", ())),
         influence_targets=tuple(dict(item) for item in data.get("influence_targets", ())),

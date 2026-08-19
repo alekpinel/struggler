@@ -384,16 +384,22 @@ def _events_text(new_events: Sequence[Event]) -> str | None:
     return f"Since your last request ({len(new_events)} event(s)):\n{events_text}"
 
 
-def _situation_text(observation: Observation, new_events: Sequence[Event]) -> list[str]:
+def _situation_text(
+    observation: Observation, new_events: Sequence[Event], history: Sequence[Event] = ()
+) -> list[str]:
     """The shared body of every user turn: what just happened, the derived
     board reading, the hand dossier, and what's left in the deck. Identical
     for a decision call and a turn-planning call -- the model reasons from
-    one picture of the game, not two."""
+    one picture of the game, not two.
+
+    `history` is the whole game's events so far, not just `new_events` (the
+    delta since the last call) -- `build_board_report` needs the full game
+    to answer "when was this region last scored?"."""
     parts = []
     events_text = _events_text(new_events)
     if events_text:
         parts.append(events_text)
-    parts.append(build_board_report(observation, new_events))
+    parts.append(build_board_report(observation, new_events, history))
     parts.append(_hand_text(observation))
     parts.append(_cards_in_play_text(observation))
     return parts
@@ -414,16 +420,25 @@ def build_history_entry(new_events: Sequence[Event]) -> str:
     return _events_text(new_events) or "(no new events since your last request)"
 
 
-def build_turn_plan_request(observation: Observation, new_events: Sequence[Event]) -> str:
+def build_turn_plan_request(
+    observation: Observation, new_events: Sequence[Event], history: Sequence[Event] = ()
+) -> str:
     """The user turn for the once-per-game-turn planning call. No decision is
     pending as far as this call is concerned -- it produces intent only, which
     every decision in the turn is then made against."""
-    parts = _situation_text(observation, new_events)
+    parts = _situation_text(observation, new_events, history)
     parts.append(
         f"This is the start of YOUR turn {observation.turn}. Before you make any "
         "decision, plan the whole turn: respond with a turn_plan.\n"
         "  - Work through the board report first: which regions can still be won, "
         "which Battlegrounds are contested, what the opponent took last turn.\n"
+        "  - Decide your region_focus for this turn, in priority order: any region "
+        "whose Scoring card is in your hand comes first (it must be played this "
+        "turn regardless of anything else). If you hold no Scoring card, prioritize "
+        "the region(s) with the oldest 'last scored' turn in the regional scoring "
+        "status above -- 'never' outranks every turn number. A region scored "
+        "recently is unlikely to be scored again soon, so Ops spent there are "
+        "usually wasted this turn.\n"
         "  - Assign every card in your hand a use. A card with no plan is a card "
         "played badly later.\n"
         "  - Any Scoring card in hand must be played this turn: decide which action "
@@ -443,12 +458,13 @@ def build_user_turn(
     decision: Decision,
     new_events: Sequence[Event],
     turn_plan_text: str | None = None,
+    history: Sequence[Event] = (),
 ) -> str:
     """The per-call, non-static part of the conversation: what happened
     since the last time this bot actually consulted the LLM, the derived
     board reading, this turn's standing plan, and the live decision to act
     on."""
-    parts = _situation_text(observation, new_events)
+    parts = _situation_text(observation, new_events, history)
     if turn_plan_text:
         parts.append(turn_plan_text)
     parts.append(_decision_to_text(decision))

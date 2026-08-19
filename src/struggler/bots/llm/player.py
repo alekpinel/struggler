@@ -242,8 +242,8 @@ class LLMPlayer:
             self._plan.clear()
             new_events = history[self._last_seen :]
             self._last_seen = len(history)
-            self._make_turn_plan(observation, decision, new_events)
-            return self._call_llm_and_consume(observation, decision, ())
+            self._make_turn_plan(observation, decision, new_events, history)
+            return self._call_llm_and_consume(observation, decision, (), history)
 
         action = self._try_consume_plan(decision)
         if action is not None:
@@ -252,7 +252,7 @@ class LLMPlayer:
         self._plan.clear()
         new_events = history[self._last_seen :]
         self._last_seen = len(history)
-        return self._call_llm_and_consume(observation, decision, new_events)
+        return self._call_llm_and_consume(observation, decision, new_events, history)
 
     def _try_consume_plan(self, decision: Decision) -> Action | None:
         if not self._plan:
@@ -267,7 +267,11 @@ class LLMPlayer:
         return action
 
     def _make_turn_plan(
-        self, observation: Observation, decision: Decision, new_events: Sequence[Event]
+        self,
+        observation: Observation,
+        decision: Decision,
+        new_events: Sequence[Event],
+        history: Sequence[Event] = (),
     ) -> None:
         """One extra LLM call at the start of each game turn, producing intent
         rather than an action (see schema.TURN_PLAN_SCHEMA).
@@ -277,7 +281,7 @@ class LLMPlayer:
         without a plan instead of retrying the planning call at every decision.
         """
         self._planned_turn = observation.turn
-        user_text = build_turn_plan_request(observation, new_events)
+        user_text = build_turn_plan_request(observation, new_events, history)
         attempt = self._attempt_with_retry(
             observation.side,
             user_text,
@@ -322,10 +326,14 @@ class LLMPlayer:
         self.cumulative_usage = _add_usage(self.cumulative_usage, attempt.usage)
 
     def _call_llm_and_consume(
-        self, observation: Observation, decision: Decision, new_events: Sequence[Event]
+        self,
+        observation: Observation,
+        decision: Decision,
+        new_events: Sequence[Event],
+        history: Sequence[Event] = (),
     ) -> Action:
         turn_plan_text = render_turn_plan(self._turn_plan) if self._turn_plan is not None else None
-        user_text = build_user_turn(observation, decision, new_events, turn_plan_text)
+        user_text = build_user_turn(observation, decision, new_events, turn_plan_text, history)
 
         def interpret(structured: Mapping[str, Any]) -> tuple[DecisionPlan, Action]:
             plan = parse_plan_response(structured)

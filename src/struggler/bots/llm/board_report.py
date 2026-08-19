@@ -28,7 +28,7 @@ from struggler.engine import Observation, Side
 from struggler.engine.board import Board
 from struggler.engine.player import Event
 from struggler.engine.rules import RULES
-from struggler.engine.types import Region, ScoringTier
+from struggler.engine.types import DecisionKind, Region, ScoringTier
 
 # The Scoring card that pays out each region, so a region's line can say
 # whether the card for it is in your hand, already spent, or still live in
@@ -126,23 +126,101 @@ def _scoring_card_state(observation: Observation, region: Region) -> str:
     return "not in your hand"
 
 
-def _regional_scoring_text(board: Board, observation: Observation) -> str:
+def region_last_scored(history: Sequence[Event], region: Region) -> int | None:
+    """The most recent turn `region`'s Scoring card was headlined or played
+    in an action round, or `None` if it hasn't been played yet this game.
+
+    A Scoring card's only legal mode is 'event' (a card.scoring's PLAY_MODE
+    decision is never actually offered), and playing it resolves the score
+    immediately -- so the HEADLINE_PLAY/ACTION_ROUND_PLAY event that names
+    the card IS the scoring moment; there's no separate step to watch for.
+    """
+    card_id = SCORING_CARD_BY_REGION.get(region)
+    if card_id is None:
+        return None
+    last: int | None = None
+    for event in history:
+        if event.decision.kind not in (DecisionKind.HEADLINE_PLAY, DecisionKind.ACTION_ROUND_PLAY):
+            continue
+        if event.action.payload.get("card") == card_id:
+            last = event.turn
+    return last
+
+
+def tier_progress(board: Board, side: Side, region: Region) -> str:
+    """What `side` still needs to reach the next Presence/Domination/Control
+    tier in `region`, right now -- a direct restatement of `region_tier`'s
+    own formula (10.1.1), not a heuristic guess. Candidates are every
+    country in the relevant bucket `side` doesn't currently Control, whether
+    it's free or the opponent's."""
+    tier = board.region_tier(side, region)
+    if tier is ScoringTier.CONTROL:
+        return "already at CONTROL, the top tier"
+
+    countries = board.countries_in(region)
+    bg_ids = [c for c in countries if board.countries[c].battleground]
+    non_bg_ids = [c for c in countries if not board.countries[c].battleground]
+
+    def uncontrolled(ids: Sequence[str]) -> str:
+        return ", ".join(sorted(c for c in ids if board.control(c) is not side)) or "none left"
+
+    if tier is ScoringTier.NONE:
+        return f"PRESENCE -- Control any one country ({uncontrolled(countries)})"
+
+    opponent = side.opponent
+    side_bg = sum(1 for c in bg_ids if board.control(c) is side)
+    opp_bg = sum(1 for c in bg_ids if board.control(c) is opponent)
+    side_count = sum(1 for c in countries if board.control(c) is side)
+    opp_count = sum(1 for c in countries if board.control(c) is opponent)
+    non_bg_owned = side_count - side_bg
+
+    if tier is ScoringTier.PRESENCE:
+        needs = []
+        if side_bg <= opp_bg:
+            needed = opp_bg - side_bg + 1
+            needs.append(f"{needed} more Battleground ({uncontrolled(bg_ids)})")
+        if non_bg_owned <= 0:
+            needs.append(f"1 more non-Battleground ({uncontrolled(non_bg_ids)})")
+        if side_count <= opp_count:
+            needed = opp_count - side_count + 1
+            needs.append(
+                f"{needed} more Controlled countries than now ({side_count} vs "
+                f"opponent's {opp_count})"
+            )
+        return "DOMINATION -- need " + "; ".join(needs)
+
+    # DOMINATION -> CONTROL: Control every Battleground in the region.
+    return f"CONTROL -- Control every Battleground in the region: {uncontrolled(bg_ids)}"
+
+
+def _regional_scoring_text(
+    board: Board, observation: Observation, history: Sequence[Event] = ()
+) -> str:
     side = observation.side
     lines = [
         "REGIONAL SCORING STATUS (what each region would pay RIGHT NOW; "
         "'net' is signed for YOU -- positive means playing that Scoring "
-        "card now gains you VP, negative means it gains your opponent VP):"
+        "card now gains you VP, negative means it gains your opponent VP. "
+        "'last scored' is the most recent turn that region's Scoring card "
+        "was played, or 'never'. The two 'needs' lines are the exact "
+        "Control changes -- Battlegrounds, non-Battlegrounds, or plain "
+        "country count -- each side is missing for its next tier there):"
     ]
     for region in Region:
         st = region_status(board, side, region)
+        last_scored = region_last_scored(history, region)
+        last_scored_text = f"turn {last_scored}" if last_scored is not None else "never"
         lines.append(
             f"  {region.value}: net {st.net_vp_for_side:+d} VP for you | "
             f"you={_TIER_LABEL[st.own_tier]} ({len(st.own_countries)} countries, "
             f"{len(st.own_bg)} BG) opponent={_TIER_LABEL[st.opp_tier]} "
             f"({len(st.opp_countries)} countries, {len(st.opp_bg)} BG) | "
             f"uncontrolled BG: {', '.join(st.free_bg) or 'none'} | "
-            f"scoring card: {_scoring_card_state(observation, region)}"
+            f"scoring card: {_scoring_card_state(observation, region)} | "
+            f"last scored: {last_scored_text}"
         )
+        lines.append(f"      you -> next tier: {tier_progress(board, side, region)}")
+        lines.append(f"      opponent -> next tier: {tier_progress(board, side.opponent, region)}")
     return "\n".join(lines)
 
 
@@ -340,9 +418,17 @@ def space_race_line(observation: Observation) -> str:
     )
 
 
-def build_board_report(observation: Observation, new_events: Sequence[Event] = ()) -> str:
+def build_board_report(
+    observation: Observation, new_events: Sequence[Event] = (), history: Sequence[Event] = ()
+) -> str:
     """The full derived reading: headline numbers, per-region scoring
-    status, Battleground alerts, opponent activity, and the country table."""
+    status, Battleground alerts, opponent activity, and the country table.
+
+    `history` is the whole game's resolved decisions so far (not just
+    `new_events`, the delta since the last call) -- it's only needed for
+    `region_last_scored`'s "how long ago" answer, which has to look back
+    further than one call's worth of events.
+    """
     board = board_from_observation(observation)
     side = observation.side
     vp = observation.vp
@@ -355,7 +441,7 @@ def build_board_report(observation: Observation, new_events: Sequence[Event] = (
         f"{observation.draw_pile_size}.",
         military_ops_line(observation),
         space_race_line(observation),
-        _regional_scoring_text(board, observation),
+        _regional_scoring_text(board, observation, history),
     ]
 
     alerts = battleground_alerts(board, side)
