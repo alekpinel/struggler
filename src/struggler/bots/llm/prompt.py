@@ -92,6 +92,13 @@ _BATTLEGROUND_DOCTRINE = [
     "board report. Only spend outside them when nothing there is affordable.",
     "  - Influence that crosses no threshold buys nothing. 'you need +N' in the "
     "board report is the only number that matters: spend N, or spend elsewhere.",
+    "  - A live Coup against a Battleground is time-sensitive: the opponent gets "
+    "action rounds between yours and can add Influence there before you act, "
+    "weakening or spoiling it. Play it as early in the turn as DEFCON and your "
+    "hand allow -- do not queue non-urgent Influence placement ahead of it. "
+    "Locking in a region for a Scoring card already in your hand is NOT equally "
+    "urgent: nothing can take that card from you, so its Ops can wait for a "
+    "later action round as long as the region is ready before you play it.",
 ]
 
 _COMMON_GUIDANCE = [
@@ -142,7 +149,11 @@ _USSR_GUIDANCE = [
     "  - Standard initial influence: 4 Poland, 1 East Germany, 1 Yugoslavia. Controls both, has access to Yugoslavia.",
     "  - You act first every round: take the turn's Battleground coup and lock DEFCON at 2 before the US can.",
     "  - Final Scoring favors the US. aim to win by Mid War or a turn-8 Wargames.",
-    "  - Turn 1 AR1 is coup Iran or play for Italy whatever is weaker.",
+    "  - Turn 1 AR1 is coup Iran or play for Italy, whichever is weaker -- BEFORE "
+    "any Europe Scoring prep, even though you also hold Europe Scoring this "
+    "turn. The coup is the urgent play (see BATTLEGROUND DOCTRINE above); your "
+    "Europe position only needs to be locked in by the action round you play "
+    "Europe Scoring, which can be later.",
     "  - Coup big. A weak coup the US can reverse is worse than none.",
     "  - Best turn-1 headlines: Red Scare/Purge, Suez Crisis, Arab-Israeli War, Socialist Governments, Vietnam Revolts.",
     "  - Suez (or a won Arab-Israeli War) plus a good Iran coup erases the US from the Middle East.",
@@ -455,6 +466,11 @@ def build_turn_plan_request(
         "the sequence you'll spend your remaining action rounds in, or -1 for a card "
         "you intend to hold rather than play this turn. Two cards played this turn "
         "must not share the same order.\n"
+        "  - Each card in YOUR HAND above carries an 'advice' line. If your plan's "
+        "intended_use or order for a card contradicts its advice (e.g. playing for "
+        "Ops a card whose advice says Event, or scheduling early a card marked low "
+        "priority), state in that card_plan entry's purpose why the current board "
+        "makes the advice not apply -- a silent contradiction is a planning error.\n"
         "  - Any Scoring card in hand must be played this turn: decide which action "
         "round, and what has to change in that region first.\n"
         "  - Name the Ops that meet the Military Operations requirement (equal to "

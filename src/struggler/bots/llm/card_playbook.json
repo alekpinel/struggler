@@ -52,7 +52,7 @@
       "USSR": "Usually 3 Ops. Event only if the four points finish or defend something real."
     },
     "Nasser": {
-      "USSR": "Always event, early.",
+      "USSR": "Always event.",
       "US": "Trigger it before you invest in Egypt."
     },
     "Warsaw_Pact_Formed": {
@@ -60,7 +60,7 @@
       "US": "Trigger it early -- better they build now than remove you later."
     },
     "De_Gaulle_Leads_France": {
-      "USSR": "Event, not Ops and try to control France afterwards."
+      "USSR": "Event, and try to control France afterwards."
     },
     "Captured_Nazi_Scientist": {
       "any": "Always event when the next Space Race box pays. Free box, doesn't use your attempt."
@@ -81,7 +81,7 @@
     },
     "Marshall_Plan": {
       "US": "Always event, early.",
-      "USSR": "Push into Western Europe before this lands."
+      "USSR": "You can space it, but probably is better to accept it and use the Ops for a powerful move."
     },
     "Indo_Pakistani_War": {
       "any": "Event when you're short on Military Ops. Otherwise 2 Ops."
