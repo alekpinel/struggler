@@ -92,7 +92,7 @@
     },
     "CIA_Created": {
       "US": "Cheap headline, take the free Op.",
-      "USSR": "Play it early at high DEFCON. Can't be spaced without Brezhnev. It's worth to use it as Ops BUT NEVER WITH DEFCON AT 2."
+      "USSR": "Play it early at high DEFCON. If Brezhnev is active, space it. It's worth to use it as Ops BUT NEVER WITH DEFCON AT 2. Good candidate to UN Intervention if nothing better."
     },
     "US_Japan_Mutual_Defense_Pact": {
       "US": "Event if you want Japan locked away. Otherwise 4 Ops is a lot to give up.",
@@ -176,7 +176,7 @@
       "any": "Filler. Event is a gamble but 1 Op is worth little. Never event at DEFCON 2."
     },
     "How_I_Learned_to_Stop_Worrying": {
-      "any": "Always event. Set DEFCON where you need it and take the 5 Military Ops. Never set it to 1."
+      "any": "Usually better to use for ops. If evented, never set defcon to 1."
     },
     "Junta": {
       "any": "Event, then coup in the same region. Neutral, so Ops fire nothing."
@@ -219,7 +219,7 @@
       "USSR": "Event to take the China Card back, or 1 VP if you already hold it."
     },
     "Flower_Power": {
-      "USSR": "Event early, while they still have war cards to play. Dead if An Evil Empire is in effect.",
+      "USSR": "Best to use for Ops.",
       "US": "Trigger it late, after your war cards are spent."
     },
     "U2_Incident": {
@@ -245,7 +245,7 @@
     },
     "Puppet_Governments": {
       "US": "Event only while empty countries still exist -- turn 4, not turn 7.",
-      "USSR": "Space it in Mid War. By the Late War it's worthless to them anyway."
+      "USSR": "Space it in Mid War. In Late War use it for ops."
     },
     "Grain_Sales_to_Soviets": {
       "US": "Good event: you see a random card of theirs and may play it, and it thins their hand.",
@@ -256,7 +256,7 @@
       "USSR": "Space it. If you must trigger it, do so while Warsaw Pact is still in the deck."
     },
     "Latin_American_Death_Squads": {
-      "any": "Event, then actually coup in Central or South America. On its own it does nothing."
+      "any": "Consider to headline if you plan to do a lot of coups. Usually just use it for ops."
     },
     "OAS_Founded": {
       "US": "Free event. Take the influence."
