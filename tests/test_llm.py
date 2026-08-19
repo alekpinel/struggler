@@ -551,6 +551,38 @@ def test_turn_plan_is_requested_once_per_turn_and_precedes_the_decision():
     assert client.requests[2].output.name == "decision_plan"
 
 
+def test_turn_plan_call_can_use_a_separate_plan_client():
+    engine = Engine.new_game(seed=1)
+    observation, country = _setup_placement(engine)
+    decision = observation.pending_decision
+
+    plan_client = FakeLLMClient(
+        [make_turn_plan_response("Take Poland and meet Military Operations.")],
+        provider_name="fake-plan",
+        model_name="fake-plan-model",
+    )
+    decision_client = FakeLLMClient(
+        [
+            make_plan_response("First point.", [(decision.kind, {"country": country})]),
+            make_plan_response("Second point.", [(decision.kind, {"country": country})]),
+        ],
+        provider_name="fake-decision",
+        model_name="fake-decision-model",
+    )
+    player = LLMPlayer(client=decision_client, plan_client=plan_client, seed=0)
+
+    first = player.choose_action(observation, [])
+    engine.step(first)
+    player.choose_action(engine.observe(engine.pending_decision.actor), [])
+
+    # The turn-plan call went only to plan_client; every decision call went
+    # only to decision_client -- neither queue leaks into the other.
+    assert len(plan_client.requests) == 1
+    assert plan_client.requests[0].output.name == "turn_plan"
+    assert len(decision_client.requests) == 2
+    assert all(r.output.name == "decision_plan" for r in decision_client.requests)
+
+
 def test_turn_plan_is_injected_into_every_later_decision_prompt():
     engine = Engine.new_game(seed=1)
     observation, country = _setup_placement(engine)

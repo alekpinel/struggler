@@ -28,6 +28,7 @@ from struggler.runner import play_game
 
 DEFAULT_LLM_PROVIDER = "openai"
 DEFAULT_LLM_MODELS = {"anthropic": "claude-opus-5", "openai": "gpt-5.6-luna"}
+DEFAULT_LLM_PLAN_MODELS = {"anthropic": "claude-opus-5", "openai": "gpt-5.6-sol"}
 
 
 def build_llm_client(provider: str | None = None, model: str | None = None):
@@ -35,7 +36,10 @@ def build_llm_client(provider: str | None = None, model: str | None = None):
 
     `provider` and `model` override the environment when given; otherwise
     `STRUGGLER_LLM_PROVIDER` / `STRUGGLER_LLM_MODEL` are consulted, falling
-    back to this module's defaults.
+    back to this module's defaults. `build_player`'s "llm" kind also
+    consults `STRUGGLER_LLM_PLAN_PROVIDER` / `STRUGGLER_LLM_PLAN_MODEL` to
+    build a second client for the once-per-turn planning call only, via
+    this same function.
     """
     provider = provider or os.environ.get("STRUGGLER_LLM_PROVIDER", DEFAULT_LLM_PROVIDER)
     if provider not in DEFAULT_LLM_MODELS:
@@ -71,6 +75,9 @@ def build_player(
         return GreedyPlayer()
     if kind == "llm":
         client = build_llm_client()
+        plan_provider = os.environ.get("STRUGGLER_LLM_PROVIDER", DEFAULT_LLM_PROVIDER)
+        plan_model = os.environ.get("STRUGGLER_LLM_PLAN_MODEL", DEFAULT_LLM_PLAN_MODELS[plan_provider])
+        plan_client = build_llm_client(provider=plan_provider, model=plan_model)
         if log_path is None:
             if resume:
                 raise ValueError(
@@ -82,6 +89,7 @@ def build_player(
             log_path = f"./logs/{timestamp}{suffix}.json"
         return LLMPlayer(
             client=client,
+            plan_client=plan_client,
             seed=seed,
             plan_turns=plan_turns,
             log_path=log_path,

@@ -22,7 +22,12 @@ Design:
   individual decision is made against a standing intent rather than from
   scratch -- `justification` is explainability, deliberately not memory.
   Planning failure never blocks the game (the turn just plays without a
-  plan), and `plan_turns=False` skips the call entirely.
+  plan), and `plan_turns=False` skips the call entirely. That one call can
+  be sent to a different `LLMClient` than every other call (`plan_client`):
+  a stronger/pricier model for the once-per-turn strategic call, a cheaper
+  one for the many per-decision calls. Defaults to `client` (one model for
+  everything) when not given. Both clients see the same growing
+  conversation -- only which model answers a given call differs.
 - Memory is a single, ever-growing conversation (`self._messages`) per
   `LLMPlayer` instance, resent in full on every call. What gets persisted
   per turn is deliberately thinner than what the live call was sent with,
@@ -171,6 +176,7 @@ class LLMPlayer:
         self,
         client: LLMClient,
         *,
+        plan_client: LLMClient | None = None,
         seed: int = 0,
         max_plan_steps: int = 8,
         plan_turns: bool = True,
@@ -178,6 +184,11 @@ class LLMPlayer:
         resume: bool = False,
     ) -> None:
         self._client = client
+        # The once-per-turn planning call's model; same as `client` unless
+        # given separately (see module docstring). Kept as its own field
+        # rather than a per-call parameter so `_persist_if_configured` can
+        # always read both models straight off `self`.
+        self._plan_client = plan_client if plan_client is not None else client
         # One extra LLM call per game turn, producing intent rather than an
         # action (see `_make_turn_plan`). Off makes the bot decide each
         # decision on its own again, which is what the pre-turn-plan version
@@ -287,6 +298,7 @@ class LLMPlayer:
             user_text,
             TURN_PLAN_OUTPUT_SPEC,
             lambda structured: parse_turn_plan_response(structured, turn=observation.turn),
+            client=self._plan_client,
         )
         self._commit_turn(build_history_entry(new_events), attempt)
         plan = attempt.result
@@ -351,7 +363,9 @@ class LLMPlayer:
                 )
             return plan, first_action
 
-        attempt = self._attempt_with_retry(observation.side, user_text, OUTPUT_SPEC, interpret)
+        attempt = self._attempt_with_retry(
+            observation.side, user_text, OUTPUT_SPEC, interpret, client=self._client
+        )
 
         # Exactly one user + one assistant turn is committed per call, no
         # matter how many internal retries happened, so the persisted
@@ -395,6 +409,8 @@ class LLMPlayer:
         user_text: str,
         output: StructuredOutputSpec,
         interpret: Callable[[Mapping[str, Any]], Any],
+        *,
+        client: LLMClient,
     ) -> _Attempt:
         """Attempts one LLM call up to `_MAX_RETRIES + 1` times, using a local
         scratch message list so failed attempts never pollute the persisted
@@ -406,6 +422,10 @@ class LLMPlayer:
         with the reason appended. Both output specs this bot uses -- a decision
         plan and a turn plan -- go through here, so the retry/usage/raw-response
         bookkeeping exists once rather than once per kind of call.
+
+        `client` is which `LLMClient` answers this call -- `self._plan_client`
+        for the turn-plan call, `self._client` for everything else; the caller
+        picks, this method just uses whichever it's given.
 
         On total failure `_Attempt.result` is `None` and `assistant_text` is a
         synthetic note recording it, so the one committed conversation turn
@@ -429,7 +449,7 @@ class LLMPlayer:
                 output=output,
             )
             try:
-                response = self._client.complete(request)
+                response = client.complete(request)
             except LLMClientError as exc:
                 last_error = str(exc)
                 raw_responses.append(f"[client error: {last_error}]")
@@ -474,6 +494,8 @@ class LLMPlayer:
             seed=self._seed,
             provider=getattr(self._client, "provider_name", "unknown"),
             model=getattr(self._client, "model_name", "unknown"),
+            plan_provider=getattr(self._plan_client, "provider_name", "unknown"),
+            plan_model=getattr(self._plan_client, "model_name", "unknown"),
             created_at=self._created_at,
             updated_at=self._created_at,  # conversation_log.save() overwrites this with now_iso()
             last_seen=self._last_seen,
