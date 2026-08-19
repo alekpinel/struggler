@@ -1227,23 +1227,32 @@ class Engine:
             ev.resolve(self, side)
 
     def _usable_coup_realign_target(
-        self, attacker: Side, cid: str, for_coup: bool = True
+        self, attacker: Side, cid: str, for_coup: bool = True,
+        ignore_defcon: bool = False,
     ) -> bool:
         """Whether `attacker` may attempt a Coup/Realignment against `cid`.
 
         Requires the opponent to hold at least 1 Influence there (6.2.1 /
-        6.3.1) and the current DEFCON to allow it in that region (8.1.5,
-        which restricts Coup *and* Realignment alike). Beyond that,
-        persistent effects may lock the USSR out further (NATO protects
-        US-controlled Europe; the US/Japan pact protects Japan; The Reformer
-        bars USSR *coups* in Europe). NATO's lock is lifted per-country by
-        De Gaulle (France) and Willy Brandt (West Germany)."""
+        6.3.1) and, unless `ignore_defcon` is set, the current DEFCON to
+        allow it in that region (8.1.5, which restricts Coup *and*
+        Realignment alike). `ignore_defcon` is for card-granted free
+        Coup/Realignment attempts that already name their own region (Tear
+        Down This Wall, Ortega Elected in Nicaragua, Junta): per the FAQ,
+        a card that specifies the region overrides 8.1.5's geography
+        restriction, though a Battleground coup there still degrades
+        DEFCON as normal -- that effect lives in `_handle_coup_roll`, not
+        here. Beyond that, persistent effects may lock the USSR out
+        further (NATO protects US-controlled Europe; the US/Japan pact
+        protects Japan; The Reformer bars USSR *coups* in Europe). NATO's
+        lock is lifted per-country by De Gaulle (France) and Willy Brandt
+        (West Germany)."""
         info = self.board.countries[cid]
         if self.board.influence[cid][attacker.opponent.value] <= 0:
             return False
-        min_defcon = RULES["coup_min_defcon"].get(info.region.name, _DEFAULT_MIN_DEFCON)
-        if self.defcon < min_defcon:
-            return False
+        if not ignore_defcon:
+            min_defcon = RULES["coup_min_defcon"].get(info.region.name, _DEFAULT_MIN_DEFCON)
+            if self.defcon < min_defcon:
+                return False
         if attacker is not Side.USSR:
             return True
         ge = self.game_effects
@@ -2207,15 +2216,19 @@ class Engine:
         """Offer `side` a free Coup or Realignment (or neither), restricted to
         `countries` (Junta's "free Coup/Realignment in the Americas"; Ortega
         Elected in Nicaragua's Coup-only variant sets `allow_realign=False`).
-        Coup is offered only where DEFCON and the persistent locks allow it."""
+        The card already names its own region, so 8.1.5's DEFCON geography
+        restriction does not apply here (FAQ); only the persistent locks do.
+        A Battleground coup still degrades DEFCON as normal, unaffected by
+        this."""
         choices = ["none"]
         coupable = [
             cid for cid in countries
-            if self._usable_coup_realign_target(side, cid)
+            if self._usable_coup_realign_target(side, cid, ignore_defcon=True)
         ]
         realignable = [
             cid for cid in countries
-            if allow_realign and self._usable_coup_realign_target(side, cid, for_coup=False)
+            if allow_realign
+            and self._usable_coup_realign_target(side, cid, for_coup=False, ignore_defcon=True)
         ]
         if coupable:
             choices.append("coup")
@@ -2241,7 +2254,7 @@ class Engine:
             options = tuple(
                 Action(DecisionKind.COUP_TARGET, {"country": cid})
                 for cid in countries
-                if self._usable_coup_realign_target(side, cid)
+                if self._usable_coup_realign_target(side, cid, ignore_defcon=True)
             )
             if options:
                 self._push(side, DecisionKind.COUP_TARGET, options, {"ops": ops, "bonus": None})
@@ -2249,7 +2262,7 @@ class Engine:
             options = tuple(
                 Action(DecisionKind.REALIGNMENT_TARGET, {"country": cid})
                 for cid in countries
-                if self._usable_coup_realign_target(side, cid, for_coup=False)
+                if self._usable_coup_realign_target(side, cid, for_coup=False, ignore_defcon=True)
             )
             if options:
                 self._push(

@@ -120,7 +120,12 @@ Europe), Junta (place 2 Influence in a single Americas country, then
 optionally a free Coup or Realignment there — the free-op choice is stacked
 beneath the placement so it resolves afterwards), Special Relationship (2
 VP while the US controls the UK, plus a free Realignment roll if NATO is
-also in effect).
+also in effect). Because the card itself names the region, these free
+attempts ignore 8.1.5's DEFCON-by-region restriction (`_usable_coup_realign_target`'s
+`ignore_defcon=True`, per the official FAQ) — Tear Down This Wall still
+offers a free Coup/Realignment in Europe even at DEFCON 3 or 4. A
+Battleground Coup there still degrades DEFCON as normal; that is a
+separate check in `_handle_coup_roll`, untouched by this.
 
 **Forced random discard** (`RANDOM_DISCARD`, a seeded CHANCE decision that
 reveals only the drawn card). Five Year Plan (a discarded USSR event

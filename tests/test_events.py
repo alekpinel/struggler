@@ -898,6 +898,20 @@ def test_tear_down_this_wall_places_then_offers_a_europe_free_op():
     )
 
 
+def test_tear_down_this_wall_free_op_ignores_defcon_region_restriction():
+    # Europe's normal Coup/Realignment DEFCON floor is 5 (8.1.5), but a
+    # card-granted free op that names its own region overrides that
+    # restriction per the FAQ -- it must still be offered at a lower DEFCON.
+    engine = _bare(seed=1)
+    assert RULES["coup_min_defcon"]["EUROPE"] == 5
+    engine.defcon = 3
+    engine.board.influence["France"]["USSR"] = 1  # opponent Influence for the free op
+    engine._fire_event(Side.US, "Tear_Down_This_Wall")
+    choice = engine.pending_decision
+    assert choice.kind is DecisionKind.EVENT_CHOICE
+    assert {a.payload["choice"] for a in choice.options} == {"none", "coup", "realign"}
+
+
 # -- more per-turn / game-long coup & realignment modifiers ------------------
 
 
