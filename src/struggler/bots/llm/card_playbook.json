@@ -154,8 +154,7 @@
       "any": "Check the Military Ops track first. Event only if you're ahead and have met your requirement, otherwise 3 Ops."
     },
     "Cuban_Missile_Crisis": {
-      "any": "Event to freeze their coups for a round. It sets DEFCON to 2 -- don't fire it if you still need to coup.",
-      "USSR": "They can't use it against you if you keep 2 influence in Cuba spare to cancel it."
+      "any": "Usually better used for Ops."
     },
     "Nuclear_Subs": {
       "US": "Event at the start of a turn, then coup battlegrounds freely.",

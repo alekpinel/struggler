@@ -146,9 +146,9 @@ _COMMON_GUIDANCE = [
     "more as Ops or a coup than as a headline or a Space Race discard.",
     "  - Answer the opponent, not just your own plan. Every opponent placement listed "
     "under OPPONENT ACTIVITY is a claim you either answer now or concede.",
-    "  - Meet the Military Operations requirement every turn. It equals DEFCON, it is "
-    "checked at end of turn, and every point short is 1 VP to your opponent -- a "
-    "non-Battleground coup pays it without touching DEFCON.",
+    "  - Meet the Military Operations requirement every turn. It equals DEFCON",
+    "  - Before using a scoring card, a good strategy is breaking control on some key countries controlled by the rival.",
+    "  - Usually is better to steal one country from the rival than to reinforce the countries you already control.",
 ]
 
 _USSR_GUIDANCE = [
