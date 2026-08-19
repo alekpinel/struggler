@@ -11,7 +11,7 @@
       "any": "Coup here before playing it, as soon as you have a target -- positions flip cheaply, so don't give the opponent extra rounds to reinforce."
     },
     "The_China_Card": {
-      "any": "Your best Ops card. Don't spend it on something a 3 Ops card would do. Can't headline, can't pay a forced discard."
+      "any": "The best card. Try to hold it unless you have a clear opportunity or you really need the ops. In asia, you can use it to flip Pakistan or Thailand if the rival only have 2 ops of advantage. Also, really powerful card to coup."
     },
     "Duck_and_Cover": {
       "US": "Usually just 3 Ops. Event only when DEFCON is already low. Never at DEFCON 2.",
@@ -26,7 +26,7 @@
       "US": "Trigger it early while your stacks are small, or kill it with Iron Lady."
     },
     "Fidel": {
-      "USSR": "Always event, as early as possible.",
+      "USSR": "Always event. Low priority in Early War.",
       "US": "Let it happen. It makes CIA Created lethal for them later."
     },
     "Vietnam_Revolts": {

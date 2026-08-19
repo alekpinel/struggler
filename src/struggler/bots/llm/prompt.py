@@ -15,7 +15,7 @@ from struggler.bots.llm.rules_primer import RULES_PRIMER
 from struggler.bots.llm.schema import PAYLOAD_KEY_BY_KIND, PLAYER_FACING_KINDS
 from struggler.engine import Action, Decision, DecisionKind, Observation, Side
 from struggler.engine.types import CardSide
-from struggler.engine.cards import load_cards
+from struggler.engine.cards import action_rounds, load_cards
 from struggler.engine.data_loader import load_json
 from struggler.engine.player import Event
 from struggler.engine.rules import RULES
@@ -150,6 +150,7 @@ _USSR_GUIDANCE = [
     "  - Don't put 1 Op into Pakistan at DEFCON 4+. You can't coup back and you hand the US a target.",
     "  - China Card is your 4 Ops (5 if every Op goes to Asia). Holding it lets you hold an extra card -- your insurance against DEFCON-suicide hands.",
     "  - You have no natural access to the Americas. Don't invest there without an access Event.",
+    "  - Don't take Romania with ops, you will get it with the card Romanian Adbication.",
 ]
 
 _US_GUIDANCE = [
@@ -427,9 +428,18 @@ def build_turn_plan_request(
     pending as far as this call is concerned -- it produces intent only, which
     every decision in the turn is then made against."""
     parts = _situation_text(observation, new_events, history)
+    total_ars = action_rounds(observation.turn)
+    remaining_ars = max(1, total_ars - observation.action_round + 1)
     parts.append(
         f"This is the start of YOUR turn {observation.turn}. Before you make any "
         "decision, plan the whole turn: respond with a turn_plan.\n"
+        f"  - ROUND BUDGET: this turn has {total_ars} action round(s) in total; you "
+        f"are at action round {observation.action_round}, so you have {remaining_ars} "
+        "action round(s) left in which to play a card (one card per action round, "
+        "the China Card counts as one of them if you play it). You cannot play more "
+        f"cards than that this turn -- if your hand holds more than {remaining_ars} "
+        "non-scoring cards, the rest must be marked intended_use='hold' in card_plan, "
+        "not scheduled into a round that doesn't exist.\n"
         "  - Work through the board report first: which regions can still be won, "
         "which Battlegrounds are contested, what the opponent took last turn.\n"
         "  - Decide your region_focus for this turn, in priority order: any region "
@@ -440,7 +450,11 @@ def build_turn_plan_request(
         "recently is unlikely to be scored again soon, so Ops spent there are "
         "usually wasted this turn.\n"
         "  - Assign every card in your hand a use. A card with no plan is a card "
-        "played badly later.\n"
+        "played badly later. Set each card_plan 'order' to when you intend to play "
+        f"it: 0 if it's this turn's headline, 1, 2, 3... up to {remaining_ars} for "
+        "the sequence you'll spend your remaining action rounds in, or -1 for a card "
+        "you intend to hold rather than play this turn. Two cards played this turn "
+        "must not share the same order.\n"
         "  - Any Scoring card in hand must be played this turn: decide which action "
         "round, and what has to change in that region first.\n"
         "  - Name the Ops that meet the Military Operations requirement (equal to "

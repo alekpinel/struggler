@@ -297,7 +297,7 @@ TURN_PLAN_SCHEMA: dict[str, Any] = {
             "items": {
                 "type": "object",
                 "additionalProperties": False,
-                "required": ["card", "intended_use", "purpose"],
+                "required": ["card", "intended_use", "purpose", "order"],
                 "properties": {
                     "card": {"type": "string"},
                     "intended_use": {
@@ -307,6 +307,18 @@ TURN_PLAN_SCHEMA: dict[str, Any] = {
                     "purpose": {
                         "type": "string",
                         "description": "What that use is meant to accomplish, in one line.",
+                    },
+                    "order": {
+                        "type": "integer",
+                        "description": (
+                            "This card's position in the sequence you intend to play "
+                            "cards this turn. -1 for a card you intend to hold rather "
+                            "than play now. 0 for a card you intend to headline. 1, 2, "
+                            "3... for the action rounds you'll spend, in order, never "
+                            "exceeding the number of action rounds you actually have "
+                            "left this turn. No two cards played this turn may share "
+                            "the same order except -1."
+                        ),
                     },
                 },
             },
@@ -436,7 +448,7 @@ def parse_turn_plan_response(payload: Mapping[str, Any], *, turn: int) -> TurnPl
             payload.get("scoring_cards", []), "scoring_cards", ("card", "when", "preparation")
         ),
         card_plan=_obj_list(
-            payload.get("card_plan", []), "card_plan", ("card", "intended_use", "purpose")
+            payload.get("card_plan", []), "card_plan", ("card", "intended_use", "purpose", "order")
         ),
         influence_targets=_obj_list(
             payload.get("influence_targets", []), "influence_targets", ("country", "why")
@@ -471,10 +483,22 @@ def render_turn_plan(plan: TurnPlan) -> str:
             for item in plan.scoring_cards
         ]
     if plan.card_plan:
-        lines.append("  Cards:")
+        def _order_key(item: Mapping[str, str]) -> tuple[int, int]:
+            try:
+                order = int(item.get("order", "-1") or "-1")
+            except ValueError:
+                order = -1
+            # Held cards (order -1) sort after every played card; headline
+            # (order 0) plays before any action round (order 1, 2, 3...).
+            return (1, 0) if order < 0 else (0, order)
+
+        lines.append(
+            "  Cards, in the order you intend to play them "
+            "(order -1 = held, not played this turn; order 0 = headline):"
+        )
         lines += [
-            f"    - {item['card']} -> {item['intended_use']}: {item['purpose']}"
-            for item in plan.card_plan
+            f"    - [{item.get('order', '-1')}] {item['card']} -> {item['intended_use']}: {item['purpose']}"
+            for item in sorted(plan.card_plan, key=_order_key)
         ]
     if plan.influence_targets:
         lines.append("  Influence targets, in priority order:")

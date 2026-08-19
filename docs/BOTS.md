@@ -348,6 +348,17 @@ the plan. `render_turn_plan` then re-injects it into every user turn for
 the rest of that turn, and each decision is asked to say how it serves the
 plan — or why the board changed.
 
+The planning request also states the turn's round budget explicitly —
+`action_rounds(observation.turn)` (6 early-war, 7 mid/late) minus the
+current `action_round`, i.e. how many action rounds are actually left to
+spend a card in — so the model can't schedule more cards than it has
+rounds for. Each `card_plan` entry carries an `order`: `-1` for a card
+meant to be held, `0` for this turn's headline, `1, 2, 3...` for the
+sequence cards are meant to be played in across the remaining action
+rounds. `render_turn_plan` sorts by it (headline, then action rounds in
+order, held cards last) so the standing plan reads as a play sequence, not
+just a per-card use.
+
 - Planning failure is never fatal: `_planned_turn` is stamped either way,
   so a turn whose planning call failed plays without a plan instead of
   retrying at every decision.
