@@ -49,13 +49,20 @@ def _display_label(value: str) -> str:
     return f"#{card.number} {card.name} (Ops {card.ops})"
 
 
-def _matches(raw: str, value: str) -> bool:
+def _matches_exact(raw: str, value: str) -> bool:
+    """A non-card keyword typed verbatim (e.g. "stop") or a card's printed
+    number. Checked before name substrings so a keyword never loses to a
+    card whose name merely contains that word (e.g. "How I Learned to Stop
+    Worrying")."""
     if raw == value.lower():
         return True
     card = _CARDS.get(value)
-    if card is None:
-        return False
-    return raw == str(card.number) or raw in card.name.lower().replace("_", " ")
+    return card is not None and raw == str(card.number)
+
+
+def _matches_partial(raw: str, value: str) -> bool:
+    card = _CARDS.get(value)
+    return card is not None and raw in card.name.lower().replace("_", " ")
 
 
 def _print_event_summary(card_id: str) -> None:
@@ -140,7 +147,9 @@ class OperatorConsolePlayer:
             if raw in ("h", "history"):
                 _print_history(history)
                 continue
-            matches = [a for a in options if _matches(raw, _match_key(a))]
+            matches = [a for a in options if _matches_exact(raw, _match_key(a))]
+            if not matches:
+                matches = [a for a in options if _matches_partial(raw, _match_key(a))]
             if len(matches) == 1:
                 return matches[0]
             if not matches:
