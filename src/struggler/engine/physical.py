@@ -133,9 +133,12 @@ class OperatorConsolePlayer:
     def _prompt_free_text(
         self, options: tuple[Action, ...], observation: Observation, history: Sequence[Event]
     ) -> Action:
+        keywords = sorted({_match_key(a) for a in options if _CARDS.get(_match_key(a)) is None})
         print(
             f"({len(options)} option(s) — too many to list. Enter the physical "
-            "card's printed number, or part of its name.)"
+            "card's printed number, or part of its name."
+            + (f" Or type a keyword: {', '.join(keywords)}." if keywords else "")
+            + ")"
         )
         while True:
             raw = input(

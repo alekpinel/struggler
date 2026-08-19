@@ -105,7 +105,7 @@
       "US": "Usually 3 Ops early. The event is worth more in the Late War, when it removes 2 per country."
     },
     "Decolonization": {
-      "USSR": "Strong event. Use some of the points to gain access to South America and to Africa (Zaire, Nigeria) or Thailand if you are not already there.",
+      "USSR": "Strong event. Use some of the points to gain access to Africa (Zaire, Nigeria) or Thailand if you are not already there.",
       "US": "Space it. 2 Ops can't undo it."
     },
     "Red_Scare_Purge": {
@@ -205,7 +205,7 @@
       "USSR": "Always event. Your door into South America."
     },
     "Willy_Brandt": {
-      "USSR": "Event: 1 VP and West Germany loses NATO protection for good. Dead if Tear Down This Wall was played."
+      "USSR": "Event only if it will break control of West Germany. If not, use for ops."
     },
     "Muslim_Revolution": {
       "USSR": "Event once they've actually invested in the Middle East. Dead if AWACS is in effect.",
@@ -348,7 +348,7 @@
       "USSR": "Trigger it in your last AR so the lock costs you nothing."
     },
     "Latin_American_Debt_Crisis": {
-      "USSR": "Play it late in a turn, when their hand is nearly empty. The China Card can't pay it.",
+      "USSR": "If you can use it to break control of south america, event it. If not, use the ops.",
       "US": "Discard rather than let them double up, unless the doubling would be small."
     },
     "Tear_Down_This_Wall": {
@@ -365,8 +365,7 @@
       "USSR": "Event: 1 VP and three removals in Western Europe. Aim where control breaks."
     },
     "Wargames": {
-      "any": "Only at DEFCON 2. Check the score: if you lead by more than 6, it's an instant win. Otherwise it hands them 6 VP.",
-      "USSR": "This is your turn-8 out. Keep DEFCON at 2 and the lead above 6."
+      "any": "If you have 7 vp of advantage and DEFCON 2 play the event. If not, use it as ops."
     },
     "Solidarity": {
       "US": "Needs John Paul II already played. Event to take Poland, otherwise 2 Ops.",
