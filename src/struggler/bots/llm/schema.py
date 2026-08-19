@@ -252,7 +252,13 @@ TURN_PLAN_SCHEMA: dict[str, Any] = {
                 "comes first (it must be played this turn). With no Scoring "
                 "card in hand, prioritize the region(s) that haven't been "
                 "scored in the longest time -- 'never scored' outranks every "
-                "turn number."
+                "turn number. Only list a region you're actually spending Ops "
+                "or an Event's Influence change in this turn -- a card whose "
+                "Event merely touches a region while you HOLD that card (not "
+                "playing it) doesn't count. On turns 1-3, never list a Mid War "
+                "region (Central America, South America, Africa) "
+                "-- it has no Scoring card in the deck yet, so it cannot "
+                "be this turn's focus regardless of priority rank."
             ),
             "items": {
                 "type": "object",

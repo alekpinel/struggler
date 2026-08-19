@@ -99,6 +99,13 @@ _BATTLEGROUND_DOCTRINE = [
     "Locking in a region for a Scoring card already in your hand is NOT equally "
     "urgent: nothing can take that card from you, so its Ops can wait for a "
     "later action round as long as the region is ready before you play it.",
+    "  - Meeting the Military Operations requirement with the cheapest possible "
+    "filler Coup (a 1-Op non-Battleground jab) is the floor, not the ceiling. "
+    "Before defaulting to that filler, check whether you hold a card that could "
+    "instead pay for a second REAL Coup against a live Battleground target -- at "
+    "high DEFCON, with cards to spare, a second Battleground Coup is often worth "
+    "more than an extra action round of Scoring-region consolidation, especially "
+    "before the action round you actually need to play the Scoring card in.",
 ]
 
 _COMMON_GUIDANCE = [
@@ -160,6 +167,11 @@ _USSR_GUIDANCE = [
     "  - Early targets: Egypt and Libya via Nasser, then east into Pakistan and India, reach to Thailand.",
     "  - Don't put 1 Op into Pakistan at DEFCON 4+. You can't coup back and you hand the US a target.",
     "  - China Card is your 4 Ops (5 if every Op goes to Asia). Holding it lets you hold an extra card -- your insurance against DEFCON-suicide hands.",
+    "  - NATO's Event is inert until Marshall Plan or Warsaw Pact Formed has "
+    "fired -- until then it's a fully safe 4-Ops card, as good as any other for "
+    "an early coup. Prefer spending a safe card like NATO on an early coup and "
+    "hold the China Card instead: an unplayed China Card is worth an extra card "
+    "in hand, which a substitute Ops card is not.",
     "  - You have no natural access to the Americas. Don't invest there without an access Event.",
     "  - Don't take Romania with ops, you will get it with the card Romanian Adbication.",
 ]
