@@ -415,6 +415,15 @@ class Engine:
         'predeal' instead of 'headline' so `_advance()` runs opening setup
         placement once dealing has fully drained, instead of jumping
         straight to headline picks."""
+        # `action_round` is otherwise only written by `_begin_action_rounds`,
+        # which doesn't fire until headline resolution finishes -- so without
+        # this, every observation made during the new turn's headline phase
+        # (including a Player's first look at the new turn, e.g. LLMPlayer's
+        # turn-plan call) still reports the *previous* turn's last action
+        # round. A plan built from that stale number undercounts how many
+        # action rounds are actually left and can wrongly mark most of the
+        # hand 'hold'.
+        self.action_round = 1
         if self.turn == 1:
             self._add_period_to_deck(Period.EARLY_WAR)
         elif self.turn == 4:

@@ -70,6 +70,24 @@ def test_setup_places_the_additional_influence_then_reaches_headline():
     assert engine.pending_decision.actor is Side.USSR
 
 
+def test_action_round_resets_to_1_at_the_start_of_a_new_turns_headline():
+    # Regression: `action_round` used to be written only by
+    # `_begin_action_rounds`, which doesn't run until headline resolution
+    # finishes. So every decision made during a new turn's headline phase --
+    # including a Player's very first look at that turn -- still reported the
+    # PREVIOUS turn's last action round (e.g. 6). A turn plan built from that
+    # stale number (LLMPlayer's remaining-action-rounds calculation) badly
+    # undercounts how many rounds are actually left and can wrongly mark most
+    # of the hand 'hold'.
+    engine = Engine.new_game(seed=1, events=False)
+    while engine.turn == 1:
+        engine.step(engine.legal_actions()[0])
+    assert engine.turn == 2
+    assert engine.phase == "headline"  # before _begin_action_rounds runs
+    assert engine.action_round == 1
+    assert engine.observe(engine.pending_decision.actor).action_round == 1
+
+
 @settings(max_examples=20, deadline=None)
 @given(seed=st.integers(min_value=0, max_value=MAX_INT32),
        driver_seed=st.integers(min_value=0, max_value=MAX_INT32))
