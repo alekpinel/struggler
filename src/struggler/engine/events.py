@@ -914,17 +914,38 @@ def _aldrich_ames(engine: "Engine", side: Side) -> None:
     # The USSR sees the US hand and chooses one card the US must discard. (The
     # remix's ongoing "sees the hand for the turn" reveal is not modeled.)
     if engine.physical_mode and engine.physical_side is Side.US:
-        # The USSR bot can't inspect a hidden US hand -- route the choice to
-        # the operator instead (who can see it), sourcing candidates from
-        # the physical-hand pool rather than real ids known to the engine.
-        us_hand = engine._physical_hand_candidates(Side.US)
-        chooser = Side.CHANCE
-    else:
-        us_hand = engine.hands["US"]
-        chooser = Side.USSR
+        # The card's printed effect is "reveal the hand, then choose": the
+        # USSR bot can't inspect a hidden US hand directly, so first have the
+        # operator declare every still-hidden slot's real identity (one at a
+        # time, exactly like DEAL_CARD), matching the physical reveal. Only
+        # once the hand is genuinely fully known does the real USSR player
+        # (the LLM bot included) get to make its own choice from it --
+        # rather than the operator, who is the US player, picking on the
+        # bot's behalf.
+        _push_aldrich_ames_reveal(engine)
+        return
+    us_hand = engine.hands["US"]
     if not us_hand:
         return
-    engine.push_event_choice("Aldrich_Ames_Remix", chooser, tuple(us_hand))
+    engine.push_event_choice("Aldrich_Ames_Remix", Side.USSR, tuple(us_hand))
+
+
+def _push_aldrich_ames_reveal(engine: "Engine") -> None:
+    from struggler.engine.core import HIDDEN_CARD
+
+    if HIDDEN_CARD not in engine.hands["US"]:
+        us_hand = list(engine.hands["US"])
+        if us_hand:
+            engine.push_event_choice("Aldrich_Ames_Remix", Side.USSR, tuple(us_hand))
+        return
+    engine.push_event_choice(
+        "Aldrich_Ames_Remix_reveal", Side.CHANCE, tuple(engine.hidden_pool)
+    )
+
+
+def _aldrich_ames_reveal_choice(engine: "Engine", side: Side, choice: str, context: dict) -> None:
+    engine._reveal_in_hand(Side.US, choice)
+    _push_aldrich_ames_reveal(engine)
 
 
 def _aldrich_ames_choice(engine: "Engine", side: Side, choice: str, context: dict) -> None:
@@ -1664,6 +1685,7 @@ CHOICE_ROUTERS: dict[str, Callable[["Engine", Side, str], None]] = {
     "Wargames": _wargames_choice,
     "Summit_defcon": _summit_defcon_choice,
     "Aldrich_Ames_Remix": _aldrich_ames_choice,
+    "Aldrich_Ames_Remix_reveal": _aldrich_ames_reveal_choice,
     "Grain_Sales_to_Soviets": _grain_sales_choice,
     "Ask_Not_What_Your_Country_Can_Do_For_You": _ask_not_choice,
     "Missile_Envy_pick": _missile_envy_pick_choice,

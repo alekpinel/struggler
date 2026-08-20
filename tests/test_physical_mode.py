@@ -246,22 +246,41 @@ def test_ask_not_with_a_physical_hand_discards_and_redraws():
 # -- cross-hand events routed to the operator ---------------------------------
 
 
-def test_aldrich_ames_routes_to_operator_when_us_hand_is_physical():
+def test_aldrich_ames_reveals_full_hand_then_lets_ussr_choose_when_us_is_physical():
     engine = _bare_physical(Side.US, seed=1)
     engine.hidden_pool = ["Duck_and_Cover", "Fidel"]
     engine.hands["US"] = [HIDDEN_CARD, HIDDEN_CARD]
     engine._fire_event(Side.USSR, "Aldrich_Ames_Remix")
+
+    # Phase 1: the USSR bot cannot see the physical US hand, so the operator
+    # declares every hidden slot's real card first, one at a time -- same
+    # shape as DEAL_CARD -- matching the card's printed "reveal the hand".
     decision = engine.pending_decision
-    # Not USSR: the USSR bot cannot see the physical US hand, so the choice
-    # is routed to the operator (CHANCE), same as manual dice / DEAL_CARD.
     assert decision.actor is Side.CHANCE
+    assert {a.payload["choice"] for a in decision.options} == {"Duck_and_Cover", "Fidel"}
+    engine.step(Action(DecisionKind.EVENT_CHOICE, {"choice": "Duck_and_Cover"}))
+    assert "Duck_and_Cover" in engine.hands["US"]
+    assert "Duck_and_Cover" not in engine.hidden_pool
+    assert engine.hands["US"].count(HIDDEN_CARD) == 1
+
+    decision = engine.pending_decision
+    assert decision.actor is Side.CHANCE
+    assert {a.payload["choice"] for a in decision.options} == {"Fidel"}
+    engine.step(Action(DecisionKind.EVENT_CHOICE, {"choice": "Fidel"}))
+    assert HIDDEN_CARD not in engine.hands["US"]
+
+    # Phase 2: the hand is now fully known -- the real USSR player (a bot's
+    # own strategic choice, e.g. the LLM player) picks from it directly,
+    # exactly like a non-physical game, instead of the US operator picking
+    # on the bot's behalf.
+    decision = engine.pending_decision
+    assert decision.actor is Side.USSR
     assert {a.payload["choice"] for a in decision.options} == {"Duck_and_Cover", "Fidel"}
     chosen = decision.options[0]
     engine.step(chosen)
     cid = chosen.payload["choice"]
     assert cid in engine.discard_pile
-    assert cid not in engine.hidden_pool
-    assert engine.hands["US"].count(HIDDEN_CARD) == 1
+    assert cid not in engine.hands["US"]
 
 
 def test_aldrich_ames_unaffected_when_us_hand_is_not_physical():
