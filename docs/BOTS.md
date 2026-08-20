@@ -464,16 +464,13 @@ def board_value(weights: GreedyWeights, board: Board, side: Side) -> float:
   Space Race." A scoring card's headline/play value is its `score_region()`
   net VP, signed favorably or unfavorably for the acting side.
 
-**Known limitation, by design** (approved scope for v1 — see the note in
-`bots/greedy.py`'s module docstring): only the 7 core board decision kinds
-get real heuristics (`PLACE_INFLUENCE`, `COUP_TARGET`,
-`REALIGNMENT_TARGET`, `OPS_TYPE`, `HEADLINE_PLAY`, `ACTION_ROUND_PLAY`,
-`PLAY_MODE`). Every event-specific decision kind falls back to the first
-legal option — the same incremental, card-by-card growth pattern the event
-layer itself used; extend `_SCORERS` as each one earns a heuristic worth
-writing, rather than guessing at all ~13 up front. `tests/test_greedy.py`
-covers the DEFCON safety rule, the fallback behavior, and a win-rate sanity
-check (`GreedyPlayer` vs. `RandomPlayer` over many seeds, both seat
-assignments) — a regression net for "the heuristics still actually help,"
-not a claim of strategic strength.
+Only the core board decision kinds get real heuristics; every
+event-specific kind falls back to the first legal option. That scope, and
+why it is deliberate, is in [LIMITATIONS.md](LIMITATIONS.md) — extend
+`_SCORERS` as each kind earns a heuristic worth writing.
+
+`tests/test_greedy.py` covers the DEFCON safety rule, the fallback
+behavior, and a win-rate sanity check (`GreedyPlayer` vs. `RandomPlayer`
+over many seeds, both seat assignments) — a regression net for "the
+heuristics still actually help," not a claim of strategic strength.
 

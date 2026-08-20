@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "struggler"
-version = "0.1.0"
-description = "API-first, deterministic rules engine for Twilight Struggle."
+version = "1.0.0"
+description = "Rules engine for Twilight Struggle."
 readme = "README.md"
 requires-python = ">=3.12"
 license = { text = "MIT" }

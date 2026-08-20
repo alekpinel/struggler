@@ -1,9 +1,9 @@
 """Card-event mechanics.
 
 This module owns the *event text* of cards — deliberately kept out of the
-card data layer (see docs/CARDS.md). Each event is
-a small function that mutates game state through the same primitives the board
-mechanics already expose (influence, control, DEFCON, VP, Space Race, the seeded
+card data layer (see docs/CARDS.md). Each event is a small function that
+mutates game state through the same primitives the board mechanics already
+expose (influence, control, DEFCON, VP, Space Race, the seeded
 dice-as-CHANCE decisions), never by reaching around the decision stack.
 
 Design (mandates #1-#2):
@@ -14,8 +14,8 @@ Design (mandates #1-#2):
   a persistent per-turn modifier the engine consults later (tier 3). Player-choice
   events (tier 2) enqueue their own player decisions and are added incrementally.
 - `EVENTS` maps a card id to its `Event`. A card absent from this map has no
-  implemented event yet: in events mode it is a no-op discard.
-  This is what lets the deck grow card-by-card without touching the game loop.
+  implemented event yet: in events mode it is a no-op discard, which is what
+  lets the deck grow card-by-card without touching the game loop.
 
 Every numeric effect below is taken from the physical card text (GMT Games,
 2005 / 2009 Deluxe), not from any reference implementation.

@@ -59,39 +59,20 @@ Design:
   itself: a fresh `LLMPlayer` always starts with empty memory, even if a
   snapshot already exists at `log_path` (a stale file from an earlier,
   unrelated game must never be picked up silently -- the engine itself
-  always starts a new game unless the caller explicitly reconstructs one,
-  see mandate #5 in docs/ARCHITECTURE.md, and this bot's memory follows the same rule).
+  always starts a new game unless the caller explicitly reconstructs one --
+  see mandate #5 in docs/ARCHITECTURE.md -- and this bot's memory follows
+  the same rule).
   Pass `resume=True` to load the existing snapshot at construction time
   instead -- see `conversation_log.py`'s module docstring for the exact
   resumption contract (this only covers the bot's own state; the caller is
   responsible for the `Engine` and `history` halves of resuming a game).
 
-Known limitations (v1, documented rather than engineered around):
-- Resuming from `log_path` does not restore `self._rng`'s exact internal
-  sequence position -- a fresh instance's `random.Random(seed)` starts
-  over. Acceptable because `_rng` is only ever consulted on the fallback
-  path (picking *a* legal action after total LLM failure); mandate #3's
-  determinism guarantee is about the engine's own RNG, not a bot's
-  internal fallback RNG.
-- No context-budget safety valve: the conversation resends in full every
-  call, and the event-delta history plus the model's own past responses
-  still grow without bound turn over turn (only the per-instant board
-  report/hand dossier/cards-in-play are kept from re-accumulating). A long
-  enough game can still in theory approach the model's context limit or a
-  provider's tokens-per-minute rate limit.
-- No full card event/flavor text is available to the model, only the
-  mechanical facts in `cards.json`, including its hand-maintained
-  `event_summary` field per card (which can drift from `events.py` as it
-  evolves -- no automated sync check in v1).
-- Two concrete provider adapters ship (`anthropic_client.py`,
-  `openai_client.py`), though `LLMClient` itself is provider-agnostic and
-  a third is just another adapter module away.
-- The plan-queue matcher checks legality only, not optimality: a step
-  predicted past a CHANCE roll can be silently consumed if it happens to
-  remain legal regardless of the roll's actual outcome -- the system
-  prompt asks the model to avoid this, the mechanism itself doesn't
-  enforce it. The same class of imperfection `GreedyPlayer` already has
-  from having no lookahead.
+Known limitations are listed in docs/LIMITATIONS.md ("Bots"), not repeated
+here -- notably the unbounded conversation growth, the plan-queue matcher's
+legality-only check, and `_rng`'s position not surviving a resume. The one
+worth knowing while reading this file: `event_summary` in `cards.json` is
+the model's only source of card mechanics, and nothing checks it against
+`events.py`.
 """
 
 from __future__ import annotations
