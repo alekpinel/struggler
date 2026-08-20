@@ -378,9 +378,17 @@ class Engine:
         the physical side already commits to a real card at the table
         independently of when the app asks, so going second here costs it
         no information, and it's what lets the operator learn the bot's
-        card in time to place it."""
+        card in time to place it. That rationale is specific to physical
+        mode, so it takes precedence there over Space Race box 4 (6.4.4):
+        outside physical mode, box 4's sole holder instead picks second,
+        after the opponent -- `_push_headline` is what actually surfaces
+        the opponent's committed pick to them at that point."""
         if self.physical_mode:
             return (self.physical_side.opponent, self.physical_side)
+        holder = self.game_effects.get("space_race_headline_reveal_holder")
+        if holder is not None:
+            holder_side = Side(holder)
+            return (holder_side.opponent, holder_side)
         return (Side.USSR, Side.US)
 
     def _advance_once(self) -> None:
@@ -752,7 +760,18 @@ class Engine:
             # rather than the candidate list silently staying stale.
             options += (Action(DecisionKind.HEADLINE_PLAY, {"card": RESHUFFLE_NOW}),)
         if options:
-            self._push(side, DecisionKind.HEADLINE_PLAY, options, {})
+            context: dict = {}
+            # Space Race box 4 (6.4.4): its sole holder picks second (per
+            # _headline_pick_order) and gets to see the opponent's already-
+            # committed card before choosing their own. `pending_decision` is
+            # shared across both observations (mandate #4), which is fine
+            # here -- the opponent already knows their own card, and this
+            # context only ever appears on the holder's own decision.
+            if self.game_effects.get("space_race_headline_reveal_holder") == side.value:
+                opponent_pick = self._headline[side.opponent.value]
+                if opponent_pick is not None:
+                    context["opponent_headline"] = opponent_pick
+            self._push(side, DecisionKind.HEADLINE_PLAY, options, context)
 
     def _handle_headline_play(self, decision: Decision, action: Action) -> None:
         side = decision.actor
@@ -1198,9 +1217,10 @@ class Engine:
         side to reach its box, and is cancelled outright (not transferred)
         the instant the second side also reaches it. The abilities modeled
         as a held flag are keyed here: box 2 (a second Space Race attempt
-        per turn, checked by _space_attempts_allowed), box 6 (may discard
-        the Held Card), and box 8 (an extra Action Round). Box 4's
-        headline-order perk remains unmodeled."""
+        per turn, checked by _space_attempts_allowed), box 4 (picks its
+        Headline second and sees the opponent's pick first, handled by
+        _headline_pick_order/_push_headline), box 6 (may discard the Held
+        Card), and box 8 (an extra Action Round)."""
         key = RULES["space_race_ability_keys"].get(str(box))
         if key is None:
             return

@@ -8321,7 +8321,9 @@
         "headline_pending": [],
         "events_enabled": false,
         "turn_effects": {},
-        "game_effects": {},
+        "game_effects": {
+          "space_race_headline_reveal_holder": "US"
+        },
         "our_man_queue": [],
         "our_man_kept": [],
         "physical_mode": false,
