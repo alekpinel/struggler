@@ -114,6 +114,14 @@ Headline pick to the console the moment it's chosen so the operator can
 place the matching physical card at reveal time. Every other bot decision
 still surfaces in time via the ordinary recap.
 
+That announcement only arrives before the operator's own pick if the bot
+is actually asked first: non-physical games always ask USSR then US, but
+`Engine._headline_pick_order` overrides that in physical mode so the bot
+side goes first regardless of which side it is, and the physical side
+second. The physical side commits to a real card at the table independently
+of when the app asks, so going second costs it no information — and it's
+what makes the announcement useful instead of arriving after the fact.
+
 Every hand-touching event is wired for a physical hidden hand. Three need
 the *deciding* side's actor overridden to `Side.CHANCE`, so the operator —
 not a bot that cannot see the target hand — answers: Aldrich Ames Remix and

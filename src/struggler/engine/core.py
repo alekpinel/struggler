@@ -368,14 +368,30 @@ class Engine:
             if self.phase in ("idle", "complete", "setup"):
                 return
 
+    def _headline_pick_order(self) -> tuple[Side, Side]:
+        """Which side picks its Headline card first: an arbitrary but fixed
+        serialization of the simultaneous secret pick (distinct from
+        `_headline_resolution_order`'s reveal-order tie-break). Normally
+        USSR then US. In physical mode the bot always picks first instead,
+        so its card can be announced (`physical.BotHeadlineAnnouncer`)
+        before the operator is asked for the physical side's own pick --
+        the physical side already commits to a real card at the table
+        independently of when the app asks, so going second here costs it
+        no information, and it's what lets the operator learn the bot's
+        card in time to place it."""
+        if self.physical_mode:
+            return (self.physical_side.opponent, self.physical_side)
+        return (Side.USSR, Side.US)
+
     def _advance_once(self) -> None:
         if self.phase == "headline":
             if not self._headline_resolving:
-                if self._headline["USSR"] is None:
-                    self._push_headline(Side.USSR)
+                first, second = self._headline_pick_order()
+                if self._headline[first.value] is None:
+                    self._push_headline(first)
                     return
-                if self._headline["US"] is None:
-                    self._push_headline(Side.US)
+                if self._headline[second.value] is None:
+                    self._push_headline(second)
                     return
                 # Both cards are chosen: freeze the resolution order and clear
                 # the picks so they live in exactly one place from here on.

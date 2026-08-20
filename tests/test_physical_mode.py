@@ -70,6 +70,24 @@ def test_full_opening_deal_completes_into_opening_setup():
     assert len(engine.hands["USSR"]) == hand_limit(1)
 
 
+@pytest.mark.parametrize("physical_side", [Side.US, Side.USSR])
+def test_headline_bot_picks_and_is_announced_before_the_physical_side(physical_side):
+    # Unlike non-physical games (always USSR then US), physical mode always
+    # asks the bot for its Headline pick first, whichever side it is -- so
+    # its choice is announced (physical.BotHeadlineAnnouncer) in time for the
+    # operator to place the matching card before their own pick is asked.
+    engine = Engine.new_game(seed=2, physical_mode=True, physical_side=physical_side, events=False)
+    steps = 0
+    while engine.pending_decision.kind is not DecisionKind.HEADLINE_PLAY:
+        engine.step(engine.pending_decision.options[0])
+        steps += 1
+        assert steps < 500
+    bot_side = physical_side.opponent
+    assert engine.pending_decision.actor is bot_side
+    engine.step(engine.pending_decision.options[0])
+    assert engine.pending_decision.actor is physical_side
+
+
 # -- manual dice --------------------------------------------------------------
 
 

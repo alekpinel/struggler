@@ -1321,11 +1321,12 @@ def _south_african_unrest_choice(engine: "Engine", side: Side, choice: str, cont
     else:  # and_adjacent
         engine.add_influence("South_Africa", Side.USSR, 1)
         adjacent = sorted(engine.board.neighbors("South_Africa"))
-        engine.push_event_choice("South_African_Unrest_adj", Side.USSR, tuple(adjacent))
-
-
-def _south_african_unrest_adj_choice(engine: "Engine", side: Side, choice: str, context: dict) -> None:
-    engine.add_influence(choice, Side.USSR, 2)
+        # The 2 points may go entirely to one adjacent country or be split
+        # between them (e.g. 1 in Angola and 1 in SE African States).
+        engine.push_event_influence(
+            event="South_African_Unrest_adj", op="place", choose_side=Side.USSR,
+            inf_side=Side.USSR, remaining=2, candidates=adjacent, cap=2,
+        )
 
 
 def _payable_cards(engine: "Engine", side: Side) -> list[str]:
@@ -1671,7 +1672,6 @@ CHOICE_ROUTERS: dict[str, Callable[["Engine", Side, str], None]] = {
     "Che": _che_choice,
     "Cuban_Missile_Crisis_defuse": _cuban_missile_crisis_defuse_choice,
     "South_African_Unrest": _south_african_unrest_choice,
-    "South_African_Unrest_adj": _south_african_unrest_adj_choice,
     "Blockade": _blockade_choice,
     "Latin_American_Debt_Crisis": _latin_american_debt_crisis_choice,
     "Latin_American_Debt_Crisis_double": _latin_debt_double_choice,
