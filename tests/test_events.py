@@ -1680,15 +1680,29 @@ def test_east_european_unrest_removes_one_early_two_late():
     assert late.board.influence["Poland"]["USSR"] == 1  # removed 2 in the Late War
 
 
-def test_south_african_unrest_adjacent_branch():
+def test_south_african_unrest_adjacent_branch_all_in_one_country():
     engine = _bare()
     engine._fire_event(Side.USSR, "South_African_Unrest")
     engine.step(Action(DecisionKind.EVENT_CHOICE, {"choice": "and_adjacent"}))
     assert engine.board.influence["South_Africa"]["USSR"] == 1
     d = engine.pending_decision
-    assert {a.payload["choice"] for a in d.options} == {"Angola", "Botswana"}
-    engine.step(Action(DecisionKind.EVENT_CHOICE, {"choice": "Angola"}))
+    assert d.kind is DecisionKind.EVENT_INFLUENCE
+    assert {a.payload["country"] for a in d.options} == {"Angola", "Botswana"}
+    engine.step(Action(DecisionKind.EVENT_INFLUENCE, {"country": "Angola"}))
+    engine.step(Action(DecisionKind.EVENT_INFLUENCE, {"country": "Angola"}))
     assert engine.board.influence["Angola"]["USSR"] == 2
+    assert engine.pending_decision is None
+
+
+def test_south_african_unrest_adjacent_branch_split_between_countries():
+    engine = _bare()
+    engine._fire_event(Side.USSR, "South_African_Unrest")
+    engine.step(Action(DecisionKind.EVENT_CHOICE, {"choice": "and_adjacent"}))
+    engine.step(Action(DecisionKind.EVENT_INFLUENCE, {"country": "Angola"}))
+    engine.step(Action(DecisionKind.EVENT_INFLUENCE, {"country": "Botswana"}))
+    assert engine.board.influence["Angola"]["USSR"] == 1
+    assert engine.board.influence["Botswana"]["USSR"] == 1
+    assert engine.pending_decision is None
 
 
 def test_south_african_unrest_south_africa_only_branch():

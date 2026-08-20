@@ -74,3 +74,18 @@ def test_greedy_falls_back_to_first_option_for_unmapped_decision_kinds():
     action = GreedyPlayer().choose_action(observation, [])
 
     assert action == fallback_decision.options[0]
+
+
+def test_greedy_aldrich_ames_remix_discards_the_opponents_highest_ops_card():
+    """Unlike the generic EVENT_CHOICE fallback above, Aldrich Ames Remix has
+    its own heuristic: force the discard of the US hand's highest-Ops card,
+    rather than blindly taking whichever option came first."""
+    engine = Engine.new_game(seed=1)
+    engine.hands["US"] = ["Nasser", "Fidel", "Duck_and_Cover"]  # Ops 1, 2, 3
+    engine._fire_event(Side.USSR, "Aldrich_Ames_Remix")
+    observation = engine.observe(Side.USSR)
+    assert observation.pending_decision.kind is DecisionKind.EVENT_CHOICE
+
+    action = GreedyPlayer().choose_action(observation, [])
+
+    assert action.payload["choice"] == "Duck_and_Cover"

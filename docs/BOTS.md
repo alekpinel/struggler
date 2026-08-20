@@ -114,18 +114,33 @@ Headline pick to the console the moment it's chosen so the operator can
 place the matching physical card at reveal time. Every other bot decision
 still surfaces in time via the ordinary recap.
 
+That announcement only arrives before the operator's own pick if the bot
+is actually asked first: non-physical games always ask USSR then US, but
+`Engine._headline_pick_order` overrides that in physical mode so the bot
+side goes first regardless of which side it is, and the physical side
+second. The physical side commits to a real card at the table independently
+of when the app asks, so going second costs it no information — and it's
+what makes the announcement useful instead of arriving after the fact.
+
 Every hand-touching event is wired for a physical hidden hand. Three need
-the *deciding* side's actor overridden to `Side.CHANCE`, so the operator —
-not a bot that cannot see the target hand — answers: Aldrich Ames Remix and
-Missile Envy source candidates from `_physical_hand_candidates` and route
-the choice the same way `DEAL_CARD` does, while The Cambridge Five asks one
-per-scoring-card yes/no `EVENT_CHOICE` query at a time
-(`_push_cambridge_five_query`). All three respect one invariant that
-`_physical_hand_candidates` and `push_random_discard`'s physical branch
-enforce elsewhere too: **candidates must respect the hand's true,
-always-public size**, so Cambridge Five stops the moment the last open
-`HIDDEN_CARD` slot is filled — asking further would have nowhere left to
-reveal an answer into.
+the *deciding* side to inspect a hand it cannot see. Missile Envy's
+`choose_side` is overridden to `Side.CHANCE`, sourcing candidates from
+`_physical_hand_candidates` and routing the choice the same way `DEAL_CARD`
+does — the operator, not a bot that cannot see the target hand, answers
+directly. Aldrich Ames Remix and The Cambridge Five instead reveal first
+and decide second, since their printed effect is "reveal the hand, *then*
+choose": Aldrich Ames has the operator declare every still-hidden slot's
+real card one at a time (`_push_aldrich_ames_reveal`, options sourced from
+`hidden_pool` the same way `DEAL_CARD` is) until the whole hand is known,
+then routes the actual choice to the real USSR `Player` — the LLM bot
+included — exactly as in a non-physical game, rather than the US operator
+picking on the bot's behalf. The Cambridge Five asks one per-scoring-card
+yes/no `EVENT_CHOICE` query at a time instead (`_push_cambridge_five_query`).
+All three respect one invariant that `_physical_hand_candidates` and
+`push_random_discard`'s physical branch enforce elsewhere too: **candidates
+must respect the hand's true, always-public size**, so both reveal loops
+stop the moment the last open `HIDDEN_CARD` slot is filled — asking further
+would have nowhere left to reveal an answer into.
 
 Two placement details matter for a physical hand. Missile Envy's picked
 card stays visible in the giver's hand (`_reveal_in_hand`, not an immediate
