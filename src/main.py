@@ -36,10 +36,7 @@ def build_llm_client(provider: str | None = None, model: str | None = None):
 
     `provider` and `model` override the environment when given; otherwise
     `STRUGGLER_LLM_PROVIDER` / `STRUGGLER_LLM_MODEL` are consulted, falling
-    back to this module's defaults. `build_player`'s "llm" kind also
-    consults `STRUGGLER_LLM_PLAN_PROVIDER` / `STRUGGLER_LLM_PLAN_MODEL` to
-    build a second client for the once-per-turn planning call only, via
-    this same function.
+    back to this module's defaults.
     """
     provider = provider or os.environ.get("STRUGGLER_LLM_PROVIDER", DEFAULT_LLM_PROVIDER)
     if provider not in DEFAULT_LLM_MODELS:

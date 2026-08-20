@@ -63,6 +63,41 @@ python src/main.py --resume-game-log logs/2026-08-18_10-58_game.json \
 from its log — see [docs/BOTS.md](docs/BOTS.md) for the resumption
 contract, including keeping that memory in sync if you trim the game log.
 
+## Configure an LLM bot
+
+The provider SDKs read their key straight from the environment — struggler
+never touches it itself:
+
+```sh
+export ANTHROPIC_API_KEY=...   # for provider=anthropic
+export OPENAI_API_KEY=...      # for provider=openai (the default)
+```
+
+Provider and model are picked via environment variables, each overridable
+per run:
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `STRUGGLER_LLM_PROVIDER` | `openai` | `anthropic` or `openai` — used for both the per-decision client and the once-per-turn planning client |
+| `STRUGGLER_LLM_MODEL` | provider's built-in default | model for in-decision calls |
+| `STRUGGLER_LLM_PLAN_MODEL` | provider's built-in default | model for the turn-planning call (same provider as above) |
+
+```sh
+python src/main.py --ussr llm
+```
+
+See [docs/BOTS.md](docs/BOTS.md) for what the model is shown each decision
+and how the turn plan works.
+
+## Add a new bot
+
+Every seat — human or bot — plugs in through the same `Player` interface:
+implement `choose_action(observation, history) -> Action`, returning one
+action drawn from `observation.pending_decision.options`, then add one
+branch to `build_player` in [src/main.py](src/main.py) mapping a new kind
+name (for `--us`/`--ussr`) to it.  See [docs/BOTS.md](docs/BOTS.md) for the full `Player` contract and how the existing bots (`first`, `random`, `greedy`,
+`llm`) are built.
+
 ## Status
 
 All 110 cards are implemented, including every non-scoring card's event.

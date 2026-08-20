@@ -1,8 +1,7 @@
 # Known limitations
 
 What this engine does not model, or models in a deliberately simplified
-way. These are documented decisions, not open bugs — a bug is something
-that disagrees with the printed rules by accident.
+way.
 
 ## Rules fidelity
 
