@@ -371,21 +371,35 @@ class Engine:
     def _headline_pick_order(self) -> tuple[Side, Side]:
         """Which side picks its Headline card first: an arbitrary but fixed
         serialization of the simultaneous secret pick (distinct from
-        `_headline_resolution_order`'s reveal-order tie-break). Normally
-        USSR then US. In physical mode the bot always picks first instead,
-        so its card can be announced (`physical.BotHeadlineAnnouncer`)
-        before the operator is asked for the physical side's own pick --
-        the physical side already commits to a real card at the table
-        independently of when the app asks, so going second here costs it
+        `_headline_resolution_order`'s reveal-order tie-break) -- except
+        when Space Race box 4 (6.4.4) is held, which makes the pick
+        genuinely sequential rather than simultaneous: its sole holder picks
+        *second*, after actually seeing the opponent's already-committed
+        card (`_push_headline` is what surfaces it, as `opponent_headline`
+        in the second pick's decision context). Normally USSR then US.
+
+        In physical mode the bot otherwise always picks first instead, so
+        its card can be announced (`physical.BotHeadlineAnnouncer`) before
+        the operator is asked for the physical side's own pick -- the
+        physical side already commits to a real card at the table
+        independently of when the app asks, so going second there costs it
         no information, and it's what lets the operator learn the bot's
-        card in time to place it. That rationale is specific to physical
-        mode, so it takes precedence there over Space Race box 4 (6.4.4):
-        outside physical mode, box 4's sole holder instead picks second,
-        after the opponent -- `_push_headline` is what actually surfaces
-        the opponent's committed pick to them at that point."""
-        if self.physical_mode:
-            return (self.physical_side.opponent, self.physical_side)
+        card in time to place it. That default is itself overridden when
+        the *bot* holds box 4: then the operator must be asked (and must
+        genuinely reveal/place their real card on the board) first, since
+        the bot's own pick now has to be an informed one -- the "independent
+        commitment" rationale above only justifies asking the physical side
+        second when doing so costs them nothing, which stops being true the
+        moment the bot's choice is supposed to depend on theirs. Box 4 held
+        by the physical side instead needs no special case: the unconditional
+        bot-first default already reveals the bot's card to the operator
+        before their own pick, exactly what the ability would grant them."""
         holder = self.game_effects.get("space_race_headline_reveal_holder")
+        if self.physical_mode:
+            bot_side = self.physical_side.opponent
+            if holder == bot_side.value:
+                return (self.physical_side, bot_side)
+            return (bot_side, self.physical_side)
         if holder is not None:
             holder_side = Side(holder)
             return (holder_side.opponent, holder_side)

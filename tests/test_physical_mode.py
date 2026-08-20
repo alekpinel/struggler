@@ -12,6 +12,7 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 
 from conftest import assert_invariants as _assert_invariants
+from conftest import headline_setup as _headline_setup
 from struggler.engine import Action, DecisionKind, Engine, Side
 from struggler.engine.cards import hand_limit
 from struggler.engine.core import HIDDEN_CARD
@@ -86,6 +87,56 @@ def test_headline_bot_picks_and_is_announced_before_the_physical_side(physical_s
     assert engine.pending_decision.actor is bot_side
     engine.step(engine.pending_decision.options[0])
     assert engine.pending_decision.actor is physical_side
+
+
+@pytest.mark.parametrize("physical_side", [Side.US, Side.USSR])
+def test_headline_box4_bot_holder_asks_operator_first_and_sees_their_pick(physical_side):
+    # Space Race box 4 (6.4.4) held by the *bot* overrides the physical-mode
+    # bot-first default: the operator must be asked (and genuinely place
+    # their real card on the board) first, so the bot's own pick can depend
+    # on it -- surfaced as opponent_headline in the bot's decision context.
+    engine = _bare_physical(physical_side, seed=3)
+    bot_side = physical_side.opponent
+    engine.game_effects["space_race_headline_reveal_holder"] = bot_side.value
+    ussr_card, us_card = "Fidel", "Duck_and_Cover"
+    _headline_setup(engine, ussr_card, us_card)
+    physical_card = ussr_card if physical_side is Side.USSR else us_card
+    bot_card = us_card if physical_side is Side.USSR else ussr_card
+
+    d = engine.pending_decision
+    assert d.kind is DecisionKind.HEADLINE_PLAY and d.actor is physical_side
+    assert "opponent_headline" not in d.context
+
+    engine.step(Action(DecisionKind.HEADLINE_PLAY, {"card": physical_card}))
+
+    d = engine.pending_decision
+    assert d.kind is DecisionKind.HEADLINE_PLAY and d.actor is bot_side
+    assert d.context["opponent_headline"] == physical_card
+
+    engine.step(Action(DecisionKind.HEADLINE_PLAY, {"card": bot_card}))
+    assert engine.phase == "action_rounds"
+
+
+@pytest.mark.parametrize("physical_side", [Side.US, Side.USSR])
+def test_headline_box4_physical_holder_keeps_bot_first_default(physical_side):
+    # Box 4 held by the *physical* side needs no override: the unconditional
+    # bot-first default already reveals the bot's card to the operator
+    # before their own pick, which is exactly what the ability grants them.
+    engine = _bare_physical(physical_side, seed=3)
+    engine.game_effects["space_race_headline_reveal_holder"] = physical_side.value
+    ussr_card, us_card = "Fidel", "Duck_and_Cover"
+    _headline_setup(engine, ussr_card, us_card)
+    bot_card = us_card if physical_side is Side.USSR else ussr_card
+    physical_card = ussr_card if physical_side is Side.USSR else us_card
+
+    d = engine.pending_decision
+    assert d.kind is DecisionKind.HEADLINE_PLAY and d.actor is physical_side.opponent
+
+    engine.step(Action(DecisionKind.HEADLINE_PLAY, {"card": bot_card}))
+
+    d = engine.pending_decision
+    assert d.kind is DecisionKind.HEADLINE_PLAY and d.actor is physical_side
+    assert d.context["opponent_headline"] == bot_card
 
 
 # -- manual dice --------------------------------------------------------------

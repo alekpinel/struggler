@@ -47,17 +47,6 @@ the engine as referee. Some things the engine simply cannot know.
   contents, which physical mode makes unknown to the engine itself, not
   merely hidden from a player, so there is nothing to queue instead of
   `HIDDEN_CARD` placeholders.
-- **Space Race box 4's reveal-order perk is not honored when the *bot*
-  side holds it.** The fixed physical-mode pick order (bot always picks
-  its Headline first, so `physical.BotHeadlineAnnouncer` can print it in
-  time for the operator to place it on the real board — see
-  `Engine._headline_pick_order`) takes precedence over box 4's "holder
-  picks second" order. When the *physical* side holds the ability instead,
-  the fixed order already happens to match what box 4 wants, and the
-  operator already learns the bot's card from the announcement regardless
-  of who holds it — so the ability's actual game-theoretic benefit here is
-  moot: the physical player is trusted to already know their own
-  independently-committed real card either way.
 
 Every other event is wired for a physical hidden hand, including the three
 where the *deciding* side must inspect the *opponent's* hand. Missile
