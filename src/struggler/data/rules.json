@@ -39,6 +39,7 @@
   "space_race_max_box": 8,
   "space_race_ability_keys": {
     "2": "space_race_double_attempt_holder",
+    "4": "space_race_headline_reveal_holder",
     "6": "space_race_discard_holder",
     "8": "space_race_extra_round_holder"
   },

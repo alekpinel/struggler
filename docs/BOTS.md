@@ -122,6 +122,17 @@ second. The physical side commits to a real card at the table independently
 of when the app asks, so going second costs it no information — and it's
 what makes the announcement useful instead of arriving after the fact.
 
+Space Race box 4 (6.4.4) flips that physical-mode default when the *bot*
+holds the ability: the operator is asked (and must genuinely place their
+real card on the board) first, and the bot picks second, informed by it
+(`_push_headline` surfaces the operator's pick as `opponent_headline` in
+the bot's decision context) — the "costs it no information" rationale above
+no longer applies once the bot's own pick is supposed to depend on the
+operator's. Box 4 held by the physical side instead needs no special case:
+the unconditional bot-first default already reveals the bot's card to the
+operator before their own pick, which is exactly what the ability grants
+them.
+
 Every hand-touching event is wired for a physical hidden hand. Three need
 the *deciding* side to inspect a hand it cannot see. Missile Envy's
 `choose_side` is overridden to `Side.CHANCE`, sourcing candidates from

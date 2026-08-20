@@ -6,9 +6,6 @@ that disagrees with the printed rules by accident.
 
 ## Rules fidelity
 
-- **Space Race box 4** — the headline-reveal-order perk (requiring the
-  opponent to select their Headline Event first) is not modeled. Boxes 6
-  and 8 are (see [CARDS.md](CARDS.md)).
 - **Shuttle Diplomacy** is filed to the discard pile when played, rather
   than kept "in front of you" until its delayed effect triggers. Only the
   effect flag matters mechanically. A card-manipulation event such as Star
