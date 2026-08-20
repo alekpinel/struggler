@@ -20,8 +20,10 @@ from struggler.bots.llm.board_report import (
     points_to_break,
     points_to_control,
     possible_coup_targets,
+    region_last_scored,
     region_status,
     space_race_line,
+    tier_progress,
 )
 from struggler.engine import Action, DecisionKind, Engine, Side
 from struggler.engine.player import Event
@@ -178,6 +180,7 @@ def test_space_race_line_reports_the_second_attempt_from_the_qualifying_box():
         _observation(engine),
         space_race={"US": 0, "USSR": 2},
         space_race_attempts={"US": 0, "USSR": 1},
+        game_effects={"space_race_double_attempt_holder": "USSR"},
     )
 
     assert "attempts left this turn 1/2" in space_race_line(observation)
@@ -273,3 +276,115 @@ def test_report_covers_every_country_including_empty_ones():
 
     for cid in board.countries:
         assert cid in text
+
+
+# -- region_last_scored ---------------------------------------------------------
+
+
+def _scoring_play_event(decision, card: str, turn: int, kind=DecisionKind.ACTION_ROUND_PLAY) -> Event:
+    return Event(
+        actor=Side.USSR,
+        decision=dataclasses.replace(decision, kind=kind),
+        action=Action(kind, {"card": card}),
+        defcon=5,
+        vp=0,
+        turn=turn,
+        action_round=1,
+    )
+
+
+def test_region_last_scored_returns_none_when_never_played():
+    engine = Engine.new_game(seed=1)
+    decision = engine.pending_decision
+    history = [_scoring_play_event(decision, "Europe_Scoring", turn=1)]
+
+    assert region_last_scored(history, Region.ASIA) is None
+
+
+def test_region_last_scored_returns_the_most_recent_turn():
+    engine = Engine.new_game(seed=1)
+    decision = engine.pending_decision
+    history = [
+        _scoring_play_event(decision, "Asia_Scoring", turn=1),
+        _scoring_play_event(decision, "Asia_Scoring", turn=5, kind=DecisionKind.HEADLINE_PLAY),
+    ]
+
+    assert region_last_scored(history, Region.ASIA) == 5
+
+
+def test_region_last_scored_ignores_non_scoring_card_plays():
+    engine = Engine.new_game(seed=1)
+    decision = engine.pending_decision
+    history = [_scoring_play_event(decision, "Fidel", turn=3)]
+
+    assert region_last_scored(history, Region.CENTRAL_AMERICA) is None
+
+
+# -- tier_progress ----------------------------------------------------------------
+
+
+def test_tier_progress_from_none_offers_any_country_as_a_candidate():
+    engine = Engine.new_game(seed=1)
+    board = board_from_observation(_observation(engine))
+    for cid in board.influence:
+        board.influence[cid] = {"US": 0, "USSR": 0}
+
+    text = tier_progress(board, Side.USSR, Region.MIDDLE_EAST)
+
+    assert text.startswith("PRESENCE")
+    assert "Egypt" in text
+
+
+def test_tier_progress_from_presence_names_battleground_and_non_battleground_needs():
+    engine = Engine.new_game(seed=1)
+    board = board_from_observation(_observation(engine))
+    for cid in board.influence:
+        board.influence[cid] = {"US": 0, "USSR": 0}
+    board.influence["Egypt"] = {"US": 0, "USSR": 2}  # USSR Controls one Battleground
+    board.influence["Israel"] = {"US": 4, "USSR": 0}  # US Controls two Battlegrounds
+    board.influence["Iraq"] = {"US": 3, "USSR": 0}
+
+    assert board.region_tier(Side.USSR, Region.MIDDLE_EAST) is ScoringTier.PRESENCE
+    text = tier_progress(board, Side.USSR, Region.MIDDLE_EAST)
+
+    assert text.startswith("DOMINATION")
+    assert "more Battleground" in text
+    assert "more non-Battleground" in text
+    assert "Saudi_Arabia" in text  # a Battleground USSR does not yet Control
+
+
+def test_tier_progress_from_domination_needs_every_remaining_battleground():
+    engine = Engine.new_game(seed=1)
+    board = board_from_observation(_observation(engine))
+    for cid in board.countries_in(Region.MIDDLE_EAST):
+        board.influence[cid] = {"US": 0, "USSR": 4}
+    board.influence["Israel"] = {"US": 0, "USSR": 0}  # left uncontrolled
+
+    assert board.region_tier(Side.USSR, Region.MIDDLE_EAST) is ScoringTier.DOMINATION
+    text = tier_progress(board, Side.USSR, Region.MIDDLE_EAST)
+
+    assert text.startswith("CONTROL")
+    assert "Israel" in text
+
+
+def test_tier_progress_already_at_control_says_so():
+    engine = Engine.new_game(seed=1)
+    board = board_from_observation(_observation(engine))
+    for cid in board.countries_in(Region.MIDDLE_EAST):
+        board.influence[cid] = {"US": 0, "USSR": 4}
+
+    assert board.region_tier(Side.USSR, Region.MIDDLE_EAST) is ScoringTier.CONTROL
+    assert tier_progress(board, Side.USSR, Region.MIDDLE_EAST) == "already at CONTROL, the top tier"
+
+
+def test_build_board_report_includes_last_scored_and_tier_progress():
+    engine = Engine.new_game(seed=1)
+    observation = _observation(engine)
+    decision = observation.pending_decision
+    history = [_scoring_play_event(decision, "Asia_Scoring", turn=1)]
+
+    text = build_board_report(observation, history=history)
+
+    assert "last scored: turn 1" in text
+    assert "last scored: never" in text
+    assert "next tier:" in text

@@ -258,13 +258,21 @@ needs — is a *derivation* off that table, and re-deriving all of it on
 every decision is not something to spend model attention on. So
 `board_report.py` computes them once, from the same public data the player
 is already entitled to (a `Board` loaded from the `Observation`, the same
-trick `GreedyPlayer._sync_board` uses), and renders:
+trick `GreedyPlayer._sync_board` uses, plus the full public `history` for
+anything -- currently just "when was this region last scored" -- that
+needs to look back further than one call's worth of events), and renders:
 
 - **Military Operations** as the VP it will cost, not a track position.
 - **Space Race** attempts left this turn, and what the next box needs.
 - **Regional scoring status**: each region's net VP *signed for the acting
-  side* (`Board.score_region`), each side's tier, and whether that
-  region's Scoring card is in hand, already played, or still live.
+  side* (`Board.score_region`), each side's tier, whether that region's
+  Scoring card is in hand, already played, or still live, the most recent
+  turn it was scored (`board_report.region_last_scored`, derived from
+  `history`, or "never"), and what each side is still missing for its next
+  Presence/Domination/Control tier there (`board_report.tier_progress` --
+  a direct restatement of `Board.region_tier`'s own formula, e.g. "1 more
+  Battleground (Iraq, Israel) and 1 more non-Battleground (Lebanon,
+  Jordan)"; not a heuristic guess).
 - **Battleground priorities**: what to RETAKE (Battlegrounds you have
   Influence in but don't Control), what is AT RISK (Controlled by a thin
   margin), and what is UNCLAIMED and reachable — each with the Ops cost,
@@ -326,13 +334,30 @@ own and the region it obliged the bot to score was never invested in.
 
 So the first real decision of each game turn triggers one extra call
 against a second output spec (`TURN_PLAN_SCHEMA`), which takes no action
-at all. It produces intent: an assessment, one objective, a use for every
-card in hand, when each Scoring card gets played and what must change in
-that region first, the Ops that will meet the Military Operations
-requirement, the Battlegrounds to hold or retake, and contingencies for
-opponent plays that would break the plan. `render_turn_plan` then
-re-injects it into every user turn for the rest of that turn, and each
-decision is asked to say how it serves the plan — or why the board changed.
+at all. It produces intent: an assessment, one objective, a `region_focus`
+naming which region(s) this turn's Ops should concentrate on (in priority
+order — any region whose Scoring card is in hand comes first since it must
+be played this turn regardless; with none in hand, `prompt.py`'s planning
+request tells the model to prefer the region(s) with the oldest "last
+scored" turn in the board report's regional scoring status, "never"
+outranking every turn number), a use for every card in hand, when each
+Scoring card gets played and what must change in that region first, the
+Ops that will meet the Military Operations requirement, the Battlegrounds
+to hold or retake, and contingencies for opponent plays that would break
+the plan. `render_turn_plan` then re-injects it into every user turn for
+the rest of that turn, and each decision is asked to say how it serves the
+plan — or why the board changed.
+
+The planning request also states the turn's round budget explicitly —
+`action_rounds(observation.turn)` (6 early-war, 7 mid/late) minus the
+current `action_round`, i.e. how many action rounds are actually left to
+spend a card in — so the model can't schedule more cards than it has
+rounds for. Each `card_plan` entry carries an `order`: `-1` for a card
+meant to be held, `0` for this turn's headline, `1, 2, 3...` for the
+sequence cards are meant to be played in across the remaining action
+rounds. `render_turn_plan` sorts by it (headline, then action rounds in
+order, held cards last) so the standing plan reads as a play sequence, not
+just a per-card use.
 
 - Planning failure is never fatal: `_planned_turn` is stamped either way,
   so a turn whose planning call failed plays without a plan instead of

@@ -15,7 +15,7 @@ from struggler.bots.llm.rules_primer import RULES_PRIMER
 from struggler.bots.llm.schema import PAYLOAD_KEY_BY_KIND, PLAYER_FACING_KINDS
 from struggler.engine import Action, Decision, DecisionKind, Observation, Side
 from struggler.engine.types import CardSide
-from struggler.engine.cards import load_cards
+from struggler.engine.cards import action_rounds, load_cards
 from struggler.engine.data_loader import load_json
 from struggler.engine.player import Event
 from struggler.engine.rules import RULES
@@ -92,6 +92,20 @@ _BATTLEGROUND_DOCTRINE = [
     "board report. Only spend outside them when nothing there is affordable.",
     "  - Influence that crosses no threshold buys nothing. 'you need +N' in the "
     "board report is the only number that matters: spend N, or spend elsewhere.",
+    "  - A live Coup against a Battleground is time-sensitive: the opponent gets "
+    "action rounds between yours and can add Influence there before you act, "
+    "weakening or spoiling it. Play it as early in the turn as DEFCON and your "
+    "hand allow -- do not queue non-urgent Influence placement ahead of it. "
+    "Locking in a region for a Scoring card already in your hand is NOT equally "
+    "urgent: nothing can take that card from you, so its Ops can wait for a "
+    "later action round as long as the region is ready before you play it.",
+    "  - Meeting the Military Operations requirement with the cheapest possible "
+    "filler Coup (a 1-Op non-Battleground jab) is the floor, not the ceiling. "
+    "Before defaulting to that filler, check whether you hold a card that could "
+    "instead pay for a second REAL Coup against a live Battleground target -- at "
+    "high DEFCON, with cards to spare, a second Battleground Coup is often worth "
+    "more than an extra action round of Scoring-region consolidation, especially "
+    "before the action round you actually need to play the Scoring card in.",
 ]
 
 _COMMON_GUIDANCE = [
@@ -132,9 +146,9 @@ _COMMON_GUIDANCE = [
     "more as Ops or a coup than as a headline or a Space Race discard.",
     "  - Answer the opponent, not just your own plan. Every opponent placement listed "
     "under OPPONENT ACTIVITY is a claim you either answer now or concede.",
-    "  - Meet the Military Operations requirement every turn. It equals DEFCON, it is "
-    "checked at end of turn, and every point short is 1 VP to your opponent -- a "
-    "non-Battleground coup pays it without touching DEFCON.",
+    "  - Meet the Military Operations requirement every turn. It equals DEFCON",
+    "  - Before using a scoring card, a good strategy is breaking control on some key countries controlled by the rival.",
+    "  - Usually is better to steal one country from the rival than to reinforce the countries you already control.",
 ]
 
 _USSR_GUIDANCE = [
@@ -142,14 +156,24 @@ _USSR_GUIDANCE = [
     "  - Standard initial influence: 4 Poland, 1 East Germany, 1 Yugoslavia. Controls both, has access to Yugoslavia.",
     "  - You act first every round: take the turn's Battleground coup and lock DEFCON at 2 before the US can.",
     "  - Final Scoring favors the US. aim to win by Mid War or a turn-8 Wargames.",
-    "  - Turn 1 AR1 is coup Iran or play for Italy whatever is weaker.",
+    "  - Turn 1 AR1 is coup Iran or play for Italy, whichever is weaker -- BEFORE "
+    "any Europe Scoring prep, even though you also hold Europe Scoring this "
+    "turn. The coup is the urgent play (see BATTLEGROUND DOCTRINE above); your "
+    "Europe position only needs to be locked in by the action round you play "
+    "Europe Scoring, which can be later.",
     "  - Coup big. A weak coup the US can reverse is worse than none.",
     "  - Best turn-1 headlines: Red Scare/Purge, Suez Crisis, Arab-Israeli War, Socialist Governments, Vietnam Revolts.",
     "  - Suez (or a won Arab-Israeli War) plus a good Iran coup erases the US from the Middle East.",
     "  - Early targets: Egypt and Libya via Nasser, then east into Pakistan and India, reach to Thailand.",
     "  - Don't put 1 Op into Pakistan at DEFCON 4+. You can't coup back and you hand the US a target.",
     "  - China Card is your 4 Ops (5 if every Op goes to Asia). Holding it lets you hold an extra card -- your insurance against DEFCON-suicide hands.",
+    "  - NATO's Event is inert until Marshall Plan or Warsaw Pact Formed has "
+    "fired -- until then it's a fully safe 4-Ops card, as good as any other for "
+    "an early coup. Prefer spending a safe card like NATO on an early coup and "
+    "hold the China Card instead: an unplayed China Card is worth an extra card "
+    "in hand, which a substitute Ops card is not.",
     "  - You have no natural access to the Americas. Don't invest there without an access Event.",
+    "  - Don't take Romania with ops, you will get it with the card Romanian Adbication.",
 ]
 
 _US_GUIDANCE = [
@@ -282,7 +306,7 @@ def _space_race_note(card, observation: Observation, effective_ops: int) -> str:
     if pos >= RULES["space_race_max_box"]:
         return "space race: NO (already on the last box)"
     used = observation.space_race_attempts.get(side.value, 0)
-    allowed = 2 if pos >= RULES["space_race_two_attempts_from_box"] else 1
+    allowed = 2 if observation.game_effects.get("space_race_double_attempt_holder") == side.value else 1
     if used >= allowed:
         return f"space race: NO ({used}/{allowed} attempts already used this turn)"
     required = RULES["space_race_boxes"][str(pos + 1)]["ops"]
@@ -384,16 +408,22 @@ def _events_text(new_events: Sequence[Event]) -> str | None:
     return f"Since your last request ({len(new_events)} event(s)):\n{events_text}"
 
 
-def _situation_text(observation: Observation, new_events: Sequence[Event]) -> list[str]:
+def _situation_text(
+    observation: Observation, new_events: Sequence[Event], history: Sequence[Event] = ()
+) -> list[str]:
     """The shared body of every user turn: what just happened, the derived
     board reading, the hand dossier, and what's left in the deck. Identical
     for a decision call and a turn-planning call -- the model reasons from
-    one picture of the game, not two."""
+    one picture of the game, not two.
+
+    `history` is the whole game's events so far, not just `new_events` (the
+    delta since the last call) -- `build_board_report` needs the full game
+    to answer "when was this region last scored?"."""
     parts = []
     events_text = _events_text(new_events)
     if events_text:
         parts.append(events_text)
-    parts.append(build_board_report(observation, new_events))
+    parts.append(build_board_report(observation, new_events, history))
     parts.append(_hand_text(observation))
     parts.append(_cards_in_play_text(observation))
     return parts
@@ -414,18 +444,45 @@ def build_history_entry(new_events: Sequence[Event]) -> str:
     return _events_text(new_events) or "(no new events since your last request)"
 
 
-def build_turn_plan_request(observation: Observation, new_events: Sequence[Event]) -> str:
+def build_turn_plan_request(
+    observation: Observation, new_events: Sequence[Event], history: Sequence[Event] = ()
+) -> str:
     """The user turn for the once-per-game-turn planning call. No decision is
     pending as far as this call is concerned -- it produces intent only, which
     every decision in the turn is then made against."""
-    parts = _situation_text(observation, new_events)
+    parts = _situation_text(observation, new_events, history)
+    total_ars = action_rounds(observation.turn)
+    remaining_ars = max(1, total_ars - observation.action_round + 1)
     parts.append(
         f"This is the start of YOUR turn {observation.turn}. Before you make any "
         "decision, plan the whole turn: respond with a turn_plan.\n"
+        f"  - ROUND BUDGET: this turn has {total_ars} action round(s) in total; you "
+        f"are at action round {observation.action_round}, so you have {remaining_ars} "
+        "action round(s) left in which to play a card (one card per action round, "
+        "the China Card counts as one of them if you play it). You cannot play more "
+        f"cards than that this turn -- if your hand holds more than {remaining_ars} "
+        "non-scoring cards, the rest must be marked intended_use='hold' in card_plan, "
+        "not scheduled into a round that doesn't exist.\n"
         "  - Work through the board report first: which regions can still be won, "
         "which Battlegrounds are contested, what the opponent took last turn.\n"
+        "  - Decide your region_focus for this turn, in priority order: any region "
+        "whose Scoring card is in your hand comes first (it must be played this "
+        "turn regardless of anything else). If you hold no Scoring card, prioritize "
+        "the region(s) with the oldest 'last scored' turn in the regional scoring "
+        "status above -- 'never' outranks every turn number. A region scored "
+        "recently is unlikely to be scored again soon, so Ops spent there are "
+        "usually wasted this turn.\n"
         "  - Assign every card in your hand a use. A card with no plan is a card "
-        "played badly later.\n"
+        "played badly later. Set each card_plan 'order' to when you intend to play "
+        f"it: 0 if it's this turn's headline, 1, 2, 3... up to {remaining_ars} for "
+        "the sequence you'll spend your remaining action rounds in, or -1 for a card "
+        "you intend to hold rather than play this turn. Two cards played this turn "
+        "must not share the same order.\n"
+        "  - Each card in YOUR HAND above carries an 'advice' line. If your plan's "
+        "intended_use or order for a card contradicts its advice (e.g. playing for "
+        "Ops a card whose advice says Event, or scheduling early a card marked low "
+        "priority), state in that card_plan entry's purpose why the current board "
+        "makes the advice not apply -- a silent contradiction is a planning error.\n"
         "  - Any Scoring card in hand must be played this turn: decide which action "
         "round, and what has to change in that region first.\n"
         "  - Name the Ops that meet the Military Operations requirement (equal to "
@@ -443,12 +500,13 @@ def build_user_turn(
     decision: Decision,
     new_events: Sequence[Event],
     turn_plan_text: str | None = None,
+    history: Sequence[Event] = (),
 ) -> str:
     """The per-call, non-static part of the conversation: what happened
     since the last time this bot actually consulted the LLM, the derived
     board reading, this turn's standing plan, and the live decision to act
     on."""
-    parts = _situation_text(observation, new_events)
+    parts = _situation_text(observation, new_events, history)
     if turn_plan_text:
         parts.append(turn_plan_text)
     parts.append(_decision_to_text(decision))

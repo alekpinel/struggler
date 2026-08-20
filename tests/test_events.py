@@ -1129,6 +1129,24 @@ def test_ask_not_discards_chosen_cards_and_redraws_the_same_number():
     assert "Containment" not in engine.hands["US"]
 
 
+def test_ask_not_always_benefits_the_us_even_when_ussr_plays_it():
+    # US-associated: the event favors the US regardless of who plays the
+    # card, the same way Duck and Cover always favors the US.
+    engine = _bare(seed=5)
+    engine.draw_pile = ["Blockade", "Defectors", "Quagmire"]
+    engine.hands["US"] = ["Containment", "NATO"]
+    engine.hands["USSR"] = ["Fidel", "Junta"]
+    engine._fire_event(Side.USSR, "Ask_Not_What_Your_Country_Can_Do_For_You")
+    decision = engine.pending_decision
+    assert decision.actor is Side.US
+    engine.step(Action(DecisionKind.EVENT_CHOICE, {"choice": "Containment"}))
+    engine.step(Action(DecisionKind.EVENT_CHOICE, {"choice": "stop"}))
+    assert len(engine.hands["US"]) == 2  # one discarded, one drawn
+    assert "Containment" in engine.discard_pile
+    assert "Containment" not in engine.hands["US"]
+    assert engine.hands["USSR"] == ["Fidel", "Junta"]  # untouched
+
+
 def test_cambridge_five_places_in_a_revealed_scoring_region():
     engine = _bare()
     engine.hands["US"] = ["Asia_Scoring", "NATO"]  # US holds the Asia scoring card

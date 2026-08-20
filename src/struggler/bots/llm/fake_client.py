@@ -60,6 +60,7 @@ def make_turn_plan_response(
     objective: str,
     *,
     assessment: str = "Test assessment.",
+    region_focus: Sequence[Mapping[str, str]] = (),
     scoring_cards: Sequence[Mapping[str, str]] = (),
     card_plan: Sequence[Mapping[str, str]] = (),
     influence_targets: Sequence[Mapping[str, str]] = (),
@@ -74,6 +75,7 @@ def make_turn_plan_response(
     payload = {
         "assessment": assessment,
         "objective": objective,
+        "region_focus": [dict(item) for item in region_focus],
         "scoring_cards": [dict(item) for item in scoring_cards],
         "card_plan": [dict(item) for item in card_plan],
         "influence_targets": [dict(item) for item in influence_targets],

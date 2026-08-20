@@ -156,6 +156,7 @@ def _sample_turn_plan() -> TurnPlan:
         turn=2,
         assessment="Asia is open.",
         objective="Take Thailand before Asia Scoring.",
+        region_focus=({"region": "asia", "why": "Asia_Scoring is in hand."},),
         scoring_cards=({"card": "Asia_Scoring", "when": "AR6", "preparation": "take Thailand"},),
         card_plan=({"card": "Korean_War", "intended_use": "event", "purpose": "military ops"},),
         influence_targets=({"country": "Thailand", "why": "Battleground"},),
@@ -217,6 +218,23 @@ def test_a_version_2_snapshot_still_loads_with_an_empty_turn_plan_history(tmp_pa
     assert loaded is not None
     assert loaded.turn_plan_history == ()
     assert loaded.turn_plan == snapshot.turn_plan  # unaffected
+
+
+def test_a_turn_plan_without_region_focus_still_loads(tmp_path):
+    # Snapshots written before region_focus existed on TurnPlan carry no such
+    # key inside the turn_plan dict; they must resume with an empty tuple,
+    # not fail to load.
+    path = tmp_path / "log.json"
+    snapshot = dataclasses.replace(_sample_snapshot(), turn_plan=_sample_turn_plan(), planned_turn=2)
+    conversation_log.save(path, snapshot)
+    data = json.loads(path.read_text())
+    del data["turn_plan"]["region_focus"]
+    path.write_text(json.dumps(data))
+
+    loaded = conversation_log.load(path)
+
+    assert loaded is not None
+    assert loaded.turn_plan.region_focus == ()
 
 
 def test_a_version_1_snapshot_still_loads_without_a_turn_plan(tmp_path):

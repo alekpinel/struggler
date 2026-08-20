@@ -42,7 +42,7 @@ from struggler.bots.llm.client import LLMMessage
 from struggler.bots.llm.schema import PlannedStep, TurnPlan
 from struggler.engine.types import DecisionKind
 
-SNAPSHOT_VERSION = 3  # 2 added `turn_plan`/`planned_turn`, 3 added `turn_plan_history`; v1/v2 files still load
+SNAPSHOT_VERSION = 4  # 2 added `turn_plan`/`planned_turn`, 3 added `turn_plan_history`, 4 added `plan_provider`/`plan_model`; older files still load
 
 
 @dataclass(frozen=True)
@@ -99,6 +99,12 @@ class ConversationSnapshot:
     # whose planning call failed contributes no entry here, same as
     # `turn_plan` going `None` for that turn.
     turn_plan_history: tuple[TurnPlan, ...] = ()
+    # The once-per-turn planning call's provider/model, which can differ from
+    # `provider`/`model` above (see `LLMPlayer`'s `plan_client`). Absent from
+    # pre-v4 files, in which case it's the same as the main model -- there
+    # was no other client back then.
+    plan_provider: str = ""
+    plan_model: str = ""
 
 
 def now_iso() -> str:
@@ -118,6 +124,7 @@ def _dict_to_turn_plan(data: Any) -> TurnPlan | None:
         turn=data["turn"],
         assessment=data["assessment"],
         objective=data["objective"],
+        region_focus=tuple(dict(item) for item in data.get("region_focus", ())),
         scoring_cards=tuple(dict(item) for item in data.get("scoring_cards", ())),
         card_plan=tuple(dict(item) for item in data.get("card_plan", ())),
         influence_targets=tuple(dict(item) for item in data.get("influence_targets", ())),
@@ -133,6 +140,8 @@ def _snapshot_to_dict(snapshot: ConversationSnapshot) -> dict[str, Any]:
         "seed": snapshot.seed,
         "provider": snapshot.provider,
         "model": snapshot.model,
+        "plan_provider": snapshot.plan_provider,
+        "plan_model": snapshot.plan_model,
         "created_at": snapshot.created_at,
         "updated_at": snapshot.updated_at,
         "last_seen": snapshot.last_seen,
@@ -165,6 +174,8 @@ def _dict_to_snapshot(data: Mapping[str, Any]) -> ConversationSnapshot:
         seed=data["seed"],
         provider=data["provider"],
         model=data["model"],
+        plan_provider=data.get("plan_provider") or data["provider"],
+        plan_model=data.get("plan_model") or data["model"],
         created_at=data["created_at"],
         updated_at=data["updated_at"],
         last_seen=data["last_seen"],

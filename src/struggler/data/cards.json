@@ -935,7 +935,7 @@
       "remove_after_event": true,
       "optional": false,
       "in_deck": true,
-      "event_summary": "Phasing side may discard any number of non-scoring hand cards and redraw that many."
+      "event_summary": "US may discard any number of non-scoring hand cards and redraw that many."
     },
     "Alliance_for_Progress": {
       "number": 78,

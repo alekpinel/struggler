@@ -20,7 +20,7 @@ from struggler.bots.llm.fake_client import (
 )
 from struggler.bots.llm.player import LLMPlayer
 from struggler.bots.llm.schema import PAYLOAD_KEY_BY_KIND
-from struggler.engine import DecisionKind, Engine, Side
+from struggler.engine import Action, DecisionKind, Engine, Side
 from struggler.engine.player import Event
 
 
@@ -285,6 +285,43 @@ def test_persisted_history_drops_stale_board_snapshot_but_keeps_event_deltas():
     assert "BOARD BY REGION" not in persisted_user_messages[1]
 
 
+def test_region_last_scored_reaches_the_prompt_from_full_history_not_just_new_events():
+    """`choose_action` receives the whole game's `history`, not just the
+    delta since this player's last real call -- `build_board_report` needs
+    the full history to answer "how long ago was this region scored",
+    which can reach further back than one call's worth of new events."""
+    engine = Engine.new_game(seed=1)
+    observation, country = _setup_placement(engine)
+    decision = observation.pending_decision
+
+    client = FakeLLMClient(
+        [
+            make_plan_response("First.", [(decision.kind, {"country": country})]),
+            make_plan_response("Second.", [(decision.kind, {"country": country})]),
+        ]
+    )
+    player = LLMPlayer(client=client, seed=0, plan_turns=False)
+
+    scoring_event = Event(
+        actor=Side.USSR,
+        decision=dataclasses.replace(decision, kind=DecisionKind.ACTION_ROUND_PLAY),
+        action=Action(DecisionKind.ACTION_ROUND_PLAY, {"card": "Asia_Scoring"}),
+        defcon=5,
+        vp=0,
+        turn=1,
+        action_round=1,
+    )
+    first = player.choose_action(observation, [scoring_event])
+    engine.step(first)
+
+    second_observation = engine.observe(engine.pending_decision.actor)
+    later_event = _dummy_event(decision)
+    player.choose_action(second_observation, [scoring_event, later_event])
+
+    second_request_text = client.requests[1].messages[-1].content
+    assert "last scored: turn 1" in second_request_text
+
+
 def test_llm_player_constructs_with_anthropic_client_given_an_api_key():
     pytest.importorskip("anthropic")
     from struggler.bots.llm.anthropic_client import AnthropicClient
@@ -512,6 +549,38 @@ def test_turn_plan_is_requested_once_per_turn_and_precedes_the_decision():
     assert client.requests[0].output.name == "turn_plan"
     assert client.requests[1].output.name == "decision_plan"
     assert client.requests[2].output.name == "decision_plan"
+
+
+def test_turn_plan_call_can_use_a_separate_plan_client():
+    engine = Engine.new_game(seed=1)
+    observation, country = _setup_placement(engine)
+    decision = observation.pending_decision
+
+    plan_client = FakeLLMClient(
+        [make_turn_plan_response("Take Poland and meet Military Operations.")],
+        provider_name="fake-plan",
+        model_name="fake-plan-model",
+    )
+    decision_client = FakeLLMClient(
+        [
+            make_plan_response("First point.", [(decision.kind, {"country": country})]),
+            make_plan_response("Second point.", [(decision.kind, {"country": country})]),
+        ],
+        provider_name="fake-decision",
+        model_name="fake-decision-model",
+    )
+    player = LLMPlayer(client=decision_client, plan_client=plan_client, seed=0)
+
+    first = player.choose_action(observation, [])
+    engine.step(first)
+    player.choose_action(engine.observe(engine.pending_decision.actor), [])
+
+    # The turn-plan call went only to plan_client; every decision call went
+    # only to decision_client -- neither queue leaks into the other.
+    assert len(plan_client.requests) == 1
+    assert plan_client.requests[0].output.name == "turn_plan"
+    assert len(decision_client.requests) == 2
+    assert all(r.output.name == "decision_plan" for r in decision_client.requests)
 
 
 def test_turn_plan_is_injected_into_every_later_decision_prompt():

@@ -27,6 +27,14 @@ _DEFAULT_MIN_DEFCON = 1
 # data/cards.json ever looks like this, so it can never collide with one.
 HIDDEN_CARD = "?"
 
+# Physical-mode headline option: the operator's real discard pile ran out
+# and got reshuffled at the table before the engine's own bookkeeping
+# predicted it would (see docs/BOTS.md's physical-mode section). Offered
+# alongside the real card candidates so hidden_pool can be corrected live
+# instead of silently drifting from the physical deck. No real card id ever
+# looks like this either.
+RESHUFFLE_NOW = "reshuffle_now"
+
 # Which region each scoring card scores, keyed by card id.
 SCORING_CARD_REGION: dict[str, Region] = {
     "Asia_Scoring": Region.ASIA,
@@ -415,6 +423,15 @@ class Engine:
         'predeal' instead of 'headline' so `_advance()` runs opening setup
         placement once dealing has fully drained, instead of jumping
         straight to headline picks."""
+        # `action_round` is otherwise only written by `_begin_action_rounds`,
+        # which doesn't fire until headline resolution finishes -- so without
+        # this, every observation made during the new turn's headline phase
+        # (including a Player's first look at the new turn, e.g. LLMPlayer's
+        # turn-plan call) still reports the *previous* turn's last action
+        # round. A plan built from that stale number undercounts how many
+        # action rounds are actually left and can wrongly mark most of the
+        # hand 'hold'.
+        self.action_round = 1
         if self.turn == 1:
             self._add_period_to_deck(Period.EARLY_WAR)
         elif self.turn == 4:
@@ -618,8 +635,13 @@ class Engine:
         if self.physical_mode:
             # A real reshuffle forgets identity again: the discarded cards
             # go back to being an unaccounted-for pool, not a known order.
+            # Extend rather than overwrite `draw_pile`: every other caller
+            # only ever reaches this with `draw_pile` already empty, but the
+            # operator-triggered manual reshuffle (RESHUFFLE_NOW) can't
+            # promise that — overwriting would silently drop any placeholder
+            # slots still left there, orphaning their hidden_pool entries.
             self.hidden_pool.extend(self.discard_pile)
-            self.draw_pile = [HIDDEN_CARD] * len(self.discard_pile)
+            self.draw_pile.extend([HIDDEN_CARD] * len(self.discard_pile))
             self.discard_pile = []
             return
         # Removed cards stay out of the game; only the discard is recycled.
@@ -697,20 +719,35 @@ class Engine:
 
     def _push_headline(self, side: Side) -> None:
         # The China Card cannot be headlined; scoring cards can.
+        physical_turn = self.physical_mode and side is self.physical_side
         candidates = (
             self._physical_hand_candidates(side)
-            if self.physical_mode and side is self.physical_side
+            if physical_turn
             else list(self.hands[side.value])
         )
         options = tuple(
             Action(DecisionKind.HEADLINE_PLAY, {"card": cid}) for cid in candidates
         )
+        if physical_turn and self.discard_pile:
+            # The operator's real discard pile can empty and get reshuffled
+            # at the table sooner than the engine's own draw-pile bookkeeping
+            # expects (see docs/BOTS.md). Offering this alongside the real
+            # candidates lets them fold it back into hidden_pool right here,
+            # rather than the candidate list silently staying stale.
+            options += (Action(DecisionKind.HEADLINE_PLAY, {"card": RESHUFFLE_NOW}),)
         if options:
             self._push(side, DecisionKind.HEADLINE_PLAY, options, {})
 
     def _handle_headline_play(self, decision: Decision, action: Action) -> None:
         side = decision.actor
         cid = action.payload["card"]
+        if cid == RESHUFFLE_NOW:
+            # A correction, not a pick: refresh hidden_pool from the real
+            # discard pile and re-offer the same decision with the updated
+            # candidates, rather than resolving a headline choice.
+            self._reshuffle_discard_into_draw()
+            self._push_headline(side)
+            return
         # The card leaves the hand immediately (matches non-physical mode
         # exactly): between this pick and the *other* side's pick, it must be
         # tracked in exactly one place — `self._headline[side]` — never also
@@ -926,23 +963,35 @@ class Engine:
             and self._is_opponent_event(side, card)
             and self._has_event(cid)
             and EVENTS[cid].eligible(self, side)
-            and self._holds_un_intervention(side)
+            and self._holds_un_intervention(side, cid)
         ):
             modes.append("un_intervention")
         return tuple(modes)
 
-    def _holds_un_intervention(self, side: Side) -> bool:
-        """Whether `side` may plausibly be holding UN Intervention. For the
+    def _holds_un_intervention(self, side: Side, cid: str) -> bool:
+        """Whether `side` may plausibly be holding UN Intervention *in
+        addition to* `cid`, the card already being played this action -- the
+        combo spends two distinct cards, not one card counted twice. For the
         physical side, the hand is unknown to the engine -- trust the same
         way `HumanPlayer` is trusted for the must-play-a-scoring-card rule
-        (see docs/LIMITATIONS.md), but only as far as `hidden_pool` allows:
-        `_physical_hand_candidates` already excludes any card the engine has
-        separately learned is elsewhere (played, discarded, in the other
-        hand), so this still fails safe once UN Intervention itself has been
-        revealed and resolved."""
+        (see docs/LIMITATIONS.md), but only as far as `hidden_pool` allows.
+
+        `_physical_hand_candidates(side)` alone is not enough here: it lists
+        every id that could fill *any* open `HIDDEN_CARD` slot, but `cid`
+        itself -- if not yet revealed -- already claims one of those slots.
+        Checking plain membership would let that single slot "prove" the
+        hand holds both `cid` and UN Intervention at once. Reserve a slot
+        for `cid` first (only if it isn't already a revealed card in hand)
+        and require a genuinely separate slot to remain for UN Intervention."""
         un_id = RULES["un_intervention_id"]
         if self.physical_mode and side is self.physical_side:
-            return un_id in self._physical_hand_candidates(side)
+            hand = self.hands[side.value]
+            if un_id in hand:
+                return True
+            if un_id not in self.hidden_pool:
+                return False
+            open_slots = hand.count(HIDDEN_CARD) - (0 if cid in hand else 1)
+            return open_slots > 0
         return un_id in self.hands[side.value]
 
     def _handle_play_mode(self, decision: Decision, action: Action) -> None:
@@ -1091,7 +1140,7 @@ class Engine:
     # -- space race ---------------------------------------------------------
 
     def _space_attempts_allowed(self, side: Side) -> int:
-        if self.space_race[side.value] >= RULES["space_race_two_attempts_from_box"]:
+        if self.game_effects.get("space_race_double_attempt_holder") == side.value:
             return 2
         return 1
 
@@ -1131,11 +1180,11 @@ class Engine:
     def _update_space_race_ability(self, side: Side, box: int, first: bool) -> None:
         """6.4.4: a Space Race special ability is granted only to the first
         side to reach its box, and is cancelled outright (not transferred)
-        the instant the second side also reaches it. Only the abilities
-        modeled as a held flag are keyed here: box 6 (may discard the Held
-        Card) and box 8 (an extra Action Round). Box 2's double-attempt
-        ability is instead a direct position check (_space_attempts_allowed)
-        and box 4's headline-order perk remains unmodeled."""
+        the instant the second side also reaches it. The abilities modeled
+        as a held flag are keyed here: box 2 (a second Space Race attempt
+        per turn, checked by _space_attempts_allowed), box 6 (may discard
+        the Held Card), and box 8 (an extra Action Round). Box 4's
+        headline-order perk remains unmodeled."""
         key = RULES["space_race_ability_keys"].get(str(box))
         if key is None:
             return
@@ -1904,9 +1953,24 @@ class Engine:
         (e.g. Grain Sales' revealed-but-undecided card): swap one
         HIDDEN_CARD placeholder for the real id, so both `hidden_pool` and
         the hand list stay accurate until the card later actually leaves
-        the hand (via `_hand_remove_known`/`_file_card`)."""
+        the hand (via `_hand_remove_known`/`_file_card`).
+
+        `cid` is not always a genuinely still-hidden card, though: callers
+        that source their candidates from `_physical_hand_candidates`
+        (revealed reals *plus* hidden_pool) can legally be answered with a
+        card that's already sitting in hand as a revealed real id — e.g. the
+        Missile Envy physical pick choosing an already-known scoring card.
+        Only perform the placeholder swap when `cid` truly came out of
+        `hidden_pool`; otherwise it's already correctly represented and
+        swapping would consume an unrelated, unconnected HIDDEN_CARD slot
+        while `declare_physical_card` below leaves `hidden_pool` untouched
+        (since `cid` was never in it) — a `hidden_pool` vs. placeholder-slot
+        count divergence `assert_invariants` forbids."""
+        was_hidden = (
+            self.physical_mode and side is self.physical_side and cid in self.hidden_pool
+        )
         self.declare_physical_card(side, cid)
-        if self.physical_mode and side is self.physical_side:
+        if was_hidden:
             hand = self.hands[side.value]
             if HIDDEN_CARD in hand:
                 hand[hand.index(HIDDEN_CARD)] = cid

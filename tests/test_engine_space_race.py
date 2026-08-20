@@ -76,6 +76,24 @@ def test_held_card_discard_not_offered_without_the_ability_or_an_empty_hand():
     assert engine.turn == 2
 
 
+def test_reaching_box_2_grants_second_attempt_cancelled_when_opponent_catches_up():
+    engine = Engine.new_game(seed=1, events=False)
+
+    _advance_to(engine, Side.US, 2)
+    assert engine.game_effects["space_race_double_attempt_holder"] == "US"
+    assert engine._space_attempts_allowed(Side.US) == 2
+    assert engine._space_attempts_allowed(Side.USSR) == 1
+
+    # 6.4.4: the ability is cancelled outright once the USSR also reaches
+    # box 2, not transferred to the USSR -- so neither side gets a second
+    # attempt from that point on, even mid-turn, right after the USSR's own
+    # roll takes it to box 2.
+    _advance_to(engine, Side.USSR, 2)
+    assert "space_race_double_attempt_holder" not in engine.game_effects
+    assert engine._space_attempts_allowed(Side.US) == 1
+    assert engine._space_attempts_allowed(Side.USSR) == 1
+
+
 def test_space_race_ability_state_round_trips_through_serialization():
     # US alone reaches box 8 (passing through box 6 too, so it holds both
     # abilities) -- USSR stays behind, so neither is cancelled by a catch-up.

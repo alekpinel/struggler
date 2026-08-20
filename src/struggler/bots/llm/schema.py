@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from typing import Any, Mapping
 
 from struggler.bots.llm.client import StructuredOutputSpec
-from struggler.engine import DecisionKind
+from struggler.engine import DecisionKind, Region
 
 # Every DecisionKind that can ever reach a Player. Side.CHANCE decisions
 # (the *_ROLL / RANDOM_DISCARD / CONTEST_ROLL kinds) are resolved directly by
@@ -223,6 +223,7 @@ TURN_PLAN_SCHEMA: dict[str, Any] = {
     "required": [
         "assessment",
         "objective",
+        "region_focus",
         "scoring_cards",
         "card_plan",
         "influence_targets",
@@ -242,6 +243,32 @@ TURN_PLAN_SCHEMA: dict[str, Any] = {
         "objective": {
             "type": "string",
             "description": "The one thing this turn has to achieve. Concrete, checkable.",
+        },
+        "region_focus": {
+            "type": "array",
+            "description": (
+                "Which region(s) this turn's Ops should concentrate on, in "
+                "priority order. A region whose Scoring card you hold always "
+                "comes first (it must be played this turn). With no Scoring "
+                "card in hand, prioritize the region(s) that haven't been "
+                "scored in the longest time -- 'never scored' outranks every "
+                "turn number. Only list a region you're actually spending Ops "
+                "or an Event's Influence change in this turn -- a card whose "
+                "Event merely touches a region while you HOLD that card (not "
+                "playing it) doesn't count. On turns 1-3, never list a Mid War "
+                "region (Central America, South America, Africa) "
+                "-- it has no Scoring card in the deck yet, so it cannot "
+                "be this turn's focus regardless of priority rank."
+            ),
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "required": ["region", "why"],
+                "properties": {
+                    "region": {"type": "string", "enum": [r.value for r in Region]},
+                    "why": {"type": "string"},
+                },
+            },
         },
         "scoring_cards": {
             "type": "array",
@@ -276,7 +303,7 @@ TURN_PLAN_SCHEMA: dict[str, Any] = {
             "items": {
                 "type": "object",
                 "additionalProperties": False,
-                "required": ["card", "intended_use", "purpose"],
+                "required": ["card", "intended_use", "purpose", "order"],
                 "properties": {
                     "card": {"type": "string"},
                     "intended_use": {
@@ -286,6 +313,18 @@ TURN_PLAN_SCHEMA: dict[str, Any] = {
                     "purpose": {
                         "type": "string",
                         "description": "What that use is meant to accomplish, in one line.",
+                    },
+                    "order": {
+                        "type": "integer",
+                        "description": (
+                            "This card's position in the sequence you intend to play "
+                            "cards this turn. -1 for a card you intend to hold rather "
+                            "than play now. 0 for a card you intend to headline. 1, 2, "
+                            "3... for the action rounds you'll spend, in order, never "
+                            "exceeding the number of action rounds you actually have "
+                            "left this turn. No two cards played this turn may share "
+                            "the same order except -1."
+                        ),
                     },
                 },
             },
@@ -357,6 +396,7 @@ class TurnPlan:
     turn: int
     assessment: str
     objective: str
+    region_focus: tuple[Mapping[str, str], ...]
     scoring_cards: tuple[Mapping[str, str], ...]
     card_plan: tuple[Mapping[str, str], ...]
     influence_targets: tuple[Mapping[str, str], ...]
@@ -407,11 +447,14 @@ def parse_turn_plan_response(payload: Mapping[str, Any], *, turn: int) -> TurnPl
         turn=turn,
         assessment=assessment,
         objective=objective,
+        region_focus=_obj_list(
+            payload.get("region_focus", []), "region_focus", ("region", "why")
+        ),
         scoring_cards=_obj_list(
             payload.get("scoring_cards", []), "scoring_cards", ("card", "when", "preparation")
         ),
         card_plan=_obj_list(
-            payload.get("card_plan", []), "card_plan", ("card", "intended_use", "purpose")
+            payload.get("card_plan", []), "card_plan", ("card", "intended_use", "purpose", "order")
         ),
         influence_targets=_obj_list(
             payload.get("influence_targets", []), "influence_targets", ("country", "why")
@@ -436,6 +479,9 @@ def render_turn_plan(plan: TurnPlan) -> str:
         f"  Objective: {plan.objective}",
         f"  Military Operations: {plan.military_ops_plan}",
     ]
+    if plan.region_focus:
+        lines.append("  Region focus this turn, in priority order:")
+        lines += [f"    - {item['region']}: {item['why']}" for item in plan.region_focus]
     if plan.scoring_cards:
         lines.append("  Scoring cards to play this turn:")
         lines += [
@@ -443,10 +489,22 @@ def render_turn_plan(plan: TurnPlan) -> str:
             for item in plan.scoring_cards
         ]
     if plan.card_plan:
-        lines.append("  Cards:")
+        def _order_key(item: Mapping[str, str]) -> tuple[int, int]:
+            try:
+                order = int(item.get("order", "-1") or "-1")
+            except ValueError:
+                order = -1
+            # Held cards (order -1) sort after every played card; headline
+            # (order 0) plays before any action round (order 1, 2, 3...).
+            return (1, 0) if order < 0 else (0, order)
+
+        lines.append(
+            "  Cards, in the order you intend to play them "
+            "(order -1 = held, not played this turn; order 0 = headline):"
+        )
         lines += [
-            f"    - {item['card']} -> {item['intended_use']}: {item['purpose']}"
-            for item in plan.card_plan
+            f"    - [{item.get('order', '-1')}] {item['card']} -> {item['intended_use']}: {item['purpose']}"
+            for item in sorted(plan.card_plan, key=_order_key)
         ]
     if plan.influence_targets:
         lines.append("  Influence targets, in priority order:")

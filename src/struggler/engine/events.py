@@ -959,9 +959,10 @@ def _grain_sales_choice(engine: "Engine", side: Side, choice: str, context: dict
 
 @event("Ask_Not_What_Your_Country_Can_Do_For_You")
 def _ask_not(engine: "Engine", side: Side) -> None:
-    # The player may discard any number of cards from hand and draw that many
-    # replacements.
-    _push_ask_not(engine, side, 0)
+    # US-associated: the event always benefits the US, even when the USSR
+    # plays the card (e.g. for its Ops), the same way Duck and Cover always
+    # favors the US regardless of who plays it.
+    _push_ask_not(engine, Side.US, 0)
 
 
 def _push_ask_not(engine: "Engine", side: Side, discarded: int) -> None:

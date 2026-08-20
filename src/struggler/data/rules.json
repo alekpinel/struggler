@@ -37,8 +37,8 @@
     "8": { "ops": 4, "roll_max": 2, "vp_first": 2, "vp_second": 0 }
   },
   "space_race_max_box": 8,
-  "space_race_two_attempts_from_box": 2,
   "space_race_ability_keys": {
+    "2": "space_race_double_attempt_holder",
     "6": "space_race_discard_holder",
     "8": "space_race_extra_round_holder"
   },

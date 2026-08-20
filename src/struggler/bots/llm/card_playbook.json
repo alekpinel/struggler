@@ -11,7 +11,7 @@
       "any": "Coup here before playing it, as soon as you have a target -- positions flip cheaply, so don't give the opponent extra rounds to reinforce."
     },
     "The_China_Card": {
-      "any": "Your best Ops card. Don't spend it on something a 3 Ops card would do. Can't headline, can't pay a forced discard."
+      "any": "The best card. Try to hold it unless you have a clear opportunity or you really need the ops. In asia, you can use it to flip Pakistan or Thailand if the rival only have 2 ops of advantage. Also, really powerful card to coup."
     },
     "Duck_and_Cover": {
       "US": "Usually just 3 Ops. Event only when DEFCON is already low. Never at DEFCON 2.",
@@ -26,7 +26,7 @@
       "US": "Trigger it early while your stacks are small, or kill it with Iron Lady."
     },
     "Fidel": {
-      "USSR": "Always event, as early as possible.",
+      "USSR": "Always event. Low priority in Early War.",
       "US": "Let it happen. It makes CIA Created lethal for them later."
     },
     "Vietnam_Revolts": {
@@ -52,7 +52,7 @@
       "USSR": "Usually 3 Ops. Event only if the four points finish or defend something real."
     },
     "Nasser": {
-      "USSR": "Always event, early.",
+      "USSR": "Always event.",
       "US": "Trigger it before you invest in Egypt."
     },
     "Warsaw_Pact_Formed": {
@@ -60,7 +60,7 @@
       "US": "Trigger it early -- better they build now than remove you later."
     },
     "De_Gaulle_Leads_France": {
-      "USSR": "Event, not Ops and try to control France afterwards."
+      "USSR": "Event, and try to control France afterwards."
     },
     "Captured_Nazi_Scientist": {
       "any": "Always event when the next Space Race box pays. Free box, doesn't use your attempt."
@@ -81,7 +81,7 @@
     },
     "Marshall_Plan": {
       "US": "Always event, early.",
-      "USSR": "Push into Western Europe before this lands."
+      "USSR": "You can space it, but probably is better to accept it and use the Ops for a powerful move."
     },
     "Indo_Pakistani_War": {
       "any": "Event when you're short on Military Ops. Otherwise 2 Ops."
@@ -92,7 +92,7 @@
     },
     "CIA_Created": {
       "US": "Cheap headline, take the free Op.",
-      "USSR": "Play it early at high DEFCON. Can't be spaced without Brezhnev."
+      "USSR": "Play it early at high DEFCON. If Brezhnev is active, space it. It's worth to use it as Ops BUT NEVER WITH DEFCON AT 2. Good candidate to UN Intervention if nothing better."
     },
     "US_Japan_Mutual_Defense_Pact": {
       "US": "Event if you want Japan locked away. Otherwise 4 Ops is a lot to give up.",
@@ -105,7 +105,7 @@
       "US": "Usually 3 Ops early. The event is worth more in the Late War, when it removes 2 per country."
     },
     "Decolonization": {
-      "USSR": "Strong event. Use some of the points to gain access to South America and to Africa (Zaire, Nigeria) or Thailand if you are not already there.",
+      "USSR": "Strong event. Use some of the points to gain access to Africa (Zaire, Nigeria) or Thailand if you are not already there.",
       "US": "Space it. 2 Ops can't undo it."
     },
     "Red_Scare_Purge": {
@@ -154,8 +154,7 @@
       "any": "Check the Military Ops track first. Event only if you're ahead and have met your requirement, otherwise 3 Ops."
     },
     "Cuban_Missile_Crisis": {
-      "any": "Event to freeze their coups for a round. It sets DEFCON to 2 -- don't fire it if you still need to coup.",
-      "USSR": "They can't use it against you if you keep 2 influence in Cuba spare to cancel it."
+      "any": "Usually better used for Ops."
     },
     "Nuclear_Subs": {
       "US": "Event at the start of a turn, then coup battlegrounds freely.",
@@ -176,7 +175,7 @@
       "any": "Filler. Event is a gamble but 1 Op is worth little. Never event at DEFCON 2."
     },
     "How_I_Learned_to_Stop_Worrying": {
-      "any": "Always event. Set DEFCON where you need it and take the 5 Military Ops. Never set it to 1."
+      "any": "Usually better to use for ops. If evented, never set defcon to 1."
     },
     "Junta": {
       "any": "Event, then coup in the same region. Neutral, so Ops fire nothing."
@@ -206,7 +205,7 @@
       "USSR": "Always event. Your door into South America."
     },
     "Willy_Brandt": {
-      "USSR": "Event: 1 VP and West Germany loses NATO protection for good. Dead if Tear Down This Wall was played."
+      "USSR": "Event only if it will break control of West Germany. If not, use for ops."
     },
     "Muslim_Revolution": {
       "USSR": "Event once they've actually invested in the Middle East. Dead if AWACS is in effect.",
@@ -219,7 +218,7 @@
       "USSR": "Event to take the China Card back, or 1 VP if you already hold it."
     },
     "Flower_Power": {
-      "USSR": "Event early, while they still have war cards to play. Dead if An Evil Empire is in effect.",
+      "USSR": "Best to use for Ops.",
       "US": "Trigger it late, after your war cards are spent."
     },
     "U2_Incident": {
@@ -245,7 +244,7 @@
     },
     "Puppet_Governments": {
       "US": "Event only while empty countries still exist -- turn 4, not turn 7.",
-      "USSR": "Space it in Mid War. By the Late War it's worthless to them anyway."
+      "USSR": "Space it in Mid War. In Late War use it for ops."
     },
     "Grain_Sales_to_Soviets": {
       "US": "Good event: you see a random card of theirs and may play it, and it thins their hand.",
@@ -256,7 +255,7 @@
       "USSR": "Space it. If you must trigger it, do so while Warsaw Pact is still in the deck."
     },
     "Latin_American_Death_Squads": {
-      "any": "Event, then actually coup in Central or South America. On its own it does nothing."
+      "any": "Consider to headline if you plan to do a lot of coups. Usually just use it for ops."
     },
     "OAS_Founded": {
       "US": "Free event. Take the influence."
@@ -349,7 +348,7 @@
       "USSR": "Trigger it in your last AR so the lock costs you nothing."
     },
     "Latin_American_Debt_Crisis": {
-      "USSR": "Play it late in a turn, when their hand is nearly empty. The China Card can't pay it.",
+      "USSR": "If you can use it to break control of south america, event it. If not, use the ops.",
       "US": "Discard rather than let them double up, unless the doubling would be small."
     },
     "Tear_Down_This_Wall": {
@@ -366,8 +365,7 @@
       "USSR": "Event: 1 VP and three removals in Western Europe. Aim where control breaks."
     },
     "Wargames": {
-      "any": "Only at DEFCON 2. Check the score: if you lead by more than 6, it's an instant win. Otherwise it hands them 6 VP.",
-      "USSR": "This is your turn-8 out. Keep DEFCON at 2 and the lead above 6."
+      "any": "If you have 7 vp of advantage and DEFCON 2 play the event. If not, use it as ops."
     },
     "Solidarity": {
       "US": "Needs John Paul II already played. Event to take Poland, otherwise 2 Ops.",
