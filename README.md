@@ -1,7 +1,6 @@
 # struggler
 
-An API-first, deterministic rules engine for *Twilight Struggle* (GMT
-Games, 2005), built so AI agents can be trained and evaluated against it.
+An engine for *Twilight Struggle* (GMT Games, 2005), built so AI agents can be trained and evaluated against it.
 
 The engine is a state machine driven entirely through a narrow public API.
 It never assumes whose turn it is, never resolves a die roll silently, and
@@ -63,27 +62,6 @@ python src/main.py --resume-game-log logs/2026-08-18_10-58_game.json \
 `--resume` additionally reloads an LLM player's own conversation memory
 from its log — see [docs/BOTS.md](docs/BOTS.md) for the resumption
 contract, including keeping that memory in sync if you trim the game log.
-
-## What makes it different
-
-Five mandates the implementation is held to, described in full in
-[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md):
-
-1. **A pending-decision stack, not "one turn = one action."** Card events
-   interrupt; resolving a decision can push sub-decisions that must resolve
-   before control returns.
-2. **An atomic action space.** Spending 4 Ops is four single-point
-   decisions, not one choice among thousands of combinations. Tens of legal
-   options per decision, never thousands.
-3. **A seeded, injectable RNG.** Same seed plus same actions gives
-   byte-identical state on any machine. Dice are exposed as explicit
-   `CHANCE` decisions, so a replay log is a complete record of a game.
-4. **A per-player observation function.** `observe(player)` is the only
-   sanctioned view, and hidden information is *absent* from it rather than
-   masked.
-5. **Flat, serializable state.** `serialize()` returns JSON primitives, so
-   replay logs are diffable and greppable and cloning state for search or
-   training is cheap.
 
 ## Status
 
