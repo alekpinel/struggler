@@ -1,12 +1,61 @@
 # struggler
 
-An engine for *Twilight Struggle* (GMT Games, 2005), built so AI agents can be trained and evaluated against it.
+Welcome to struggler! An engine for *Twilight Struggle* (GMT Games, 2005), built so AI agents can be trained and evaluated against it.
 
-The engine is a state machine driven entirely through a narrow public API.
-It never assumes whose turn it is, never resolves a die roll silently, and
-never shows a player information they could not see at the table. Those
-constraints are what make it usable as a training and evaluation
-environment rather than just a game implementation.
+This repo contains the engine of the whole game, that can be used to test different bots against each other, a human player or even an external player.
+
+It also contains an LLM bot: it reads the rules and a strategy guideline as its knowledge base, gets the current board state at every decision, and drafts a turn plan it then plays every turn (and decides to follow the plan or diverging from it).
+
+To understand the full story, read the article [Giving AI the atom bomb buttons](https://siestainsolaris.substack.com/p/giving-ai-the-atom-bomb-buttons)
+
+## Install
+
+Python 3.12+.
+
+The easiest way is to use a [conda environment](https://www.anaconda.com/docs/getting-started/miniconda/install/windows-gui-install).
+
+```sh
+conda env create -f environment.yml
+conda activate struggler
+pip install -e ".[test]"
+pip install -e ".[llm]"  # optional if you plan to use the llm
+```
+
+### Configure an LLM bot
+
+To use the llm bot, you need to set up your api keys. This implementation supports anthropic and openai.
+
+```sh
+export ANTHROPIC_API_KEY=...   # for provider=anthropic
+export OPENAI_API_KEY=...      # for provider=openai (the default)
+```
+
+Provider and model are picked via environment variables, each overridable per run:
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `STRUGGLER_LLM_PROVIDER` | `openai` | `anthropic` or `openai` — used for both the per-decision client and the once-per-turn planning client |
+| `STRUGGLER_LLM_MODEL` | provider's built-in default | model for in-decision calls |
+| `STRUGGLER_LLM_PLAN_MODEL` | provider's built-in default | model for the turn-planning call (same provider as above) |
+
+## Play a game
+
+You can just use the provided main to run any game.
+
+```sh
+python src/main.py                                  # human vs human
+python src/main.py --us greedy --ussr greedy --seed 1  # bot vs bot
+python src/main.py --ussr llm                       # human (US) vs llm bot (USSR)
+python src/main.py --physical us --ussr llm         # bot vs a real physical board
+```
+The options for the players are:
+- human
+- first
+- random
+- greedy
+- llm
+
+But you can create your own implementation using the engine like this:
 
 ```python
 from struggler.engine import Engine
@@ -15,38 +64,11 @@ engine = Engine.new_game(seed=12345)
 
 while not engine.is_terminal:
     decision = engine.pending_decision
-    # decision.actor is Side.US, Side.USSR, or Side.CHANCE. A CHANCE
-    # decision carries exactly one pre-rolled option, so there is nothing
-    # to decide; struggler.runner.play_game resolves those for you.
-    action = pick(decision.options)          # your agent, or a bundled bot
+    action = pick(decision.options) # your agent has to pick the decision
     engine.step(action)
 
 print(engine.winner)
 ```
-
-## Install
-
-Python 3.12+.
-
-```sh
-pip install -e ".[test]"     # engine + test dependencies
-pip install -e ".[llm]"      # optional: the LLM-backed bot
-```
-
-A conda environment is also provided: `conda env create -f environment.yml`.
-
-## Play a game
-
-```sh
-python src/main.py                                     # human vs human
-python src/main.py --us greedy --ussr random --seed 1   # bot vs bot
-python src/main.py --ussr greedy                        # human (US) vs bot (USSR)
-python src/main.py --physical us --ussr greedy          # bot vs a real physical board
-```
-
-Every seat — human, scripted bot, LLM, or a human playing the physical
-board with the engine as referee — plugs in through the same `Player`
-interface, so all of those are one code path.
 
 Every game defaults to a saved replay log under `./logs/`
 (`--game-log-path` to pick a location, `--no-game-log` to disable). Resume
@@ -60,38 +82,12 @@ python src/main.py --resume-game-log logs/2026-08-18_10-58_game.json \
 ```
 
 `--resume` additionally reloads an LLM player's own conversation memory
-from its log — see [docs/BOTS.md](docs/BOTS.md) for the resumption
+from its log see [docs/BOTS.md](docs/BOTS.md) for the resumption
 contract, including keeping that memory in sync if you trim the game log.
-
-## Configure an LLM bot
-
-The provider SDKs read their key straight from the environment — struggler
-never touches it itself:
-
-```sh
-export ANTHROPIC_API_KEY=...   # for provider=anthropic
-export OPENAI_API_KEY=...      # for provider=openai (the default)
-```
-
-Provider and model are picked via environment variables, each overridable
-per run:
-
-| Variable | Default | Purpose |
-| --- | --- | --- |
-| `STRUGGLER_LLM_PROVIDER` | `openai` | `anthropic` or `openai` — used for both the per-decision client and the once-per-turn planning client |
-| `STRUGGLER_LLM_MODEL` | provider's built-in default | model for in-decision calls |
-| `STRUGGLER_LLM_PLAN_MODEL` | provider's built-in default | model for the turn-planning call (same provider as above) |
-
-```sh
-python src/main.py --ussr llm
-```
-
-See [docs/BOTS.md](docs/BOTS.md) for what the model is shown each decision
-and how the turn plan works.
 
 ## Add a new bot
 
-Every seat — human or bot — plugs in through the same `Player` interface:
+Every player, human or bot, uses the same `Player` interface:
 implement `choose_action(observation, history) -> Action`, returning one
 action drawn from `observation.pending_decision.options`, then add one
 branch to `build_player` in [src/main.py](src/main.py) mapping a new kind
@@ -101,15 +97,13 @@ name (for `--us`/`--ussr`) to it.  See [docs/BOTS.md](docs/BOTS.md) for the full
 ## Status
 
 All 110 cards are implemented, including every non-scoring card's event.
-Remaining work is rules fidelity rather than coverage — see
-[docs/LIMITATIONS.md](docs/LIMITATIONS.md) for what is deliberately not
-modeled.
+See [docs/LIMITATIONS.md](docs/LIMITATIONS.md) for any known limitations.
 
 ## Documentation
 
 | Document | Contents |
 | --- | --- |
-| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | The five mandates, the public API, core types |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | The public API, core types |
 | [docs/CARDS.md](docs/CARDS.md) | Card data policy, the event layer, per-card coverage |
 | [docs/BOTS.md](docs/BOTS.md) | The `Player` interface, physical mode, bot roadmap |
 | [docs/TESTING.md](docs/TESTING.md) | Replay logs, property tests, test-writing policy |
@@ -143,3 +137,7 @@ included anywhere in this repository.
 
 Playing this engine is not a substitute for owning the game. If you enjoy
 *Twilight Struggle*, buy a copy from [GMT Games](https://www.gmtgames.com/).
+
+## Author
+
+Built by [Alejandro Pinel Martínez](https://github.com/alekpinel)
