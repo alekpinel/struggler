@@ -12,6 +12,7 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 
 from conftest import assert_invariants as _assert_invariants
+from conftest import headline_setup as _headline_setup
 from struggler.engine import Action, DecisionKind, Engine, Side
 from struggler.engine.cards import hand_limit
 from struggler.engine.core import HIDDEN_CARD
@@ -68,6 +69,74 @@ def test_full_opening_deal_completes_into_opening_setup():
     assert engine.pending_decision.actor is Side.USSR
     assert len(engine.hands["US"]) == hand_limit(1)
     assert len(engine.hands["USSR"]) == hand_limit(1)
+
+
+@pytest.mark.parametrize("physical_side", [Side.US, Side.USSR])
+def test_headline_bot_picks_and_is_announced_before_the_physical_side(physical_side):
+    # Unlike non-physical games (always USSR then US), physical mode always
+    # asks the bot for its Headline pick first, whichever side it is -- so
+    # its choice is announced (physical.BotHeadlineAnnouncer) in time for the
+    # operator to place the matching card before their own pick is asked.
+    engine = Engine.new_game(seed=2, physical_mode=True, physical_side=physical_side, events=False)
+    steps = 0
+    while engine.pending_decision.kind is not DecisionKind.HEADLINE_PLAY:
+        engine.step(engine.pending_decision.options[0])
+        steps += 1
+        assert steps < 500
+    bot_side = physical_side.opponent
+    assert engine.pending_decision.actor is bot_side
+    engine.step(engine.pending_decision.options[0])
+    assert engine.pending_decision.actor is physical_side
+
+
+@pytest.mark.parametrize("physical_side", [Side.US, Side.USSR])
+def test_headline_box4_bot_holder_asks_operator_first_and_sees_their_pick(physical_side):
+    # Space Race box 4 (6.4.4) held by the *bot* overrides the physical-mode
+    # bot-first default: the operator must be asked (and genuinely place
+    # their real card on the board) first, so the bot's own pick can depend
+    # on it -- surfaced as opponent_headline in the bot's decision context.
+    engine = _bare_physical(physical_side, seed=3)
+    bot_side = physical_side.opponent
+    engine.game_effects["space_race_headline_reveal_holder"] = bot_side.value
+    ussr_card, us_card = "Fidel", "Duck_and_Cover"
+    _headline_setup(engine, ussr_card, us_card)
+    physical_card = ussr_card if physical_side is Side.USSR else us_card
+    bot_card = us_card if physical_side is Side.USSR else ussr_card
+
+    d = engine.pending_decision
+    assert d.kind is DecisionKind.HEADLINE_PLAY and d.actor is physical_side
+    assert "opponent_headline" not in d.context
+
+    engine.step(Action(DecisionKind.HEADLINE_PLAY, {"card": physical_card}))
+
+    d = engine.pending_decision
+    assert d.kind is DecisionKind.HEADLINE_PLAY and d.actor is bot_side
+    assert d.context["opponent_headline"] == physical_card
+
+    engine.step(Action(DecisionKind.HEADLINE_PLAY, {"card": bot_card}))
+    assert engine.phase == "action_rounds"
+
+
+@pytest.mark.parametrize("physical_side", [Side.US, Side.USSR])
+def test_headline_box4_physical_holder_keeps_bot_first_default(physical_side):
+    # Box 4 held by the *physical* side needs no override: the unconditional
+    # bot-first default already reveals the bot's card to the operator
+    # before their own pick, which is exactly what the ability grants them.
+    engine = _bare_physical(physical_side, seed=3)
+    engine.game_effects["space_race_headline_reveal_holder"] = physical_side.value
+    ussr_card, us_card = "Fidel", "Duck_and_Cover"
+    _headline_setup(engine, ussr_card, us_card)
+    bot_card = us_card if physical_side is Side.USSR else ussr_card
+    physical_card = ussr_card if physical_side is Side.USSR else us_card
+
+    d = engine.pending_decision
+    assert d.kind is DecisionKind.HEADLINE_PLAY and d.actor is physical_side.opponent
+
+    engine.step(Action(DecisionKind.HEADLINE_PLAY, {"card": bot_card}))
+
+    d = engine.pending_decision
+    assert d.kind is DecisionKind.HEADLINE_PLAY and d.actor is physical_side
+    assert d.context["opponent_headline"] == bot_card
 
 
 # -- manual dice --------------------------------------------------------------
@@ -228,22 +297,41 @@ def test_ask_not_with_a_physical_hand_discards_and_redraws():
 # -- cross-hand events routed to the operator ---------------------------------
 
 
-def test_aldrich_ames_routes_to_operator_when_us_hand_is_physical():
+def test_aldrich_ames_reveals_full_hand_then_lets_ussr_choose_when_us_is_physical():
     engine = _bare_physical(Side.US, seed=1)
     engine.hidden_pool = ["Duck_and_Cover", "Fidel"]
     engine.hands["US"] = [HIDDEN_CARD, HIDDEN_CARD]
     engine._fire_event(Side.USSR, "Aldrich_Ames_Remix")
+
+    # Phase 1: the USSR bot cannot see the physical US hand, so the operator
+    # declares every hidden slot's real card first, one at a time -- same
+    # shape as DEAL_CARD -- matching the card's printed "reveal the hand".
     decision = engine.pending_decision
-    # Not USSR: the USSR bot cannot see the physical US hand, so the choice
-    # is routed to the operator (CHANCE), same as manual dice / DEAL_CARD.
     assert decision.actor is Side.CHANCE
+    assert {a.payload["choice"] for a in decision.options} == {"Duck_and_Cover", "Fidel"}
+    engine.step(Action(DecisionKind.EVENT_CHOICE, {"choice": "Duck_and_Cover"}))
+    assert "Duck_and_Cover" in engine.hands["US"]
+    assert "Duck_and_Cover" not in engine.hidden_pool
+    assert engine.hands["US"].count(HIDDEN_CARD) == 1
+
+    decision = engine.pending_decision
+    assert decision.actor is Side.CHANCE
+    assert {a.payload["choice"] for a in decision.options} == {"Fidel"}
+    engine.step(Action(DecisionKind.EVENT_CHOICE, {"choice": "Fidel"}))
+    assert HIDDEN_CARD not in engine.hands["US"]
+
+    # Phase 2: the hand is now fully known -- the real USSR player (a bot's
+    # own strategic choice, e.g. the LLM player) picks from it directly,
+    # exactly like a non-physical game, instead of the US operator picking
+    # on the bot's behalf.
+    decision = engine.pending_decision
+    assert decision.actor is Side.USSR
     assert {a.payload["choice"] for a in decision.options} == {"Duck_and_Cover", "Fidel"}
     chosen = decision.options[0]
     engine.step(chosen)
     cid = chosen.payload["choice"]
     assert cid in engine.discard_pile
-    assert cid not in engine.hidden_pool
-    assert engine.hands["US"].count(HIDDEN_CARD) == 1
+    assert cid not in engine.hands["US"]
 
 
 def test_aldrich_ames_unaffected_when_us_hand_is_not_physical():

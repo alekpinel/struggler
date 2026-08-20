@@ -368,14 +368,52 @@ class Engine:
             if self.phase in ("idle", "complete", "setup"):
                 return
 
+    def _headline_pick_order(self) -> tuple[Side, Side]:
+        """Which side picks its Headline card first: an arbitrary but fixed
+        serialization of the simultaneous secret pick (distinct from
+        `_headline_resolution_order`'s reveal-order tie-break) -- except
+        when Space Race box 4 (6.4.4) is held, which makes the pick
+        genuinely sequential rather than simultaneous: its sole holder picks
+        *second*, after actually seeing the opponent's already-committed
+        card (`_push_headline` is what surfaces it, as `opponent_headline`
+        in the second pick's decision context). Normally USSR then US.
+
+        In physical mode the bot otherwise always picks first instead, so
+        its card can be announced (`physical.BotHeadlineAnnouncer`) before
+        the operator is asked for the physical side's own pick -- the
+        physical side already commits to a real card at the table
+        independently of when the app asks, so going second there costs it
+        no information, and it's what lets the operator learn the bot's
+        card in time to place it. That default is itself overridden when
+        the *bot* holds box 4: then the operator must be asked (and must
+        genuinely reveal/place their real card on the board) first, since
+        the bot's own pick now has to be an informed one -- the "independent
+        commitment" rationale above only justifies asking the physical side
+        second when doing so costs them nothing, which stops being true the
+        moment the bot's choice is supposed to depend on theirs. Box 4 held
+        by the physical side instead needs no special case: the unconditional
+        bot-first default already reveals the bot's card to the operator
+        before their own pick, exactly what the ability would grant them."""
+        holder = self.game_effects.get("space_race_headline_reveal_holder")
+        if self.physical_mode:
+            bot_side = self.physical_side.opponent
+            if holder == bot_side.value:
+                return (self.physical_side, bot_side)
+            return (bot_side, self.physical_side)
+        if holder is not None:
+            holder_side = Side(holder)
+            return (holder_side.opponent, holder_side)
+        return (Side.USSR, Side.US)
+
     def _advance_once(self) -> None:
         if self.phase == "headline":
             if not self._headline_resolving:
-                if self._headline["USSR"] is None:
-                    self._push_headline(Side.USSR)
+                first, second = self._headline_pick_order()
+                if self._headline[first.value] is None:
+                    self._push_headline(first)
                     return
-                if self._headline["US"] is None:
-                    self._push_headline(Side.US)
+                if self._headline[second.value] is None:
+                    self._push_headline(second)
                     return
                 # Both cards are chosen: freeze the resolution order and clear
                 # the picks so they live in exactly one place from here on.
@@ -736,7 +774,18 @@ class Engine:
             # rather than the candidate list silently staying stale.
             options += (Action(DecisionKind.HEADLINE_PLAY, {"card": RESHUFFLE_NOW}),)
         if options:
-            self._push(side, DecisionKind.HEADLINE_PLAY, options, {})
+            context: dict = {}
+            # Space Race box 4 (6.4.4): its sole holder picks second (per
+            # _headline_pick_order) and gets to see the opponent's already-
+            # committed card before choosing their own. `pending_decision` is
+            # shared across both observations (mandate #4), which is fine
+            # here -- the opponent already knows their own card, and this
+            # context only ever appears on the holder's own decision.
+            if self.game_effects.get("space_race_headline_reveal_holder") == side.value:
+                opponent_pick = self._headline[side.opponent.value]
+                if opponent_pick is not None:
+                    context["opponent_headline"] = opponent_pick
+            self._push(side, DecisionKind.HEADLINE_PLAY, options, context)
 
     def _handle_headline_play(self, decision: Decision, action: Action) -> None:
         side = decision.actor
@@ -800,9 +849,7 @@ class Engine:
         """Defectors: printed text -- "If Defectors played by USSR during
         Soviet action round, US gains 1 VP (unless played on the Space
         Race)." Triggers on a normal action-round play (Event or Ops; Space
-        Race is the one excluded mode), not on headlining it -- the opposite
-        of what the engine did before this was reconfirmed against the
-        physical card."""
+        Race is the one excluded mode), not on headlining it."""
         if self.events_enabled and side is Side.USSR and cid == "Defectors":
             self._award_vp(Side.US, 1)
 
@@ -1182,9 +1229,10 @@ class Engine:
         side to reach its box, and is cancelled outright (not transferred)
         the instant the second side also reaches it. The abilities modeled
         as a held flag are keyed here: box 2 (a second Space Race attempt
-        per turn, checked by _space_attempts_allowed), box 6 (may discard
-        the Held Card), and box 8 (an extra Action Round). Box 4's
-        headline-order perk remains unmodeled."""
+        per turn, checked by _space_attempts_allowed), box 4 (picks its
+        Headline second and sees the opponent's pick first, handled by
+        _headline_pick_order/_push_headline), box 6 (may discard the Held
+        Card), and box 8 (an extra Action Round)."""
         key = RULES["space_race_ability_keys"].get(str(box))
         if key is None:
             return

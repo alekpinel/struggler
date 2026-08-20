@@ -288,10 +288,28 @@ of turn.
 
 ## Space Race boxes
 
-Box 2 (a second Space Race attempt per turn), box 6 (may discard the Held
-Card at end of turn), and box 8 (an extra Action Round) are implemented.
-Each is granted only to the first side to reach the box and is cancelled
-outright — not transferred — the instant the second side also reaches it
-(rule 6.4.4), via `Engine._update_space_race_ability` and the
+Box 2 (a second Space Race attempt per turn), box 4 (see below), box 6 (may
+discard the Held Card at end of turn), and box 8 (an extra Action Round) are
+implemented. Each is granted only to the first side to reach the box and is
+cancelled outright — not transferred — the instant the second side also
+reaches it (rule 6.4.4), via `Engine._update_space_race_ability` and the
 `game_effects` keys `space_race_double_attempt_holder` /
-`space_race_discard_holder` / `space_race_extra_round_holder`.
+`space_race_headline_reveal_holder` / `space_race_discard_holder` /
+`space_race_extra_round_holder`.
+
+Box 4's sole holder picks their Headline card *second*, after seeing the
+opponent's already-committed pick. `_headline_pick_order` reverses the
+default USSR-then-US pick order for it, and `_push_headline` surfaces the
+opponent's card to the holder as `opponent_headline` in the `HEADLINE_PLAY`
+decision's `context`, once the opponent has actually picked. Only the pick
+order changes; the frozen resolution order (`_headline_resolution_order`,
+higher Ops first) is a separate mechanic and untouched by this.
+
+Physical mode already always asks the bot side first so its pick can be
+announced in time for the operator to place it on the real board (see
+`docs/BOTS.md`); when the *physical* side holds box 4, that default already
+gives them the ability's benefit for free, so no special case is needed.
+When the *bot* holds it instead, `_headline_pick_order` overrides that
+default the other way: the operator is asked first — and must genuinely
+place their real card on the board before the app asks for the bot's pick —
+so the bot's choice can actually depend on it.

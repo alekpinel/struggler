@@ -1,6 +1,9 @@
 """Engine: Space Race track mechanics, including the box 6/8 perks (6.4.3-6.4.4)."""
 
-from struggler.engine import DecisionKind, Engine, Side
+from struggler.engine import Action, DecisionKind, Engine, Side
+
+from conftest import bare_engine as _bare
+from conftest import headline_setup as _headline_setup
 
 
 def test_advance_space_race_box_awards_first_then_second_vp():
@@ -92,6 +95,36 @@ def test_reaching_box_2_grants_second_attempt_cancelled_when_opponent_catches_up
     assert "space_race_double_attempt_holder" not in engine.game_effects
     assert engine._space_attempts_allowed(Side.US) == 1
     assert engine._space_attempts_allowed(Side.USSR) == 1
+
+
+def test_reaching_box_4_flips_headline_pick_order_and_reveals_opponent_pick():
+    # Box 4's sole holder (USSR) picks its Headline second, after seeing the
+    # US's already-committed pick -- the default USSR-first order is reversed.
+    engine = _bare(seed=1)
+    engine.game_effects["space_race_headline_reveal_holder"] = "USSR"
+    _headline_setup(engine, "Fidel", "Duck_and_Cover")
+
+    d = engine.pending_decision
+    assert d.kind is DecisionKind.HEADLINE_PLAY and d.actor is Side.US
+    assert "opponent_headline" not in d.context
+
+    engine.step(Action(DecisionKind.HEADLINE_PLAY, {"card": "Duck_and_Cover"}))
+
+    d = engine.pending_decision
+    assert d.kind is DecisionKind.HEADLINE_PLAY and d.actor is Side.USSR
+    assert d.context["opponent_headline"] == "Duck_and_Cover"
+
+
+def test_reaching_box_4_is_cancelled_when_opponent_catches_up():
+    engine = Engine.new_game(seed=1, events=False)
+    _advance_to(engine, Side.US, 4)
+    assert engine.game_effects["space_race_headline_reveal_holder"] == "US"
+
+    # 6.4.4: cancelled outright, not transferred, the instant the USSR also
+    # reaches box 4 -- the normal USSR-first pick order returns.
+    _advance_to(engine, Side.USSR, 4)
+    assert "space_race_headline_reveal_holder" not in engine.game_effects
+    assert engine._headline_pick_order() == (Side.USSR, Side.US)
 
 
 def test_space_race_ability_state_round_trips_through_serialization():

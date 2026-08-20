@@ -1,9 +1,9 @@
 """Card-event mechanics.
 
 This module owns the *event text* of cards — deliberately kept out of the
-card data layer (see docs/CARDS.md). Each event is
-a small function that mutates game state through the same primitives the board
-mechanics already expose (influence, control, DEFCON, VP, Space Race, the seeded
+card data layer (see docs/CARDS.md). Each event is a small function that
+mutates game state through the same primitives the board mechanics already
+expose (influence, control, DEFCON, VP, Space Race, the seeded
 dice-as-CHANCE decisions), never by reaching around the decision stack.
 
 Design (mandates #1-#2):
@@ -14,8 +14,8 @@ Design (mandates #1-#2):
   a persistent per-turn modifier the engine consults later (tier 3). Player-choice
   events (tier 2) enqueue their own player decisions and are added incrementally.
 - `EVENTS` maps a card id to its `Event`. A card absent from this map has no
-  implemented event yet: in events mode it is a no-op discard.
-  This is what lets the deck grow card-by-card without touching the game loop.
+  implemented event yet: in events mode it is a no-op discard, which is what
+  lets the deck grow card-by-card without touching the game loop.
 
 Every numeric effect below is taken from the physical card text (GMT Games,
 2005 / 2009 Deluxe), not from any reference implementation.
@@ -914,17 +914,38 @@ def _aldrich_ames(engine: "Engine", side: Side) -> None:
     # The USSR sees the US hand and chooses one card the US must discard. (The
     # remix's ongoing "sees the hand for the turn" reveal is not modeled.)
     if engine.physical_mode and engine.physical_side is Side.US:
-        # The USSR bot can't inspect a hidden US hand -- route the choice to
-        # the operator instead (who can see it), sourcing candidates from
-        # the physical-hand pool rather than real ids known to the engine.
-        us_hand = engine._physical_hand_candidates(Side.US)
-        chooser = Side.CHANCE
-    else:
-        us_hand = engine.hands["US"]
-        chooser = Side.USSR
+        # The card's printed effect is "reveal the hand, then choose": the
+        # USSR bot can't inspect a hidden US hand directly, so first have the
+        # operator declare every still-hidden slot's real identity (one at a
+        # time, exactly like DEAL_CARD), matching the physical reveal. Only
+        # once the hand is genuinely fully known does the real USSR player
+        # (the LLM bot included) get to make its own choice from it --
+        # rather than the operator, who is the US player, picking on the
+        # bot's behalf.
+        _push_aldrich_ames_reveal(engine)
+        return
+    us_hand = engine.hands["US"]
     if not us_hand:
         return
-    engine.push_event_choice("Aldrich_Ames_Remix", chooser, tuple(us_hand))
+    engine.push_event_choice("Aldrich_Ames_Remix", Side.USSR, tuple(us_hand))
+
+
+def _push_aldrich_ames_reveal(engine: "Engine") -> None:
+    from struggler.engine.core import HIDDEN_CARD
+
+    if HIDDEN_CARD not in engine.hands["US"]:
+        us_hand = list(engine.hands["US"])
+        if us_hand:
+            engine.push_event_choice("Aldrich_Ames_Remix", Side.USSR, tuple(us_hand))
+        return
+    engine.push_event_choice(
+        "Aldrich_Ames_Remix_reveal", Side.CHANCE, tuple(engine.hidden_pool)
+    )
+
+
+def _aldrich_ames_reveal_choice(engine: "Engine", side: Side, choice: str, context: dict) -> None:
+    engine._reveal_in_hand(Side.US, choice)
+    _push_aldrich_ames_reveal(engine)
 
 
 def _aldrich_ames_choice(engine: "Engine", side: Side, choice: str, context: dict) -> None:
@@ -1321,11 +1342,12 @@ def _south_african_unrest_choice(engine: "Engine", side: Side, choice: str, cont
     else:  # and_adjacent
         engine.add_influence("South_Africa", Side.USSR, 1)
         adjacent = sorted(engine.board.neighbors("South_Africa"))
-        engine.push_event_choice("South_African_Unrest_adj", Side.USSR, tuple(adjacent))
-
-
-def _south_african_unrest_adj_choice(engine: "Engine", side: Side, choice: str, context: dict) -> None:
-    engine.add_influence(choice, Side.USSR, 2)
+        # The 2 points may go entirely to one adjacent country or be split
+        # between them (e.g. 1 in Angola and 1 in SE African States).
+        engine.push_event_influence(
+            event="South_African_Unrest_adj", op="place", choose_side=Side.USSR,
+            inf_side=Side.USSR, remaining=2, candidates=adjacent, cap=2,
+        )
 
 
 def _payable_cards(engine: "Engine", side: Side) -> list[str]:
@@ -1663,6 +1685,7 @@ CHOICE_ROUTERS: dict[str, Callable[["Engine", Side, str], None]] = {
     "Wargames": _wargames_choice,
     "Summit_defcon": _summit_defcon_choice,
     "Aldrich_Ames_Remix": _aldrich_ames_choice,
+    "Aldrich_Ames_Remix_reveal": _aldrich_ames_reveal_choice,
     "Grain_Sales_to_Soviets": _grain_sales_choice,
     "Ask_Not_What_Your_Country_Can_Do_For_You": _ask_not_choice,
     "Missile_Envy_pick": _missile_envy_pick_choice,
@@ -1671,7 +1694,6 @@ CHOICE_ROUTERS: dict[str, Callable[["Engine", Side, str], None]] = {
     "Che": _che_choice,
     "Cuban_Missile_Crisis_defuse": _cuban_missile_crisis_defuse_choice,
     "South_African_Unrest": _south_african_unrest_choice,
-    "South_African_Unrest_adj": _south_african_unrest_adj_choice,
     "Blockade": _blockade_choice,
     "Latin_American_Debt_Crisis": _latin_american_debt_crisis_choice,
     "Latin_American_Debt_Crisis_double": _latin_debt_double_choice,

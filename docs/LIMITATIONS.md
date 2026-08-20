@@ -5,9 +5,6 @@ way.
 
 ## Rules fidelity
 
-- **Space Race box 4** — the headline-reveal-order perk (requiring the
-  opponent to select their Headline Event first) is not modeled. Boxes 6
-  and 8 are (see [CARDS.md](CARDS.md)).
 - **Shuttle Diplomacy** is filed to the discard pile when played, rather
   than kept "in front of you" until its delayed effect triggers. Only the
   effect flag matters mechanically. A card-manipulation event such as Star
@@ -50,13 +47,10 @@ the engine as referee. Some things the engine simply cannot know.
   merely hidden from a player, so there is nothing to queue instead of
   `HIDDEN_CARD` placeholders.
 
-Every other event is wired for a physical hidden hand, including the three
-where the *deciding* side must inspect the *opponent's* hand — Aldrich Ames
-Remix and Missile Envy (whose `choose_side` is overridden to `Side.CHANCE`
-so the operator, not a bot that cannot see the target hand, answers), and
-The Cambridge Five (a per-scoring-card yes/no query sequence via
-`_push_cambridge_five_query` instead of a single choice, stopping the moment
-the hand's last open `HIDDEN_CARD` slot is filled).
+Every other hand-touching event *is* wired for a physical hidden hand,
+including the three where the deciding side must inspect a hand it cannot
+see (Missile Envy, Aldrich Ames Remix, The Cambridge Five). How each one is
+routed to the operator is described in [BOTS.md](BOTS.md).
 
 ## Bots
 

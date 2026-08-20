@@ -21,7 +21,11 @@ EVENT_INFLUENCE, EVENT_OPS_ORDER, QUAGMIRE_DISCARD, HELD_CARD_DISCARD,
 EVENT_RESUME, RANDOM_DISCARD's non-CHANCE siblings, ...) fall back to the
 first legal option. This is a documented gap, not a bug -- the same
 card-by-card growth pattern the event layer itself used; extend
-`_SCORERS` as each one gets a heuristic worth writing.
+`_SCORERS` as each one gets a heuristic worth writing. `EVENT_CHOICE`
+itself now has one card-specific heuristic (Aldrich Ames Remix: discard
+the opponent's highest-Ops card) inside `_score_event_choice`, dispatched
+by `decision.context["event"]`; every other EVENT_CHOICE-driven card still
+falls back to the first option via that same function's default 0.0.
 
 Priority ordering falls directly out of the weight magnitudes, not out of
 branch order:
@@ -430,6 +434,22 @@ def _score_play_mode(weights: GreedyWeights, board: Board, observation: Observat
     return -weights.event_mode_penalty
 
 
+def _score_event_choice(weights: GreedyWeights, board: Board, observation: Observation, action: Action) -> float:
+    """Dispatches by `decision.context["event"]`. Every EVENT_CHOICE-driven
+    card other than the ones named here still returns 0.0 for all of its
+    options, i.e. still falls back to the first legal one (see module
+    docstring)."""
+    event = observation.pending_decision.context.get("event")
+    if event == "Aldrich_Ames_Remix":
+        # Force the discard of the opponent's most valuable card in hand,
+        # proxied by its Ops value (a scoring card's real cost -- losing the
+        # region -- isn't modeled by GreedyPlayer's no-lookahead heuristics
+        # elsewhere either; see _score_play_mode above).
+        card = _CARDS.get(action.payload["choice"])
+        return float(card.ops) if card is not None else 0.0
+    return 0.0
+
+
 _SCORERS: dict[DecisionKind, Callable[[GreedyWeights, Board, Observation, Action], float]] = {
     DecisionKind.PLACE_INFLUENCE: _score_place_influence,
     DecisionKind.COUP_TARGET: _score_coup_target,
@@ -438,6 +458,7 @@ _SCORERS: dict[DecisionKind, Callable[[GreedyWeights, Board, Observation, Action
     DecisionKind.HEADLINE_PLAY: _score_headline,
     DecisionKind.ACTION_ROUND_PLAY: _score_action_round_play,
     DecisionKind.PLAY_MODE: _score_play_mode,
+    DecisionKind.EVENT_CHOICE: _score_event_choice,
 }
 
 
