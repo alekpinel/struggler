@@ -48,17 +48,10 @@ the engine as referee. Some things the engine simply cannot know.
   merely hidden from a player, so there is nothing to queue instead of
   `HIDDEN_CARD` placeholders.
 
-Every other event is wired for a physical hidden hand, including the three
-where the *deciding* side must inspect the *opponent's* hand. Missile
-Envy's `choose_side` is overridden to `Side.CHANCE` so the operator, not a
-bot that cannot see the target hand, answers directly. Aldrich Ames Remix
-and The Cambridge Five instead reveal first and decide second: Aldrich Ames
-has the operator declare every still-hidden slot's real card one at a time
-(`_push_aldrich_ames_reveal`, shaped like `DEAL_CARD`) until the whole hand
-is known, then hands the actual choice to the real USSR player (bot
-included); The Cambridge Five runs a per-scoring-card yes/no query sequence
-instead (`_push_cambridge_five_query`), both stopping the moment the hand's
-last open `HIDDEN_CARD` slot is filled.
+Every other hand-touching event *is* wired for a physical hidden hand,
+including the three where the deciding side must inspect a hand it cannot
+see (Missile Envy, Aldrich Ames Remix, The Cambridge Five). How each one is
+routed to the operator is described in [BOTS.md](BOTS.md).
 
 ## Bots
 

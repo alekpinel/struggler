@@ -849,9 +849,7 @@ class Engine:
         """Defectors: printed text -- "If Defectors played by USSR during
         Soviet action round, US gains 1 VP (unless played on the Space
         Race)." Triggers on a normal action-round play (Event or Ops; Space
-        Race is the one excluded mode), not on headlining it -- the opposite
-        of what the engine did before this was reconfirmed against the
-        physical card."""
+        Race is the one excluded mode), not on headlining it."""
         if self.events_enabled and side is Side.USSR and cid == "Defectors":
             self._award_vp(Side.US, 1)
 
