@@ -73,6 +73,13 @@ A card is not considered done until it has a replay-log regression test
   only the event id and the chosen option — never a function). These steps
   live on the same decision stack, so they are hosted correctly inside a
   headline or an opponent's Ops play.
+- **The game can end mid-event.** An event that scores VP and then asks
+  for a choice (Pershing II Deployed, Soviets Shoot Down KAL-007, ...) may
+  hand a side its 20th VP on the scoring step. `_win` clears the decision
+  stack, and `Engine._push` refuses to push onto a finished game, so the
+  event's remaining steps are abandoned rather than left pending on a
+  terminal engine (mandate #1: pending is `None` iff the game ended).
+  `conftest.assert_invariants` checks that direction too.
 - **China Card bonus.** Playing the China Card for Ops grants its +1 ("all
   Ops used in Asia") for influence (an all-or-nothing invariant in the
   placement step: the 5th point is offered only while nothing has gone

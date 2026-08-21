@@ -1963,6 +1963,14 @@ class Engine:
     def _push(
         self, actor: Side, kind: DecisionKind, options: tuple[Action, ...], context: dict
     ) -> None:
+        # An event that scores VP and *then* asks for a choice (Pershing II
+        # Deployed, KAL-007, ...) can end the game on the VP step: `_win`
+        # clears the stack, and whatever the event pushes afterwards must
+        # not resurrect a pending decision on a finished game (mandate #1:
+        # pending is None iff the game ended). The rest of the event is
+        # abandoned, exactly as `_win` abandons a half-resolved continuation.
+        if self.is_terminal:
+            return
         self._decision_stack.append(self._new_decision(actor, kind, options, context))
 
     def _roll_d6(self) -> int:

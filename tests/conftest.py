@@ -81,6 +81,10 @@ def assert_invariants(engine: Engine) -> None:
     if not engine.is_terminal:
         assert engine.pending_decision is not None
         assert len(engine.legal_actions()) > 0  # never deadlock on a live decision
+    else:
+        # Mandate #1: pending is None iff the game ended. An event that
+        # scores the winning VP and then pushes a choice once broke this.
+        assert engine.pending_decision is None
 
     # No card is ever in two places at once, and The China Card is tracked
     # separately (never in a hand or pile).
