@@ -554,6 +554,20 @@ def test_the_reformer_places_more_when_ussr_is_ahead():
     assert engine.game_effects.get("reformer") is True
 
 
+def test_pershing_ii_winning_vp_ends_the_game_before_its_influence_step():
+    """Pershing II scores 1 VP and then asks the USSR to remove US Influence.
+    If that VP is the 20th, the game is over and no decision may remain
+    pending (mandate #1) -- the removal step is abandoned, not offered."""
+    engine = _bare()
+    engine.vp = -19
+    engine.board.influence["France"]["US"] = 2
+    engine._fire_event(Side.USSR, "Pershing_II_Deployed")
+    assert engine.is_terminal and engine.winner is Side.USSR
+    assert engine.vp == -20
+    assert engine.pending_decision is None
+    assert engine.board.influence["France"]["US"] == 2  # nothing was removed
+
+
 def test_reformer_bars_ussr_coups_in_europe_but_not_realignment():
     engine = _bare()
     engine.game_effects["reformer"] = True
