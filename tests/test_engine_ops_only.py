@@ -15,7 +15,7 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 
 from conftest import assert_invariants
-from struggler.engine import DecisionKind, Engine, Side
+from struggler.engine import DecisionKind, Engine, Region, ScoringTier, Side
 from struggler.engine.replay import run_with_checkpoints
 from struggler.engine.rules import RULES
 
@@ -241,3 +241,58 @@ def test_last_action_round_forces_a_held_scoring_card():
     engine._push_action_round_play(Side.US)
     cards = {a.payload["card"] for a in engine.legal_actions()}
     assert "Duck_and_Cover" in cards and "Asia_Scoring" in cards
+
+
+def _give_europe_control_tier(engine: Engine, holder: Side) -> None:
+    """Every European Battleground plus Austria and Finland: the Control
+    *tier* of 10.1.1, well short of every country in the region."""
+    for cid in engine.board.countries_in(Region.EUROPE):
+        if engine.board.countries[cid].battleground or cid in ("Austria", "Finland"):
+            influence = engine.board.influence[cid]
+            influence[holder.value] = influence[holder.opponent.value] + engine.board.countries[cid].stability
+    assert engine.board.region_tier(holder, Region.EUROPE) is ScoringTier.CONTROL
+    assert engine.board.controls_all_of_europe() is None
+
+
+def test_scoring_europe_at_control_tier_is_an_automatic_victory():
+    """Europe Scoring reads "Control: automatic victory" (10.1.3), Control
+    being the scoring tier -- every Battleground and more countries than the
+    opponent -- not every country on the map. Holding it merely on the board
+    wins nothing; scoring Europe while holding it ends the game."""
+    engine = Engine.new_game(seed=1, events=False)
+    _give_europe_control_tier(engine, Side.USSR)
+    assert not engine.is_terminal
+
+    engine._resolve_scoring_card("Europe_Scoring")
+
+    assert engine.is_terminal and engine.winner is Side.USSR
+    assert engine._game_over_reason == "europe_control"
+    assert engine.pending_decision is None  # mandate #1: nothing pending on a finished game
+    assert engine.vp == 0  # the win, not a VP swing
+
+
+def test_final_scoring_of_europe_at_control_tier_also_wins():
+    engine = Engine.new_game(seed=1, events=False)
+    _give_europe_control_tier(engine, Side.US)
+    engine.vp = -15  # far behind on points: the Europe win still takes precedence
+
+    engine._finish_game()
+
+    assert engine.winner is Side.US and engine._game_over_reason == "europe_control"
+
+
+def test_scoring_europe_at_domination_scores_normally():
+    """Short of Control, Europe scores like any region: Domination 7 plus
+    the 10.1.2 bonuses, and the game goes on."""
+    engine = Engine.new_game(seed=1, events=False)
+    board = engine.board
+    for cid in ("Poland", "East_Germany", "Austria", "Finland"):
+        board.influence[cid]["USSR"] = board.influence[cid]["US"] + board.countries[cid].stability
+    board.influence["Italy"]["US"] = board.influence["Italy"]["USSR"] + board.countries["Italy"].stability
+    assert board.region_tier(Side.USSR, Region.EUROPE) is ScoringTier.DOMINATION
+    vp_before = engine.vp
+
+    engine._resolve_scoring_card("Europe_Scoring")
+
+    assert not engine.is_terminal
+    assert engine.vp == vp_before + board.score_region(Region.EUROPE)

@@ -92,6 +92,20 @@ golden replay.
 Remaining work is fidelity, not coverage — see
 [LIMITATIONS.md](LIMITATIONS.md).
 
+**Scoring cards** are not events but engine core: `_resolve_scoring_card`
+nets each side's Presence/Domination/Control tier (10.1.1) plus the 10.1.2
+bonuses (+1 VP per Battleground Controlled, +1 per country Controlled
+adjacent to the enemy superpower) through `_score_region_net`, with the
+event-driven overrides (Formosan Resolution's Taiwan, Shuttle Diplomacy's
+ignored Battleground) applied there; Southeast Asia has its own per-country
+count. Europe has no Control value: the card reads "Control: automatic
+victory" (10.1.3), Control being the *tier* — every Battleground plus more
+countries than the opponent, not every country on the map — so whoever
+holds it when Europe is scored, by the card or at final scoring, wins at
+once (`europe_control`). Holding it on the board between scorings wins
+nothing. `Board.score_region` refuses to value that tier rather than guess;
+bots check the tier before asking.
+
 ### Grouped by the primitive each card reuses
 
 **Immediate fixed board/VP/DEFCON/Space effects.** Duck and Cover, Fidel,

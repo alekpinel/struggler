@@ -1834,28 +1834,27 @@ class Engine:
         return None
 
     def _score_region_net(self, region: Region) -> int:
-        # Controlling all of Europe when Europe is scored wins outright.
-        if region is Region.EUROPE:
-            controller = self.board.controls_all_of_europe()
-            if controller is not None:
-                self._win(controller, "europe_control")
-                return 0
         extra_bg, ignored = self._scoring_overrides(region)
         presence, domination, control = RULES["scoring"][region.name]
+        if control is None:
+            # Europe: the card reads "Control: automatic victory" (10.1.3),
+            # Control being the scoring tier of 10.1.1 -- every Battleground
+            # plus more countries than the opponent -- not every country on
+            # the map. Whoever holds it when Europe is scored wins on the
+            # spot; the card scores nothing else.
+            for holder in (Side.US, Side.USSR):
+                if self.board.region_tier(holder, region, extra_bg, ignored) is ScoringTier.CONTROL:
+                    self._win(holder, "europe_control")
+                    return 0
         tier_value = {
             ScoringTier.NONE: 0,
             ScoringTier.PRESENCE: presence,
             ScoringTier.DOMINATION: domination,
+            ScoringTier.CONTROL: control,
         }
 
         def value_for(s: Side) -> int:
-            tier = self.board.region_tier(s, region, extra_bg, ignored)
-            if tier is ScoringTier.CONTROL:
-                # Europe leaves its Control value undefined (full control is
-                # the win handled above); approximate as Domination. VERIFY.
-                base = control if control is not None else domination
-            else:
-                base = tier_value[tier]
+            base = tier_value[self.board.region_tier(s, region, extra_bg, ignored)]
             # 10.1.2: +1 VP per Battleground Controlled in the region, +1 VP
             # per country Controlled there adjacent to the enemy superpower.
             return base + self.board.region_bonus_vp(s, region, extra_bg, ignored)

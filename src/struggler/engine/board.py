@@ -157,8 +157,10 @@ class Board:
         return tuple(cid for cid, info in self.countries.items() if info.region == region)
 
     def controls_all_of_europe(self) -> Side | None:
-        """Whether one side currently controls every country in Europe.
-        """
+        """Whether one side currently Controls every country in Europe --
+        a board query, stricter than the Control *tier* `region_tier`
+        reports (every Battleground plus more countries than the opponent),
+        which is what wins the game when Europe is scored (10.1.3)."""
         europe = self.countries_in(Region.EUROPE)
         if all(self.control(cid) is Side.US for cid in europe):
             return Side.US
@@ -253,8 +255,9 @@ class Board:
                 if control_vp is None:
                     raise RuntimeError(
                         f"{region} reached CONTROL tier for {side}, but has no scoring "
-                        "value defined (Europe's full control is an immediate win, not "
-                        "a scoring-card outcome — see Board.controls_all_of_europe)."
+                        "value defined (Control of Europe is an automatic victory when "
+                        "it is scored, 10.1.3 — the engine ends the game, a board "
+                        "cannot express that; callers must check the tier first)."
                     )
                 base = control_vp
             else:
