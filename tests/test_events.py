@@ -17,6 +17,7 @@ import json
 import random
 from pathlib import Path
 
+import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
@@ -2166,3 +2167,123 @@ def test_golden_events_replay_actually_fires_events():
         for a in log["actions"]
     )
     assert fired
+
+
+# -- expected failures / known discrepancies vs official GMT Deluxe rules ----
+
+
+@pytest.mark.xfail(
+    reason="Card 5 text: when USSR randomly discards a card with a US event, "
+           "that event occurs immediately; currently inverted in core.py",
+    strict=True,
+)
+def test_five_year_plan_fires_discarded_us_event():
+    # Per GMT Card 5 text: "If the card contains a US Event, it occurs immediately."
+    engine = _bare(seed=2)
+    engine.hands["USSR"] = ["Duck_and_Cover"]
+    engine.defcon = 5
+    engine._fire_event(Side.US, "Five_Year_Plan")
+    engine.step(engine.pending_decision.options[0])
+    assert engine.defcon == 4  # Duck and Cover degrades DEFCON
+    assert engine.vp == 1
+
+
+@pytest.mark.xfail(
+    reason="Card 109 text: 'during the remainder of the Turn' is a turn effect; "
+           "currently stored in game_effects persisting across turn boundaries",
+    strict=True,
+)
+def test_yuri_and_samantha_expires_at_end_of_turn():
+    # Per Card 109, Yuri and Samantha only awards VP on US coups during the turn
+    # it was played. In subsequent turns, US coups should no longer award VP to USSR.
+    engine = Engine.new_game(seed=1, events=True)
+    engine._fire_event(Side.USSR, "Yuri_and_Samantha")
+    while engine.turn == 1 and not engine.is_terminal:
+        engine.step(engine.legal_actions()[0])
+    assert engine.turn == 2
+    engine.defcon = 5
+    engine.board.influence["Cuba"] = {"US": 0, "USSR": 1}
+    vp_before = engine.vp
+    _resolve_coup_roll(engine, Side.US, "Cuba", ops=3, value=1)
+    assert engine.vp == vp_before  # Yuri and Samantha should no longer award VP
+
+
+@pytest.mark.xfail(
+    reason="Card 77 text: 'including scoring cards' permits discarding scoring cards; "
+           "currently events.py filters them out",
+    strict=True,
+)
+def test_ask_not_allows_discarding_scoring_cards():
+    # Card 77 text: "including scoring cards to the discard pile"
+    engine = _bare(seed=5)
+    engine.draw_pile = ["Blockade", "Defectors"]
+    engine.hands["US"] = ["Africa_Scoring", "NATO"]
+    engine._fire_event(Side.US, "Ask_Not_What_Your_Country_Can_Do_For_You")
+    d = engine.pending_decision
+    assert d is not None
+    choices = {a.payload["choice"] for a in d.options}
+    assert "Africa_Scoring" in choices
+
+
+@pytest.mark.xfail(
+    reason="Card 49 text: when a neutral or friendly event is exchanged, "
+           "it must occur immediately without offering an Ops option",
+    strict=True,
+)
+def test_missile_envy_neutral_event_occurs_immediately_without_ops_choice():
+    # Taker must not be prompted to choose between ops and event for a neutral card.
+    engine = _bare()
+    engine.hands["US"] = []
+    engine.hands["USSR"] = ["Captured_Nazi_Scientist"]  # Neutral card
+    engine._fire_event(Side.US, "Missile_Envy")
+    # Event should occur immediately (Space Race advancement), not EVENT_CHOICE ops/event
+    assert engine.pending_decision is None or engine.pending_decision.kind is not DecisionKind.EVENT_CHOICE
+    assert engine.space_race["US"] == 1
+
+
+@pytest.mark.xfail(
+    reason="Card 106 text: NORAD triggers only if DEFCON moved to 2 during an Action Round; "
+           "dropping to 2 during the Headline Phase must not trigger NORAD",
+    strict=True,
+)
+def test_norad_does_not_trigger_on_headline_defcon_drop():
+    # Card 106 text: "at the end of each Action Round, if Canada is US-controlled
+    # and the DEFCON level moved to 2 during that Action Round."
+    # A card played during the Headline Phase that degrades DEFCON to 2 must not trigger NORAD.
+    engine = Engine.new_game(seed=1, events=True)
+    while engine.pending_decision and engine.pending_decision.context.get("setup"):
+        engine.step(engine.legal_actions()[0])
+
+    engine.game_effects["norad"] = True
+    engine.board.influence["Canada"]["US"] = 4
+    engine.board.influence["France"] = {"US": 2, "USSR": 0}
+    engine.defcon = 3
+    engine.hands["USSR"] = ["Blockade"]
+    engine.hands["US"] = ["Duck_and_Cover"]
+    engine._headline = {"US": None, "USSR": None}
+
+    # USSR headlines Blockade (1 Op), US headlines Duck_and_Cover (3 Ops).
+    # Duck and Cover degrades DEFCON 3 -> 2 during headline resolution.
+    engine.step(Action(DecisionKind.HEADLINE_PLAY, {"card": "Blockade"}))
+    engine.step(Action(DecisionKind.HEADLINE_PLAY, {"card": "Duck_and_Cover"}))
+
+    assert engine.defcon == 2
+    # NORAD must not trigger during or from headline phase.
+    assert engine.pending_decision is None or engine.pending_decision.context.get("event") != "NORAD"
+
+
+@pytest.mark.xfail(
+    reason="Card 108 text: requires US to control at least one Middle East country; "
+           "currently fires with zero US control",
+    strict=True,
+)
+def test_our_man_in_tehran_requires_us_middle_east_control():
+    # US has no influence or control in the Middle East.
+    engine = _bare()
+    engine.draw_pile = ["Duck_and_Cover", "Fidel"]
+    for cid, info in engine.board.countries.items():
+        if info.region is Region.MIDDLE_EAST:
+            engine.board.influence[cid] = {"US": 0, "USSR": 0}
+    engine._fire_event(Side.US, "Our_Man_In_Tehran")
+    assert engine.pending_decision is None
+    assert engine._our_man_queue == []
