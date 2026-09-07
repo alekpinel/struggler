@@ -692,7 +692,7 @@ def _independent_reds_choice(engine: "Engine", side: Side, choice: str, context:
 
 @event("Five_Year_Plan")
 def _five_year_plan(engine: "Engine", side: Side) -> None:
-    # The USSR randomly discards a card; if it is a USSR event, that event fires.
+    # The USSR randomly discards a card; if it is a US event, that event fires.
     engine.push_random_discard(Side.USSR, "five_year_plan")
 
 

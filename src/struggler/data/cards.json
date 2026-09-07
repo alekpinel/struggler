@@ -71,7 +71,7 @@
       "remove_after_event": false,
       "optional": false,
       "in_deck": true,
-      "event_summary": "USSR randomly discards a card; if it's a USSR event, that event fires too."
+      "event_summary": "USSR randomly discards a card; if it's a US event, that event fires too."
     },
     "The_China_Card": {
       "number": 6,
