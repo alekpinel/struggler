@@ -204,8 +204,8 @@ triggers via the `un_intervention` mode offered on the *other* card.
 
 **Take-and-play from a hand or the discard pile.** Missile Envy
 (`missile_envy_take`/`missile_envy_use` — take the opponent's highest-Ops
-card, opponent breaks ties; use it for Ops, or its Event when it is neutral
-or the taker's own; Missile Envy itself passes to the opponent's hand,
+card, opponent breaks ties; its Event occurs immediately if neutral or
+the taker's own, else used for Ops; Missile Envy itself passes to the opponent's hand,
 which must spend its next action round playing it for Ops, via
 `game_effects["missile_envy_forced"]`), Star Wars (`play_card_from_discard`
 — eligible only while the US leads the Space Race; take a non-scoring

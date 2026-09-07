@@ -1392,16 +1392,17 @@ def test_missile_envy_passes_to_opponent_and_takes_top_ops_card():
     assert d.context["ops"] == engine.cards["Fidel"].ops
 
 
-def test_missile_envy_neutral_card_offers_ops_or_event():
+def test_missile_envy_neutral_event_occurs_immediately_without_ops_choice():
+    # Card 49 text: "If the exchanged card contains an Event applicable to yourself
+    # or both players, it occurs immediately."
     engine = _bare()
     engine.hands["US"] = []
-    engine.hands["USSR"] = ["Captured_Nazi_Scientist"]  # NEUTRAL -> taker may choose
+    engine.hands["USSR"] = ["Captured_Nazi_Scientist"]  # Neutral card
     engine._fire_event(Side.US, "Missile_Envy")
-    d = engine.pending_decision
-    assert d.kind is DecisionKind.EVENT_CHOICE and d.actor is Side.US
-    assert {a.payload["choice"] for a in d.options} == {"ops", "event"}
-    engine.step(Action(DecisionKind.EVENT_CHOICE, {"choice": "event"}))
-    assert engine.space_race["US"] == 1  # the taken event fired for the US
+    # Event occurs immediately (Space Race advancement), not EVENT_CHOICE ops/event
+    assert engine.pending_decision is None
+    assert engine.space_race["US"] == 1
+
 
 
 def test_missile_envy_opponent_breaks_a_tie():
@@ -2202,21 +2203,6 @@ def test_golden_events_replay_actually_fires_events():
 # -- expected failures / known discrepancies vs official GMT Deluxe rules ----
 
 
-
-@pytest.mark.xfail(
-    reason="Card 49 text: when a neutral or friendly event is exchanged, "
-           "it must occur immediately without offering an Ops option",
-    strict=True,
-)
-def test_missile_envy_neutral_event_occurs_immediately_without_ops_choice():
-    # Taker must not be prompted to choose between ops and event for a neutral card.
-    engine = _bare()
-    engine.hands["US"] = []
-    engine.hands["USSR"] = ["Captured_Nazi_Scientist"]  # Neutral card
-    engine._fire_event(Side.US, "Missile_Envy")
-    # Event should occur immediately (Space Race advancement), not EVENT_CHOICE ops/event
-    assert engine.pending_decision is None or engine.pending_decision.kind is not DecisionKind.EVENT_CHOICE
-    assert engine.space_race["US"] == 1
 
 
 @pytest.mark.xfail(

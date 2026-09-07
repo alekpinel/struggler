@@ -599,7 +599,7 @@
       "remove_after_event": false,
       "optional": false,
       "in_deck": true,
-      "event_summary": "Exchange for the opponent's highest-Ops card (opponent breaks ties); Missile Envy passes to them and they must play it for Ops on their next action round; the taker uses the taken card for Ops, or its Event if eligible."
+      "event_summary": "Exchange for opponent's highest-Ops card (opponent breaks ties); Missile Envy passes to them and they must play it for Ops on their next action round; if the taken card is friendly or neutral its Event occurs immediately, else used for Ops."
     },
     "We_Will_Bury_You": {
       "number": 50,

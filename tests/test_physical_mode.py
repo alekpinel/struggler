@@ -400,12 +400,9 @@ def test_missile_envy_giver_physical_routes_the_pick_to_operator():
     assert "Missile_Envy" in engine.hands["USSR"]
     assert engine.game_effects["missile_envy_forced"] == "USSR"
 
-    # The US taker isn't physical here, so it gets the ordinary ops/event
-    # choice for the card it took.
-    decision = engine.pending_decision
-    assert decision.kind is DecisionKind.EVENT_CHOICE
-    assert decision.actor is Side.US
-    assert set(a.payload["choice"] for a in decision.options) == {"ops", "event"}
+    # Duck and Cover is US-aligned; for a US taker, its event occurs immediately.
+    assert engine.pending_decision is None
+    assert "Duck_and_Cover" in engine.discard_pile
 
 
 def test_missile_envy_taker_physical_does_not_strip_a_stray_placeholder():
@@ -416,13 +413,9 @@ def test_missile_envy_taker_physical_does_not_strip_a_stray_placeholder():
     engine._fire_event(Side.US, "Missile_Envy")  # US (physical) plays it
 
     # Non-physical giver path: resolves directly, no operator query needed
-    # for the pick itself; US (taker, physical) gets the ops/event choice.
-    decision = engine.pending_decision
-    assert decision.kind is DecisionKind.EVENT_CHOICE
-    assert decision.actor is Side.US
+    # for the pick itself; Duck and Cover occurs immediately for the US.
     assert engine.game_effects["missile_envy_forced"] == "USSR"
-
-    engine.step(Action(DecisionKind.EVENT_CHOICE, {"choice": "event"}))
+    assert engine.pending_decision is None
 
     # The card left the (bot) giver's real hand once actually used...
     assert "Duck_and_Cover" not in engine.hands["USSR"]

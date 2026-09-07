@@ -2402,21 +2402,15 @@ class Engine:
     # -- Missile Envy — take the opponent's top-Ops card and use it ---------
 
     def missile_envy_take(self, taker: Side, cid: str) -> None:
-        """`taker` takes `cid` from the giver and either uses it (a neutral card
-        or one of the taker's own events → Ops-or-Event choice) or is forced to
-        Ops only (a scoring card or the giver's own event).
-
-        The card is left in the giver's hand until `missile_envy_use` actually
-        resolves it, so it is never in limbo while the Ops-or-Event choice is
-        pending (the same convention Grain Sales uses for its revealed card)."""
+        """`taker` takes `cid` from the giver and uses it: if it contains an
+        event applicable to the taker or both players (friendly or neutral),
+        it occurs immediately; if it contains an opponent's event or is a
+        scoring card, the taker uses its Operations value (no Event)."""
         card = self.cards[cid]
-        ops_only = card.scoring or card.side.value == taker.opponent.value
-        if ops_only:
-            self.missile_envy_use(taker, cid, "ops")
+        if not card.scoring and card.side.value != taker.opponent.value:
+            self.missile_envy_use(taker, cid, "event")
         else:
-            self.push_event_choice(
-                "Missile_Envy_use", taker, ("ops", "event"), extra={"card": cid}
-            )
+            self.missile_envy_use(taker, cid, "ops")
 
     def missile_envy_use(self, taker: Side, cid: str, mode: str) -> None:
         """Resolve the taken card as `mode` for `taker`: fire its event, or
