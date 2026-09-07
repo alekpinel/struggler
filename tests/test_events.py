@@ -1179,6 +1179,19 @@ def test_ask_not_always_benefits_the_us_even_when_ussr_plays_it():
     assert engine.hands["USSR"] == ["Fidel", "Junta"]  # untouched
 
 
+def test_ask_not_allows_discarding_scoring_cards():
+    # Card 77 text: "including scoring cards to the discard pile"
+    engine = _bare(seed=5)
+    engine.draw_pile = ["Blockade", "Defectors"]
+    engine.hands["US"] = ["Africa_Scoring", "NATO"]
+    engine._fire_event(Side.US, "Ask_Not_What_Your_Country_Can_Do_For_You")
+    d = engine.pending_decision
+    assert d is not None
+    choices = {a.payload["choice"] for a in d.options}
+    assert "Africa_Scoring" in choices
+
+
+
 def test_cambridge_five_places_in_a_revealed_scoring_region():
     engine = _bare()
     engine.hands["US"] = ["Asia_Scoring", "NATO"]  # US holds the Asia scoring card
@@ -2188,23 +2201,6 @@ def test_golden_events_replay_actually_fires_events():
 
 # -- expected failures / known discrepancies vs official GMT Deluxe rules ----
 
-
-
-@pytest.mark.xfail(
-    reason="Card 77 text: 'including scoring cards' permits discarding scoring cards; "
-           "currently events.py filters them out",
-    strict=True,
-)
-def test_ask_not_allows_discarding_scoring_cards():
-    # Card 77 text: "including scoring cards to the discard pile"
-    engine = _bare(seed=5)
-    engine.draw_pile = ["Blockade", "Defectors"]
-    engine.hands["US"] = ["Africa_Scoring", "NATO"]
-    engine._fire_event(Side.US, "Ask_Not_What_Your_Country_Can_Do_For_You")
-    d = engine.pending_decision
-    assert d is not None
-    choices = {a.payload["choice"] for a in d.options}
-    assert "Africa_Scoring" in choices
 
 
 @pytest.mark.xfail(
