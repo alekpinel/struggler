@@ -1307,7 +1307,7 @@
       "remove_after_event": true,
       "optional": true,
       "in_deck": true,
-      "event_summary": "US looks at the top up to 5 draw-pile cards one at a time, keeping or removing each; kept cards are reshuffled back in."
+      "event_summary": "Only eligible if the US controls at least one Middle East country. US looks at the top up to 5 draw-pile cards one at a time, keeping or removing each; kept cards are reshuffled back in."
     },
     "Yuri_and_Samantha": {
       "number": 109,

@@ -2001,8 +2001,21 @@ def test_nixon_plays_the_china_card_two_unconditional_branches():
     assert already.pending_decision is None
 
 
+def test_our_man_in_tehran_requires_us_middle_east_control():
+    # US has no influence or control in the Middle East.
+    engine = _bare()
+    engine.draw_pile = ["Duck_and_Cover", "Fidel"]
+    for cid, info in engine.board.countries.items():
+        if info.region is Region.MIDDLE_EAST:
+            engine.board.influence[cid] = {"US": 0, "USSR": 0}
+    engine._fire_event(Side.US, "Our_Man_In_Tehran")
+    assert engine.pending_decision is None
+    assert engine._our_man_queue == []
+
+
 def test_our_man_in_tehran_examines_up_to_five_cards_without_leaking_identity():
     engine = _bare()
+    engine.board.influence["Iran"] = {"US": 2, "USSR": 0}
     engine.draw_pile = ["Fidel", "Nasser", "Allende", "COMECON", "Duck_and_Cover", "Blockade"]
     engine._fire_event(Side.US, "Our_Man_In_Tehran")
     assert len(engine._our_man_queue) == 5  # only the top 5 are examined
@@ -2019,6 +2032,7 @@ def test_our_man_in_tehran_examines_up_to_five_cards_without_leaking_identity():
 
 def test_our_man_in_tehran_never_leaks_the_examined_card_via_observe():
     engine = _bare()
+    engine.board.influence["Iran"] = {"US": 2, "USSR": 0}
     engine.draw_pile = ["Fidel", "Nasser", "Allende"]
     engine._fire_event(Side.US, "Our_Man_In_Tehran")
     for player in (Side.US, Side.USSR):
@@ -2028,6 +2042,7 @@ def test_our_man_in_tehran_never_leaks_the_examined_card_via_observe():
 
 def test_our_man_in_tehran_no_op_with_an_empty_draw_pile():
     engine = _bare()
+    engine.board.influence["Iran"] = {"US": 2, "USSR": 0}
     engine.draw_pile = []
     engine._fire_event(Side.US, "Our_Man_In_Tehran")
     assert engine.pending_decision is None
@@ -2227,24 +2242,4 @@ def test_golden_events_replay_actually_fires_events():
     assert fired
 
 
-# -- expected failures / known discrepancies vs official GMT Deluxe rules ----
 
-
-
-
-
-@pytest.mark.xfail(
-    reason="Card 108 text: requires US to control at least one Middle East country; "
-           "currently fires with zero US control",
-    strict=True,
-)
-def test_our_man_in_tehran_requires_us_middle_east_control():
-    # US has no influence or control in the Middle East.
-    engine = _bare()
-    engine.draw_pile = ["Duck_and_Cover", "Fidel"]
-    for cid, info in engine.board.countries.items():
-        if info.region is Region.MIDDLE_EAST:
-            engine.board.influence[cid] = {"US": 0, "USSR": 0}
-    engine._fire_event(Side.US, "Our_Man_In_Tehran")
-    assert engine.pending_decision is None
-    assert engine._our_man_queue == []

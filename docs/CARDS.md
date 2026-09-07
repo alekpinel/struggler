@@ -252,7 +252,8 @@ DEFCON 2 does not refire it, and Quagmire nullifies it.
 the USSR holds the China Card; the USSR either discards a non-scoring card
 to keep it, or the US takes it face down and unusable this turn).
 
-**A hidden peek at the draw pile.** Our Man in Tehran. The examined cards
+**A hidden peek at the draw pile.** Our Man in Tehran (eligible only if the US
+controls at least one Middle East country). The examined cards
 live in `Engine._our_man_queue`/`_our_man_kept` — plain serialized state
 (mandate #5) deliberately excluded from `observe()` — while the
 `EVENT_CHOICE` decision offered to the US only ever contains

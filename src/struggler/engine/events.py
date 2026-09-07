@@ -1589,7 +1589,17 @@ def _nixon_plays_the_china_card(engine: "Engine", side: Side) -> None:
         engine.china_card_available = False  # face down: not usable this turn
 
 
-@event("Our_Man_In_Tehran")
+def _us_controls_a_country_in_middle_east(engine: "Engine", side: Side) -> bool:
+    return any(
+        engine.board.control(cid) is Side.US
+        for cid in engine.board.countries_in(Region.MIDDLE_EAST)
+    )
+
+
+_us_controls_a_contry_in_middle_east = _us_controls_a_country_in_middle_east
+
+
+@event("Our_Man_In_Tehran", eligible=_us_controls_a_country_in_middle_east)
 def _our_man_in_tehran(engine: "Engine", side: Side) -> None:
     # The US (regardless of who phases this) looks at the top 5 cards of the
     # draw pile one at a time, removing or keeping each; kept cards return to
@@ -1598,6 +1608,8 @@ def _our_man_in_tehran(engine: "Engine", side: Side) -> None:
     # EVENT_CHOICE decision itself only ever offers "keep"/"remove", never the
     # card identity, so the opponent's observation never sees which card is
     # under consideration.
+    if not _us_controls_a_country_in_middle_east(engine, side):
+        return
     # Physical mode, not yet wired (see docs/LIMITATIONS.md's "Physical mode"
     # limitation): the draw pile's real contents are unknown to the engine
     # itself in physical mode (not just hidden from a player) — there is no
