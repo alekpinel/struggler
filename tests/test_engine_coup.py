@@ -1,6 +1,6 @@
 """Engine: coup mechanics, DEFCON interaction, region restrictions."""
 
-from struggler.engine import DecisionKind, Engine, Region, Side
+from struggler.engine import Action, DecisionKind, Engine, Region, Side
 
 
 def test_coup_pushes_chance_decision_then_resolves_by_formula():
@@ -113,3 +113,15 @@ def test_coup_requires_opponent_influence_in_target():
     assert "Guatemala" in offered
     assert not engine.is_terminal
     assert engine.winner is None
+
+def test_coup_military_ops_clamped_at_5():
+    # Rule 8.2.1: Military Operations track is capped at 5.
+    # If US already has 3 military ops, a 4-Ops coup should clamp military ops at 5 (not 7).
+    engine = Engine(seed=1)
+    engine.defcon = 5
+    engine.military_ops["US"] = 3
+    engine.board.influence["Guatemala"]["USSR"] = 1
+    engine.push_event_operations(Side.US, 4)
+    engine.step(Action(DecisionKind.OPS_TYPE, {"type": "coup"}))
+    assert engine.military_ops["US"] == 5
+

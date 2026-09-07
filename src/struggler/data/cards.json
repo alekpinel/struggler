@@ -71,7 +71,7 @@
       "remove_after_event": false,
       "optional": false,
       "in_deck": true,
-      "event_summary": "USSR randomly discards a card; if it's a USSR event, that event fires too."
+      "event_summary": "USSR randomly discards a card; if it's a US event, that event fires too."
     },
     "The_China_Card": {
       "number": 6,
@@ -599,7 +599,7 @@
       "remove_after_event": false,
       "optional": false,
       "in_deck": true,
-      "event_summary": "Exchange for the opponent's highest-Ops card (opponent breaks ties); Missile Envy passes to them and they must play it for Ops on their next action round; the taker uses the taken card for Ops, or its Event if eligible."
+      "event_summary": "Exchange for opponent's highest-Ops card (opponent breaks ties); Missile Envy passes to them and they must play it for Ops on their next action round; if the taken card is friendly or neutral its Event occurs immediately, else used for Ops."
     },
     "We_Will_Bury_You": {
       "number": 50,
@@ -935,7 +935,7 @@
       "remove_after_event": true,
       "optional": false,
       "in_deck": true,
-      "event_summary": "US may discard any number of non-scoring hand cards and redraw that many."
+      "event_summary": "US may discard any number of hand cards (including scoring) and redraw that many."
     },
     "Alliance_for_Progress": {
       "number": 78,
@@ -1307,7 +1307,7 @@
       "remove_after_event": true,
       "optional": true,
       "in_deck": true,
-      "event_summary": "US looks at the top up to 5 draw-pile cards one at a time, keeping or removing each; kept cards are reshuffled back in."
+      "event_summary": "Only eligible if the US controls at least one Middle East country. US looks at the top up to 5 draw-pile cards one at a time, keeping or removing each; kept cards are reshuffled back in."
     },
     "Yuri_and_Samantha": {
       "number": 109,
@@ -1319,7 +1319,7 @@
       "remove_after_event": true,
       "optional": true,
       "in_deck": true,
-      "event_summary": "USSR +1 VP for every US coup attempt, for the rest of the game."
+      "event_summary": "USSR +1 VP for every US coup attempt for the remainder of this turn."
     },
     "AWACS_Sale_to_Saudis": {
       "number": 110,

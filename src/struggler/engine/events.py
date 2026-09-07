@@ -692,7 +692,7 @@ def _independent_reds_choice(engine: "Engine", side: Side, choice: str, context:
 
 @event("Five_Year_Plan")
 def _five_year_plan(engine: "Engine", side: Side) -> None:
-    # The USSR randomly discards a card; if it is a USSR event, that event fires.
+    # The USSR randomly discards a card; if it is a US event, that event fires.
     engine.push_random_discard(Side.USSR, "five_year_plan")
 
 
@@ -764,8 +764,8 @@ def _flower_power(engine: "Engine", side: Side) -> None:
 
 @event("Yuri_and_Samantha")
 def _yuri_and_samantha(engine: "Engine", side: Side) -> None:
-    # The USSR scores 1 VP for every US coup attempt for the rest of the game.
-    engine.game_effects["yuri_samantha"] = True
+    # The USSR scores 1 VP for every US coup attempt for the remainder of this turn.
+    engine.turn_effects["yuri_samantha"] = True
 
 
 # -- set-DEFCON branch -------------------------------------------------------
@@ -782,7 +782,7 @@ def _how_i_learned(engine: "Engine", side: Side) -> None:
 def _how_i_learned_choice(engine: "Engine", side: Side, choice: str, context: dict) -> None:
     engine.set_defcon(int(choice), caused_by=side)
     if not engine.is_terminal:
-        engine.military_ops[side.value] += 5
+        engine.add_military_ops(side, 5)
 
 
 # -- influence then an optional free operation (Junta) ----------------------
@@ -999,7 +999,8 @@ def _push_ask_not(engine: "Engine", side: Side, discarded: int) -> None:
         if engine.physical_mode and side is engine.physical_side
         else engine.hands[side.value]
     )
-    choices = tuple(cid for cid in source if not engine.cards[cid].scoring) + ("stop",)
+    # Card 77 explicitly permits discarding scoring cards ("including scoring cards")
+    choices = tuple(source) + ("stop",)
     if len(choices) == 1:  # nothing left to discard -> draw and finish
         engine.draw_cards_to_hand(side, discarded)
         return
@@ -1588,7 +1589,17 @@ def _nixon_plays_the_china_card(engine: "Engine", side: Side) -> None:
         engine.china_card_available = False  # face down: not usable this turn
 
 
-@event("Our_Man_In_Tehran")
+def _us_controls_a_country_in_middle_east(engine: "Engine", side: Side) -> bool:
+    return any(
+        engine.board.control(cid) is Side.US
+        for cid in engine.board.countries_in(Region.MIDDLE_EAST)
+    )
+
+
+_us_controls_a_contry_in_middle_east = _us_controls_a_country_in_middle_east
+
+
+@event("Our_Man_In_Tehran", eligible=_us_controls_a_country_in_middle_east)
 def _our_man_in_tehran(engine: "Engine", side: Side) -> None:
     # The US (regardless of who phases this) looks at the top 5 cards of the
     # draw pile one at a time, removing or keeping each; kept cards return to
@@ -1597,6 +1608,8 @@ def _our_man_in_tehran(engine: "Engine", side: Side) -> None:
     # EVENT_CHOICE decision itself only ever offers "keep"/"remove", never the
     # card identity, so the opponent's observation never sees which card is
     # under consideration.
+    if not _us_controls_a_country_in_middle_east(engine, side):
+        return
     # Physical mode, not yet wired (see docs/LIMITATIONS.md's "Physical mode"
     # limitation): the draw pile's real contents are unknown to the engine
     # itself in physical mode (not just hidden from a player) — there is no

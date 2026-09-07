@@ -1175,7 +1175,7 @@ class Engine:
             # Coups count toward the turn's required military operations. A
             # region-bonus coup gets its +1 only against a target in that region
             # (resolved at target selection, in _handle_coup_target).
-            self.military_ops[side.value] += ops
+            self.add_military_ops(side, ops)
             self.begin_coup(side, ops, bonus=bonus)
         else:  # realignment
             # Region-bonus play (China Card -> Asia, Vietnam Revolts -> SE
@@ -1538,6 +1538,10 @@ class Engine:
         the caller is blamed for it."""
         self._change_defcon(level - self.defcon, caused_by=caused_by)
 
+    def add_military_ops(self, side: Side, amount: int) -> None:
+        """Add `amount` to `side`'s Military Operations track, clamped to 5 (Rule 8.2.1)."""
+        self.military_ops[side.value] = min(5, self.military_ops[side.value] + amount)
+
     # -- forced random discard from a hidden hand (a CHANCE decision) --------
     #
     # The discard is drawn from the seeded RNG and exposed as a CHANCE decision
@@ -1579,12 +1583,14 @@ class Engine:
         owner = Side(ctx["owner"])
         card = action.payload["card"]
         if ctx["purpose"] == "five_year_plan":
-            # A discarded USSR-associated event fires (even against the USSR's
-            # own interest); anything else is just discarded.
+            # Per Card 5: "If the card has a US associated Event, the Event occurs
+            # immediately. If the card has a USSR associated Event or an Event
+            # applicable to both players, then the card must be discarded without
+            # triggering the Event."
             info = self.cards[card]
-            if not info.scoring and info.side.value == owner.value and self._has_event(card):
+            if not info.scoring and info.side.value == "US" and self._has_event(card):
                 self._file_card(owner, card, fired=True)
-                self._fire_event(owner, card)
+                self._fire_event(Side.US, card)
             else:
                 self._file_card(owner, card, fired=False)
         elif ctx["purpose"] == "grain_sales":
@@ -1745,7 +1751,7 @@ class Engine:
     ) -> None:
         """Start a war event: it always counts toward the attacker's required
         military operations, then a logged CHANCE roll decides the outcome."""
-        self.military_ops[attacker.value] += military_ops
+        self.add_military_ops(attacker, military_ops)
         self._push(
             Side.CHANCE,
             DecisionKind.WAR_ROLL,
@@ -2184,7 +2190,7 @@ class Engine:
         bonus = decision.context.get("bonus")
         if bonus and self._in_bonus_region(country, bonus):
             ops += 1
-            self.military_ops[side.value] += 1
+            self.add_military_ops(side, 1)
         self._push(
             Side.CHANCE,
             DecisionKind.COUP_ROLL,
@@ -2223,10 +2229,10 @@ class Engine:
                 self._change_defcon(-1, caused_by=side)
 
         # Yuri and Samantha: the USSR scores 1 VP for every US coup attempt,
-        # for the rest of the game.
+        # for the remainder of the turn.
         if (
             side is Side.US
-            and self.game_effects.get("yuri_samantha")
+            and self.turn_effects.get("yuri_samantha")
             and not self.is_terminal
         ):
             self._award_vp(Side.USSR, 1)
@@ -2396,21 +2402,15 @@ class Engine:
     # -- Missile Envy — take the opponent's top-Ops card and use it ---------
 
     def missile_envy_take(self, taker: Side, cid: str) -> None:
-        """`taker` takes `cid` from the giver and either uses it (a neutral card
-        or one of the taker's own events → Ops-or-Event choice) or is forced to
-        Ops only (a scoring card or the giver's own event).
-
-        The card is left in the giver's hand until `missile_envy_use` actually
-        resolves it, so it is never in limbo while the Ops-or-Event choice is
-        pending (the same convention Grain Sales uses for its revealed card)."""
+        """`taker` takes `cid` from the giver and uses it: if it contains an
+        event applicable to the taker or both players (friendly or neutral),
+        it occurs immediately; if it contains an opponent's event or is a
+        scoring card, the taker uses its Operations value (no Event)."""
         card = self.cards[cid]
-        ops_only = card.scoring or card.side.value == taker.opponent.value
-        if ops_only:
-            self.missile_envy_use(taker, cid, "ops")
+        if not card.scoring and card.side.value != taker.opponent.value:
+            self.missile_envy_use(taker, cid, "event")
         else:
-            self.push_event_choice(
-                "Missile_Envy_use", taker, ("ops", "event"), extra={"card": cid}
-            )
+            self.missile_envy_use(taker, cid, "ops")
 
     def missile_envy_use(self, taker: Side, cid: str, mode: str) -> None:
         """Resolve the taken card as `mode` for `taker`: fire its event, or
@@ -2646,10 +2646,12 @@ class Engine:
             self._win(caused_by.opponent, "defcon_1")
             return
         # NORAD: "If Canada is US-controlled", each time DEFCON MOVES to level
-        # 2 the US adds 1 Influence to a country where it already has some.
+        # 2 during an Action Round the US adds 1 Influence to a country where
+        # it already has some (Card 106: not during the Headline phase).
         if (
             self.defcon == 2
             and before != 2
+            and self.phase != "headline"
             and self.game_effects.get("norad")
             and self.board.control("Canada") is Side.US
         ):

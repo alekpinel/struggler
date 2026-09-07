@@ -128,7 +128,7 @@ Battleground Coup there still degrades DEFCON as normal; that is a
 separate check in `_handle_coup_roll`, untouched by this.
 
 **Forced random discard** (`RANDOM_DISCARD`, a seeded CHANCE decision that
-reveals only the drawn card). Five Year Plan (a discarded USSR event
+reveals only the drawn card). Five Year Plan (a discarded US event
 fires), Terrorism (opponent discards, twice after Iranian Hostage Crisis).
 
 **Per-turn coup/realign modifiers.** Nuclear Subs (US Battleground coups
@@ -136,12 +136,12 @@ skip the DEFCON degrade — on top of the base rule that only Battleground
 coups degrade DEFCON at all), Latin American Death Squads (±1 to Americas coup
 rolls), SALT Negotiations (−1 to both sides' coups), Iran-Contra Scandal
 (−1 to US realignment via `_realignment_modifier`), Chernobyl (a region
-chosen by the US bars USSR Ops influence, via `_chernobyl_blocks`). How I
+chosen by the US bars USSR Ops influence, via `_chernobyl_blocks`), Yuri and
+Samantha (USSR +1 VP per US coup, in `_handle_coup_roll`). How I
 Learned to Stop Worrying takes the set-DEFCON branch (`set_defcon` plus 5
 military Ops).
 
-**Persistent game-long triggers** (`game_effects`). Yuri and Samantha (USSR
-+1 VP per US coup, in `_handle_coup_roll`), Flower Power (USSR +2 VP per US
+**Persistent game-long triggers** (`game_effects`). Flower Power (USSR +2 VP per US
 war-card play, via `_maybe_flower_power`, cancelled by An Evil Empire).
 
 **Dice contests** (`push_dice_contest` — both roll, higher wins, logged as
@@ -204,8 +204,8 @@ triggers via the `un_intervention` mode offered on the *other* card.
 
 **Take-and-play from a hand or the discard pile.** Missile Envy
 (`missile_envy_take`/`missile_envy_use` — take the opponent's highest-Ops
-card, opponent breaks ties; use it for Ops, or its Event when it is neutral
-or the taker's own; Missile Envy itself passes to the opponent's hand,
+card, opponent breaks ties; its Event occurs immediately if neutral or
+the taker's own, else used for Ops; Missile Envy itself passes to the opponent's hand,
 which must spend its next action round playing it for Ops, via
 `game_effects["missile_envy_forced"]`), Star Wars (`play_card_from_discard`
 — eligible only while the US leads the Space Race; take a non-scoring
@@ -243,16 +243,17 @@ leave every other caller unchanged.
 
 **A reactive hook consulted from board mechanics.** NORAD
 (`game_effects["norad"]`, checked in `Engine._change_defcon`): while Canada
-is US-controlled, every time DEFCON *moves* to level 2 the US adds 1
-Influence to a country where it already has some, via
-`_push_norad_influence`. A stable DEFCON 2 does not refire it, and Quagmire
-nullifies it.
+is US-controlled, every time DEFCON *moves* to level 2 during an Action Round
+the US adds 1 Influence to a country where it already has some, via
+`_push_norad_influence` (Card 106: not during the Headline phase). A stable
+DEFCON 2 does not refire it, and Quagmire nullifies it.
 
 **Immediate conditionals.** Nixon Plays the China Card (eligible only while
 the USSR holds the China Card; the USSR either discards a non-scoring card
 to keep it, or the US takes it face down and unusable this turn).
 
-**A hidden peek at the draw pile.** Our Man in Tehran. The examined cards
+**A hidden peek at the draw pile.** Our Man in Tehran (eligible only if the US
+controls at least one Middle East country). The examined cards
 live in `Engine._our_man_queue`/`_our_man_kept` — plain serialized state
 (mandate #5) deliberately excluded from `observe()` — while the
 `EVENT_CHOICE` decision offered to the US only ever contains
