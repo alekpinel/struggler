@@ -1,7 +1,5 @@
 """Engine: coup mechanics, DEFCON interaction, region restrictions."""
 
-import pytest
-
 from struggler.engine import Action, DecisionKind, Engine, Region, Side
 
 
@@ -116,15 +114,6 @@ def test_coup_requires_opponent_influence_in_target():
     assert not engine.is_terminal
     assert engine.winner is None
 
-
-# -- expected failures / known discrepancies vs official GMT Deluxe rules ----
-
-
-@pytest.mark.xfail(
-    reason="Rule 8.2.1: Military Operations track is 0-5; adding military ops "
-           "from a coup must not exceed 5",
-    strict=True,
-)
 def test_coup_military_ops_clamped_at_5():
     # Rule 8.2.1: Military Operations track is capped at 5.
     # If US already has 3 military ops, a 4-Ops coup should clamp military ops at 5 (not 7).

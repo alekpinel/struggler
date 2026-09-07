@@ -782,7 +782,7 @@ def _how_i_learned(engine: "Engine", side: Side) -> None:
 def _how_i_learned_choice(engine: "Engine", side: Side, choice: str, context: dict) -> None:
     engine.set_defcon(int(choice), caused_by=side)
     if not engine.is_terminal:
-        engine.military_ops[side.value] += 5
+        engine.add_military_ops(side, 5)
 
 
 # -- influence then an optional free operation (Junta) ----------------------
