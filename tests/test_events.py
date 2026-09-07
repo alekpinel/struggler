@@ -1917,6 +1917,33 @@ def test_norad_inactive_without_the_event_having_fired():
     assert engine.pending_decision is None
 
 
+def test_norad_does_not_trigger_on_headline_defcon_drop():
+    # Card 106 text: "at the end of each Action Round, if Canada is US-controlled
+    # and the DEFCON level moved to 2 during that Action Round."
+    # A card played during the Headline Phase that degrades DEFCON to 2 must not trigger NORAD.
+    engine = Engine.new_game(seed=1, events=True)
+    while engine.pending_decision and engine.pending_decision.context.get("setup"):
+        engine.step(engine.legal_actions()[0])
+
+    engine.game_effects["norad"] = True
+    engine.board.influence["Canada"]["US"] = 4
+    engine.board.influence["France"] = {"US": 2, "USSR": 0}
+    engine.defcon = 3
+    engine.hands["USSR"] = ["Blockade"]
+    engine.hands["US"] = ["Duck_and_Cover"]
+    engine._headline = {"US": None, "USSR": None}
+
+    # USSR headlines Blockade (1 Op), US headlines Duck_and_Cover (3 Ops).
+    # Duck and Cover degrades DEFCON 3 -> 2 during headline resolution.
+    engine.step(Action(DecisionKind.HEADLINE_PLAY, {"card": "Blockade"}))
+    engine.step(Action(DecisionKind.HEADLINE_PLAY, {"card": "Duck_and_Cover"}))
+
+    assert engine.defcon == 2
+    # NORAD must not trigger during or from headline phase.
+    assert engine.pending_decision is None or engine.pending_decision.context.get("event") != "NORAD"
+
+
+
 def test_special_relationship_requires_us_control_of_uk():
     engine = _bare()
     engine.board.influence["UK"] = {"US": 0, "USSR": 5}  # USSR controls
@@ -2204,36 +2231,6 @@ def test_golden_events_replay_actually_fires_events():
 
 
 
-
-@pytest.mark.xfail(
-    reason="Card 106 text: NORAD triggers only if DEFCON moved to 2 during an Action Round; "
-           "dropping to 2 during the Headline Phase must not trigger NORAD",
-    strict=True,
-)
-def test_norad_does_not_trigger_on_headline_defcon_drop():
-    # Card 106 text: "at the end of each Action Round, if Canada is US-controlled
-    # and the DEFCON level moved to 2 during that Action Round."
-    # A card played during the Headline Phase that degrades DEFCON to 2 must not trigger NORAD.
-    engine = Engine.new_game(seed=1, events=True)
-    while engine.pending_decision and engine.pending_decision.context.get("setup"):
-        engine.step(engine.legal_actions()[0])
-
-    engine.game_effects["norad"] = True
-    engine.board.influence["Canada"]["US"] = 4
-    engine.board.influence["France"] = {"US": 2, "USSR": 0}
-    engine.defcon = 3
-    engine.hands["USSR"] = ["Blockade"]
-    engine.hands["US"] = ["Duck_and_Cover"]
-    engine._headline = {"US": None, "USSR": None}
-
-    # USSR headlines Blockade (1 Op), US headlines Duck_and_Cover (3 Ops).
-    # Duck and Cover degrades DEFCON 3 -> 2 during headline resolution.
-    engine.step(Action(DecisionKind.HEADLINE_PLAY, {"card": "Blockade"}))
-    engine.step(Action(DecisionKind.HEADLINE_PLAY, {"card": "Duck_and_Cover"}))
-
-    assert engine.defcon == 2
-    # NORAD must not trigger during or from headline phase.
-    assert engine.pending_decision is None or engine.pending_decision.context.get("event") != "NORAD"
 
 
 @pytest.mark.xfail(

@@ -2646,10 +2646,12 @@ class Engine:
             self._win(caused_by.opponent, "defcon_1")
             return
         # NORAD: "If Canada is US-controlled", each time DEFCON MOVES to level
-        # 2 the US adds 1 Influence to a country where it already has some.
+        # 2 during an Action Round the US adds 1 Influence to a country where
+        # it already has some (Card 106: not during the Headline phase).
         if (
             self.defcon == 2
             and before != 2
+            and self.phase != "headline"
             and self.game_effects.get("norad")
             and self.board.control("Canada") is Side.US
         ):

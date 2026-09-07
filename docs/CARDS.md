@@ -243,10 +243,10 @@ leave every other caller unchanged.
 
 **A reactive hook consulted from board mechanics.** NORAD
 (`game_effects["norad"]`, checked in `Engine._change_defcon`): while Canada
-is US-controlled, every time DEFCON *moves* to level 2 the US adds 1
-Influence to a country where it already has some, via
-`_push_norad_influence`. A stable DEFCON 2 does not refire it, and Quagmire
-nullifies it.
+is US-controlled, every time DEFCON *moves* to level 2 during an Action Round
+the US adds 1 Influence to a country where it already has some, via
+`_push_norad_influence` (Card 106: not during the Headline phase). A stable
+DEFCON 2 does not refire it, and Quagmire nullifies it.
 
 **Immediate conditionals.** Nixon Plays the China Card (eligible only while
 the USSR holds the China Card; the USSR either discards a non-scoring card
