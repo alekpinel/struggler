@@ -920,7 +920,7 @@ def test_tear_down_this_wall_free_op_ignores_defcon_region_restriction():
 def test_yuri_and_samantha_scores_ussr_on_us_coups():
     engine = _bare(seed=1)
     engine.defcon = 5
-    engine.game_effects["yuri_samantha"] = True
+    engine.turn_effects["yuri_samantha"] = True
     engine.board.influence["Cuba"] = {"US": 0, "USSR": 1}
     _resolve_coup_roll(engine, Side.US, "Cuba", ops=3, value=1)
     assert engine.vp == -1  # 1 VP to the USSR for the US coup attempt
@@ -928,6 +928,22 @@ def test_yuri_and_samantha_scores_ussr_on_us_coups():
     engine.vp = 0
     _resolve_coup_roll(engine, Side.USSR, "Cuba", ops=3, value=1)
     assert engine.vp == 0
+
+
+def test_yuri_and_samantha_expires_at_end_of_turn():
+    # Per Card 109, Yuri and Samantha only awards VP on US coups during the turn
+    # it was played. In subsequent turns, US coups should no longer award VP to USSR.
+    engine = Engine.new_game(seed=1, events=True)
+    engine._fire_event(Side.USSR, "Yuri_and_Samantha")
+    while engine.turn == 1 and not engine.is_terminal:
+        engine.step(engine.legal_actions()[0])
+    assert engine.turn == 2
+    engine.defcon = 5
+    engine.board.influence["Cuba"] = {"US": 0, "USSR": 1}
+    vp_before = engine.vp
+    _resolve_coup_roll(engine, Side.US, "Cuba", ops=3, value=1)
+    assert engine.vp == vp_before  # Yuri and Samantha should no longer award VP
+
 
 
 def test_iran_contra_penalises_only_us_realignment():
@@ -2172,25 +2188,6 @@ def test_golden_events_replay_actually_fires_events():
 
 # -- expected failures / known discrepancies vs official GMT Deluxe rules ----
 
-
-@pytest.mark.xfail(
-    reason="Card 109 text: 'during the remainder of the Turn' is a turn effect; "
-           "currently stored in game_effects persisting across turn boundaries",
-    strict=True,
-)
-def test_yuri_and_samantha_expires_at_end_of_turn():
-    # Per Card 109, Yuri and Samantha only awards VP on US coups during the turn
-    # it was played. In subsequent turns, US coups should no longer award VP to USSR.
-    engine = Engine.new_game(seed=1, events=True)
-    engine._fire_event(Side.USSR, "Yuri_and_Samantha")
-    while engine.turn == 1 and not engine.is_terminal:
-        engine.step(engine.legal_actions()[0])
-    assert engine.turn == 2
-    engine.defcon = 5
-    engine.board.influence["Cuba"] = {"US": 0, "USSR": 1}
-    vp_before = engine.vp
-    _resolve_coup_roll(engine, Side.US, "Cuba", ops=3, value=1)
-    assert engine.vp == vp_before  # Yuri and Samantha should no longer award VP
 
 
 @pytest.mark.xfail(

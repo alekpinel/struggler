@@ -2229,10 +2229,10 @@ class Engine:
                 self._change_defcon(-1, caused_by=side)
 
         # Yuri and Samantha: the USSR scores 1 VP for every US coup attempt,
-        # for the rest of the game.
+        # for the remainder of the turn.
         if (
             side is Side.US
-            and self.game_effects.get("yuri_samantha")
+            and self.turn_effects.get("yuri_samantha")
             and not self.is_terminal
         ):
             self._award_vp(Side.USSR, 1)

@@ -764,8 +764,8 @@ def _flower_power(engine: "Engine", side: Side) -> None:
 
 @event("Yuri_and_Samantha")
 def _yuri_and_samantha(engine: "Engine", side: Side) -> None:
-    # The USSR scores 1 VP for every US coup attempt for the rest of the game.
-    engine.game_effects["yuri_samantha"] = True
+    # The USSR scores 1 VP for every US coup attempt for the remainder of this turn.
+    engine.turn_effects["yuri_samantha"] = True
 
 
 # -- set-DEFCON branch -------------------------------------------------------

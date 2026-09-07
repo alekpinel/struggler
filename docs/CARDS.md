@@ -136,12 +136,12 @@ skip the DEFCON degrade — on top of the base rule that only Battleground
 coups degrade DEFCON at all), Latin American Death Squads (±1 to Americas coup
 rolls), SALT Negotiations (−1 to both sides' coups), Iran-Contra Scandal
 (−1 to US realignment via `_realignment_modifier`), Chernobyl (a region
-chosen by the US bars USSR Ops influence, via `_chernobyl_blocks`). How I
+chosen by the US bars USSR Ops influence, via `_chernobyl_blocks`), Yuri and
+Samantha (USSR +1 VP per US coup, in `_handle_coup_roll`). How I
 Learned to Stop Worrying takes the set-DEFCON branch (`set_defcon` plus 5
 military Ops).
 
-**Persistent game-long triggers** (`game_effects`). Yuri and Samantha (USSR
-+1 VP per US coup, in `_handle_coup_roll`), Flower Power (USSR +2 VP per US
+**Persistent game-long triggers** (`game_effects`). Flower Power (USSR +2 VP per US
 war-card play, via `_maybe_flower_power`, cancelled by An Evil Empire).
 
 **Dice contests** (`push_dice_contest` — both roll, higher wins, logged as

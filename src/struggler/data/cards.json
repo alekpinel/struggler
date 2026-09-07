@@ -1319,7 +1319,7 @@
       "remove_after_event": true,
       "optional": true,
       "in_deck": true,
-      "event_summary": "USSR +1 VP for every US coup attempt, for the rest of the game."
+      "event_summary": "USSR +1 VP for every US coup attempt for the remainder of this turn."
     },
     "AWACS_Sale_to_Saudis": {
       "number": 110,
