@@ -89,3 +89,24 @@ def test_greedy_aldrich_ames_remix_discards_the_opponents_highest_ops_card():
     action = GreedyPlayer().choose_action(observation, [])
 
     assert action.payload["choice"] == "Duck_and_Cover"
+
+
+def test_greedy_scores_sit_out_as_a_non_card_instead_of_raising():
+    """ACTION_ROUND_PLAY can offer sit_out, which is not a card id.
+    Indexing _CARDS used to raise KeyError and wedge the bot."""
+    engine = Engine.new_game(seed=1)
+    observation = engine.observe(Side.US)
+    decision = Decision(
+        id=999,
+        actor=observation.side,
+        kind=DecisionKind.ACTION_ROUND_PLAY,
+        options=(
+            Action(DecisionKind.ACTION_ROUND_PLAY, {"card": "sit_out"}),
+            Action(DecisionKind.ACTION_ROUND_PLAY, {"card": "Nasser"}),
+        ),
+    )
+    observation = dataclasses.replace(observation, pending_decision=decision)
+
+    action = GreedyPlayer().choose_action(observation, [])
+
+    assert action.payload["card"] == "Nasser"

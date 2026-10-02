@@ -404,6 +404,11 @@ def _score_action_round_play(
 ) -> float:
     side = observation.side
     cid = action.payload["card"]
+    # sit_out is a legal non-card option (concede the remaining action
+    # rounds). It is not in the card table, and indexing _CARDS raised
+    # KeyError: 'sit_out'. Score it as a neutral skip.
+    if cid not in _CARDS:
+        return 0.0
     card = _CARDS[cid]
     if card.scoring:
         return weights.scoring_card_weight * _scoring_card_favorability(board, side, cid)
